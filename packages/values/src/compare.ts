@@ -78,6 +78,8 @@ export function equals(a: Value, b: Value): boolean {
       const bb = b as typeof a;
       return a.items.length === bb.items.length && a.items.every((x, i) => equals(x, bb.items[i]));
     }
+    case 'predicate':
+      return JSON.stringify(a.ast) === JSON.stringify((b as typeof a).ast);
     case 'blank':
       return true;
     case 'error':

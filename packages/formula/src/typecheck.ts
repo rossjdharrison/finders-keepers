@@ -195,6 +195,28 @@ export function inferType(node: Node, ctx: TypeCtx): Infer {
       }
       return tbl.of; // the declared cell type — lookups are statically typed
     }
+    case 'signal':
+      return numT; // observables are numeric measurements
+    case 'build': {
+      const cmp = inferType(node.cmp, ctx);
+      if (isFail(cmp)) return cmp;
+      if (cmp.k !== 'enum' && cmp.k !== 'text') return fail('#TYPE', 'build: comparator must be a choice');
+      const obs = inferType(node.observable, ctx);
+      if (isFail(obs)) return obs;
+      if (obs.k !== 'enum' && obs.k !== 'text') return fail('#TYPE', 'build: observable must be a choice');
+      const thr = inferType(node.threshold, ctx);
+      if (isFail(thr)) return thr;
+      if (thr.k !== 'num' && thr.k !== 'blank') return fail('#TYPE', 'build: threshold must be a number');
+      return { k: 'predicate' };
+    }
+    case 'check': {
+      const pred = inferType(node.pred, ctx);
+      if (isFail(pred)) return pred;
+      if (pred.k !== 'predicate' && pred.k !== 'blank') return fail('#TYPE', 'check: first arg must be a predicate');
+      const ev = inferType(node.evidence, ctx);
+      if (isFail(ev)) return ev;
+      return boolT;
+    }
     case 'not': {
       const a = inferType(node.args[0], ctx);
       if (isFail(a)) return a;

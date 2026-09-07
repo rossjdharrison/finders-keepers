@@ -46,6 +46,9 @@ export type Node =
   | { op: 'ref'; path: string[] } // relation traversal, e.g. ['account','name']
   | { op: 'rollup'; via: string; agg: Agg; of: Node } // aggregate over a to-many relation
   | { op: 'lookup'; table: string; key: Node; key2?: Node } // table lookup: a choice -> a consequence
+  | { op: 'signal'; name: string } // an observable, read from evidence at gate time (blank until measured)
+  | { op: 'build'; cmp: Node; observable: Node; threshold: Node } // build a criterion PREDICATE from choices
+  | { op: 'check'; pred: Node; evidence: Node } // run a predicate against evidence — the runtime guard
   | { op: 'not' | 'neg'; args: [Node] }
   | { op: Bin; args: [Node, Node] }
   | { op: 'call'; fn: FnName; args: Node[] };

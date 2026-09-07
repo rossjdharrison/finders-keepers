@@ -39,6 +39,17 @@ function collect(node: Node, deps: Set<string>, rollups: { via: string; column: 
       collect(node.key, deps, rollups);
       if (node.key2) collect(node.key2, deps, rollups);
       return;
+    case 'signal':
+      return; // an observable is evidence, not a same-record column
+    case 'build':
+      collect(node.cmp, deps, rollups);
+      collect(node.observable, deps, rollups);
+      collect(node.threshold, deps, rollups);
+      return;
+    case 'check':
+      collect(node.pred, deps, rollups);
+      collect(node.evidence, deps, rollups);
+      return;
     case 'not':
     case 'neg':
       collect(node.args[0], deps, rollups);

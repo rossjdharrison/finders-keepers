@@ -36,7 +36,11 @@ export interface EvalCtx {
   clock: Clock;
   self?: VRef; // the current record as a VRef {t:'ref', collection, id}
   tables?: Record<string, TableDef>; // lookup tables for this collection
+  evidence?: Record<string, Value>; // observable name -> measured value (for signals / the guard)
+  evidenceDefault?: Value; // a single measured value bound to every signal (check with one observable)
 }
+
+const COMPARATORS = new Set(['lte', 'lt', 'gte', 'gt', 'eq', 'ne']);
 
 const truthy = (v: Value): boolean => v.t === 'bool' && v.v;
 
@@ -245,6 +249,34 @@ function evalLookup(node: Extract<Node, { op: 'lookup' }>, env: Record<string, V
   return tbl.cells[ks]?.[ks2] ?? tbl.default ?? err('#NA', `no cell '${ks},${ks2}' in ${node.table}`);
 }
 
+// build a criterion PREDICATE from choices: `signal(observable) <cmp> threshold`.
+// The result is a deferred, reusable value — authored here, run later by `check`.
+function evalBuild(node: Extract<Node, { op: 'build' }>, env: Record<string, Value>, ctx: EvalCtx): Value {
+  const cmp = evalNode(node.cmp, env, ctx);
+  const obs = evalNode(node.observable, env, ctx);
+  const thr = evalNode(node.threshold, env, ctx);
+  for (const v of [cmp, obs, thr]) if (v.t === 'error') return v;
+  if (cmp.t === 'blank' || obs.t === 'blank' || thr.t === 'blank') return BLANK; // not yet buildable
+  const op = cmp.t === 'enum' || cmp.t === 'text' ? cmp.v : null;
+  if (!op || !COMPARATORS.has(op)) return err('#NA', `build: '${op}' is not a comparator`);
+  const name = obs.t === 'enum' || obs.t === 'text' ? obs.v : null;
+  if (name === null) return err('#TYPE', 'build: observable must be a choice');
+  const ast: Node = { op: op as Extract<Node, { op: Bin }>['op'], args: [{ op: 'signal', name }, { op: 'lit', value: thr }] };
+  return { t: 'predicate', ast };
+}
+
+// the runtime GUARD: run a predicate against evidence. Every signal resolves to the
+// supplied measured value (single-observable v0). Total: no predicate/evidence -> blank.
+function evalCheck(node: Extract<Node, { op: 'check' }>, env: Record<string, Value>, ctx: EvalCtx): Value {
+  const pred = evalNode(node.pred, env, ctx);
+  if (pred.t === 'error') return pred;
+  if (pred.t !== 'predicate') return BLANK;
+  const ev = evalNode(node.evidence, env, ctx);
+  if (ev.t === 'error') return ev;
+  if (ev.t === 'blank') return BLANK;
+  return evalNode(pred.ast as Node, env, { ...ctx, evidenceDefault: ev });
+}
+
 // ---- the evaluator ----------------------------------------------------------
 export function evalNode(node: Node, env: Record<string, Value>, ctx: EvalCtx): Value {
   switch (node.op) {
@@ -258,6 +290,12 @@ export function evalNode(node: Node, env: Record<string, Value>, ctx: EvalCtx): 
       return evalRollup(node, ctx);
     case 'lookup':
       return evalLookup(node, env, ctx);
+    case 'signal':
+      return ctx.evidence?.[node.name] ?? ctx.evidenceDefault ?? BLANK;
+    case 'build':
+      return evalBuild(node, env, ctx);
+    case 'check':
+      return evalCheck(node, env, ctx);
     case 'not': {
       const a = evalNode(node.args[0], env, ctx);
       return a.t === 'error' ? a : bool(!truthy(a));

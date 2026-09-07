@@ -71,6 +71,10 @@ export interface VList {
   of: ValueType;
   items: Value[];
 }
+export interface VPredicate {
+  t: 'predicate';
+  ast: unknown; // a boolean formula Node (opaque here to avoid a cycle with @core/formula)
+}
 export interface VBlank {
   t: 'blank'; // the SQL-NULL analogue: no value
 }
@@ -93,6 +97,7 @@ export type Value =
   | VEnumSet
   | VRef
   | VList
+  | VPredicate
   | VBlank
   | VErr;
 
@@ -115,6 +120,7 @@ export type ValueType =
   | { k: 'enumset'; set: string }
   | { k: 'ref'; collection: string }
   | { k: 'list'; of: ValueType }
+  | { k: 'predicate' } // a deferred boolean formula, evaluated later against evidence
   | { k: 'blank' }
   | { k: 'error' };
 
@@ -130,6 +136,7 @@ export const enumV = (set: string, v: string): VEnum => ({ t: 'enum', set, v });
 export const enumSet = (set: string, v: string[]): VEnumSet => ({ t: 'enumset', set, v });
 export const ref = (collection: string, id: string): VRef => ({ t: 'ref', collection, id });
 export const list = (of: ValueType, items: Value[]): VList => ({ t: 'list', of, items });
+export const predicate = (ast: unknown): VPredicate => ({ t: 'predicate', ast });
 export const BLANK: VBlank = { t: 'blank' };
 export const err = (code: ErrCode, detail?: string): VErr =>
   detail === undefined ? { t: 'error', code } : { t: 'error', code, detail };
@@ -173,6 +180,8 @@ export function typeOf(v: Value): ValueType {
       return { k: 'ref', collection: v.collection };
     case 'list':
       return { k: 'list', of: v.of };
+    case 'predicate':
+      return { k: 'predicate' };
     case 'blank':
       return { k: 'blank' };
     case 'error':

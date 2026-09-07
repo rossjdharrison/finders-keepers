@@ -9,6 +9,19 @@ import type { EnumOption } from './types.ts';
 const pad = (n: number): string => String(n).padStart(2, '0');
 const label = (id: string, options?: EnumOption[]): string => options?.find((o) => o.id === id)?.label ?? id;
 
+// A deferred predicate (a criterion) as a compact, readable expression string.
+const CMP_SYM: Record<string, string> = { lte: '≤', lt: '<', gte: '≥', gt: '>', eq: '=', ne: '≠' };
+function predicateStr(ast: unknown): string {
+  const n = ast as { op?: string; name?: string; value?: Value; args?: unknown[] };
+  if (!n || typeof n !== 'object') return '—';
+  if (n.op === 'signal') return String(n.name ?? '?');
+  if (n.op === 'lit') return format(n.value);
+  if (n.op && CMP_SYM[n.op] && n.args?.length === 2) {
+    return `${predicateStr(n.args[0])} ${CMP_SYM[n.op]} ${predicateStr(n.args[1])}`;
+  }
+  return n.op ?? '—';
+}
+
 export function format(v: Value | undefined, options?: EnumOption[]): string {
   if (!v) return '';
   switch (v.t) {
@@ -38,6 +51,8 @@ export function format(v: Value | undefined, options?: EnumOption[]): string {
       return v.id;
     case 'list':
       return `[${v.items.length}]`;
+    case 'predicate':
+      return predicateStr(v.ast);
     case 'blank':
       return '';
     case 'error':

@@ -9,7 +9,19 @@
     { "id": "criterion", "valueType": { "k": "text" }, "source": "stored" },
     { "id": "verifyMethod", "valueType": { "k": "enum", "set": "verifyMethod" }, "source": "stored" },
     {
+      "id": "observable", "valueType": { "k": "enum", "set": "metric" }, "source": "stored", "category": "physical_quantity",
+      "availableWhen": { "op": "eq", "args": [{ "op": "field", "id": "kind" }, { "op": "lit", "value": { "t": "enum", "set": "reqKind", "v": "performance" } }] }
+    },
+    {
+      "id": "comparator", "valueType": { "k": "enum", "set": "cmp" }, "source": "stored",
+      "availableWhen": { "op": "eq", "args": [{ "op": "field", "id": "kind" }, { "op": "lit", "value": { "t": "enum", "set": "reqKind", "v": "performance" } }] }
+    },
+    {
       "id": "target", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity",
+      "availableWhen": { "op": "eq", "args": [{ "op": "field", "id": "kind" }, { "op": "lit", "value": { "t": "enum", "set": "reqKind", "v": "performance" } }] }
+    },
+    {
+      "id": "measured", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity",
       "availableWhen": { "op": "eq", "args": [{ "op": "field", "id": "kind" }, { "op": "lit", "value": { "t": "enum", "set": "reqKind", "v": "performance" } }] }
     },
     { "id": "status", "valueType": { "k": "enum", "set": "reqStatus" }, "source": "stored", "category": "state" },
@@ -24,6 +36,14 @@
           { "op": "lit", "value": { "t": "num", "v": 0 } }
         ]
       }
+    },
+    {
+      "id": "criterionExpr", "valueType": { "k": "predicate" }, "source": "computed", "category": "sign",
+      "formula": { "op": "build", "cmp": { "op": "field", "id": "comparator" }, "observable": { "op": "field", "id": "observable" }, "threshold": { "op": "field", "id": "target" } }
+    },
+    {
+      "id": "met", "valueType": { "k": "bool" }, "source": "computed",
+      "formula": { "op": "check", "pred": { "op": "field", "id": "criterionExpr" }, "evidence": { "op": "field", "id": "measured" } }
     }
   ]
 }

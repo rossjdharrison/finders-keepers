@@ -35,6 +35,44 @@ test('lookup is total: missing key -> error value, blank key -> blank, no throw'
   assert.equal(evalNode({ op: 'lookup', table: 'nope', key: { op: 'field', id: 'size' } }, { size: size('M') }, ctx).t, 'error');
 });
 
+test('build makes a criterion predicate from choices; check runs it as a gate', () => {
+  const cols = {
+    comparator: { k: 'enum', set: 'cmp' } as const,
+    observable: { k: 'enum', set: 'metric' } as const,
+    target: { k: 'num' } as const,
+    measured: { k: 'num' } as const,
+    criterionExpr: { k: 'predicate' } as const,
+  };
+  const build: Node = { op: 'build', cmp: { op: 'field', id: 'comparator' }, observable: { op: 'field', id: 'observable' }, threshold: { op: 'field', id: 'target' } };
+  const bt = compile('criterionExpr', build, { columns: cols });
+  assert.ok(!('errors' in bt), JSON.stringify(bt));
+  if (!('errors' in bt)) assert.equal(bt.type.k, 'predicate');
+
+  const check: Node = { op: 'check', pred: { op: 'field', id: 'criterionExpr' }, evidence: { op: 'field', id: 'measured' } };
+  const ct = compile('met', check, { columns: cols });
+  assert.ok(!('errors' in ct), JSON.stringify(ct));
+  if (!('errors' in ct)) {
+    assert.equal(ct.type.k, 'bool');
+    assert.deepEqual(new Set(ct.deps), new Set(['criterionExpr', 'measured']));
+  }
+
+  // author the predicate: latency <= 200
+  const env: Record<string, Value> = {
+    comparator: { t: 'enum', set: 'cmp', v: 'lte' },
+    observable: { t: 'enum', set: 'metric', v: 'latency_ms' },
+    target: { t: 'num', v: 200 },
+  };
+  const pred = evalNode(build, env, ctx);
+  assert.equal(pred.t, 'predicate');
+
+  // run it against evidence: 180 <= 200 -> pass; 250 -> fail
+  const full = { ...env, criterionExpr: pred };
+  assert.deepEqual(evalNode(check, { ...full, measured: { t: 'num', v: 180 } }, ctx), { t: 'bool', v: true });
+  assert.deepEqual(evalNode(check, { ...full, measured: { t: 'num', v: 250 } }, ctx), { t: 'bool', v: false });
+  // total: no evidence yet -> blank, not a throw
+  assert.equal(evalNode(check, { ...full, measured: { t: 'blank' } }, ctx).t, 'blank');
+});
+
 test('availableWhen gates a field by another field (category-driven reshaping)', () => {
   const gate: Node = {
     op: 'eq',
