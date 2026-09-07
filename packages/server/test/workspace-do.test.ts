@@ -154,3 +154,37 @@ describe('WorkspaceDO relations + rollups', () => {
     expect(r.status).toBe(400);
   });
 });
+
+describe('WorkspaceDO lookup + availableWhen (the configurator primitives)', () => {
+  const optCols: CollectionDoc[] = [
+    {
+      id: 'opts',
+      semanticClass: 'Option',
+      properties: [
+        stored('title', { k: 'text' }),
+        stored('size', { k: 'enum', set: 'sz' }),
+        stored('purpose', { k: 'enum', set: 'purp' }),
+        // a field only in play when purpose = perf (category-driven reshaping)
+        { id: 'target', valueType: { k: 'num' }, source: 'stored', availableWhen: { op: 'eq', args: [field('purpose'), lit(en('purp', 'perf'))] } },
+        // effort computed DOWN from the size choice via a lookup table
+        computed('effort', { k: 'num' }, { op: 'lookup', table: 'sizing', key: field('size') }),
+      ],
+      tables: { sizing: { kind: '1d', of: { k: 'num' }, map: { S: num(2), M: num(5), L: num(13) } } },
+    } as CollectionDoc,
+  ];
+
+  it('lookup computes a consequence from a table; availableWhen yields per-record hidden fields', async () => {
+    expect((await call('/workspace', { collections: optCols, relations: {}, types: { Option: { specializes: ['sign'] } } }, 'PUT')).ok).toBe(true);
+    await ops('opts', [
+      { op: 'insert', coll: 'opts', row: 'o1', values: { title: text('a'), size: en('sz', 'M'), purpose: en('purp', 'perf'), target: num(50) } },
+      { op: 'insert', coll: 'opts', row: 'o2', values: { title: text('b'), size: en('sz', 'L'), purpose: en('purp', 'safety') } },
+    ]);
+    const rows = ((await (await call('/collections/opts/query', { coll: 'opts' })).json()) as { rows: { id: string; doc: Record<string, { v?: number }>; hidden?: string[] }[] }).rows;
+    const o1 = rows.find((r) => r.id === 'o1')!;
+    const o2 = rows.find((r) => r.id === 'o2')!;
+    expect(o1.doc.effort.v).toBe(5); // lookup(sizing, M)
+    expect(o2.doc.effort.v).toBe(13); // lookup(sizing, L)
+    expect(o1.hidden ?? []).not.toContain('target'); // purpose = perf -> target is in play
+    expect(o2.hidden ?? []).toContain('target'); // purpose != perf -> target gated off
+  });
+});

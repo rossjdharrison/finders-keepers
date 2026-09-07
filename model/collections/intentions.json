@@ -4,6 +4,7 @@
   "properties": [
     { "id": "title", "valueType": { "k": "text" }, "source": "stored" },
     { "id": "statement", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "serves", "valueType": { "k": "ref", "collection": "intentions" }, "source": "stored", "category": "part_of_plan" },
     { "id": "intendedBy", "valueType": { "k": "enum", "set": "intendedBy" }, "source": "stored" },
     { "id": "status", "valueType": { "k": "enum", "set": "intentionStatus" }, "source": "stored", "category": "state" },
     {

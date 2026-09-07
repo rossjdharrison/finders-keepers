@@ -84,12 +84,18 @@ const typeResolver = {
 };
 for (const c of collections) {
   const columns = schemas.get(c.id) ?? {};
+  const compileCtx = { columns, resolver: typeResolver, relations, tables: c.tables };
   const compiled = [];
   for (const p of c.properties ?? []) {
     if (p.source === 'computed' && p.formula) {
-      const r = compile(p.id, p.formula, { columns, resolver: typeResolver, relations });
+      const r = compile(p.id, p.formula, compileCtx);
       if ('errors' in r) err(`'${c.id}.${p.id}' does not typecheck: ${r.errors.map((e) => e.message).join('; ')}`);
       else compiled.push(r);
+    }
+    if (p.availableWhen) {
+      const g = compile(`__avail_${p.id}`, p.availableWhen, compileCtx);
+      if ('errors' in g) err(`'${c.id}.${p.id}' availableWhen does not typecheck: ${g.errors.map((e) => e.message).join('; ')}`);
+      else if (g.type.k !== 'bool') err(`'${c.id}.${p.id}' availableWhen must be boolean, got ${g.type.k}`);
     }
   }
   const ordered = topoOrCycle(compiled);

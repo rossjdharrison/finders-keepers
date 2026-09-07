@@ -6,7 +6,7 @@
 
 import type { ErrCode, ValueType } from '@core/values';
 import { typeEq, typeOf } from '@core/values';
-import type { Bin, Node } from './ast.ts';
+import type { Bin, Node, TableDef } from './ast.ts';
 import { isBin } from './ast.ts';
 import type { RelationMeta, Resolver } from './resolver.ts';
 
@@ -14,7 +14,11 @@ export interface TypeCtx {
   columns: Record<string, ValueType>; // this collection's property types
   resolver?: Resolver; // for ref/rollup path checking (columnType over other collections)
   relations?: Record<string, RelationMeta>; // via -> {parentColl, childColl, childField}
+  tables?: Record<string, TableDef>; // this collection's lookup tables (for the lookup op)
 }
+
+// Kinds usable as a lookup key (a choice / scalar), so a bad key type is static.
+const KEYABLE = new Set(['enum', 'text', 'num', 'bool']);
 export interface InferFail {
   err: ErrCode;
   msg: string;
@@ -176,6 +180,20 @@ export function inferType(node: Node, ctx: TypeCtx): Infer {
       if (node.agg === 'count') return numT;
       if (node.agg === 'avg') return inner.k === 'money' ? inner : numT;
       return inner; // sum/min/max keep the child element type
+    }
+    case 'lookup': {
+      const tbl = ctx.tables?.[node.table];
+      if (!tbl) return fail('#REF', `unknown table ${node.table}`);
+      const k = inferType(node.key, ctx);
+      if (isFail(k)) return k;
+      if (!KEYABLE.has(k.k)) return fail('#TYPE', `lookup key must be a choice/scalar, got ${k.k}`);
+      if (tbl.kind === '2d') {
+        if (!node.key2) return fail('#NA', `2d table ${node.table} needs a second key`);
+        const k2 = inferType(node.key2, ctx);
+        if (isFail(k2)) return k2;
+        if (!KEYABLE.has(k2.k)) return fail('#TYPE', `lookup key2 must be a choice/scalar, got ${k2.k}`);
+      }
+      return tbl.of; // the declared cell type — lookups are statically typed
     }
     case 'not': {
       const a = inferType(node.args[0], ctx);

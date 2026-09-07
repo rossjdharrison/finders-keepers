@@ -12,6 +12,7 @@ export interface RowStateWire {
   doc: Record<string, Value>;
   deleted: boolean;
   seq: number;
+  hidden?: string[]; // fields whose availableWhen is false for this record (not in play)
 }
 export interface Property {
   id: string;
@@ -19,11 +20,13 @@ export interface Property {
   source?: 'stored' | 'computed';
   formula?: unknown;
   category?: string; // optional HQDM class for this field's values (must reduce)
+  availableWhen?: unknown; // a boolean formula gating this field (evaluated server-side)
 }
 export interface CollectionDoc {
   id: string;
   properties: Property[];
   semanticClass: string; // the HQDM class records are classified by (must reduce)
+  tables?: Record<string, unknown>; // lookup tables (opaque to the client; used by the engine)
 }
 /** Domain classes declared by `specializes`, merged over the HQDM core lattice. */
 export type TypeMap = Record<string, { specializes: string[] }>;

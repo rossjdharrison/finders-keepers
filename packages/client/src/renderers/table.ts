@@ -52,7 +52,12 @@ export const tableRenderer: Renderer = (mount, { store, view, workspace }) => {
       for (const f of view.visibleProps) {
         const td = document.createElement('td');
         const prop = store.propOf(f);
-        if (prop) {
+        if (row.hidden?.includes(f)) {
+          // not in play for this record — its availableWhen is false (category-gated)
+          td.className = 'cell-gated';
+          td.textContent = '—';
+          td.title = 'not applicable for this record';
+        } else if (prop) {
           mountCell(td, {
             value: row.doc[f],
             prop,

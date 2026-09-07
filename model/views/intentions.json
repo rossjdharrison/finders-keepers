@@ -4,12 +4,13 @@
   "title": "Intentions",
   "renderer": "table",
   "query": { "coll": "intentions" },
-  "visibleProps": ["title", "statement", "intendedBy", "status", "requirementCount", "mustCount"],
+  "visibleProps": ["title", "statement", "serves", "intendedBy", "status", "requirementCount", "mustCount"],
   "config": {
-    "labels": { "title": "Intention", "statement": "What we want to be the case", "intendedBy": "Intended by", "status": "Status", "requirementCount": "Requirements", "mustCount": "Musts" },
+    "labels": { "title": "Intention", "statement": "What we want to be the case", "serves": "Serves (why)", "intendedBy": "Intended by", "status": "Status", "requirementCount": "Requirements", "mustCount": "Musts" },
     "enums": {
       "intendedBy": [{ "id": "human", "label": "Human" }, { "id": "ai", "label": "AI" }, { "id": "both", "label": "Human + AI" }],
       "status": [{ "id": "active", "label": "Active" }, { "id": "met", "label": "Met" }, { "id": "abandoned", "label": "Abandoned" }]
-    }
+    },
+    "refs": { "serves": { "collection": "intentions", "labelField": "title" } }
   }
 }

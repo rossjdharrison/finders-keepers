@@ -8,6 +8,10 @@
     { "id": "priority", "valueType": { "k": "enum", "set": "reqPriority" }, "source": "stored" },
     { "id": "criterion", "valueType": { "k": "text" }, "source": "stored" },
     { "id": "verifyMethod", "valueType": { "k": "enum", "set": "verifyMethod" }, "source": "stored" },
+    {
+      "id": "target", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity",
+      "availableWhen": { "op": "eq", "args": [{ "op": "field", "id": "kind" }, { "op": "lit", "value": { "t": "enum", "set": "reqKind", "v": "performance" } }] }
+    },
     { "id": "status", "valueType": { "k": "enum", "set": "reqStatus" }, "source": "stored", "category": "state" },
     { "id": "intention", "valueType": { "k": "ref", "collection": "intentions" }, "source": "stored", "category": "part_of_plan" },
     { "id": "decision", "valueType": { "k": "ref", "collection": "decisions" }, "source": "stored", "category": "association" },

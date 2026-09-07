@@ -35,6 +35,10 @@ function collect(node: Node, deps: Set<string>, rollups: { via: string; column: 
       rollups.push({ via: node.via, column: col });
       return;
     }
+    case 'lookup':
+      collect(node.key, deps, rollups);
+      if (node.key2) collect(node.key2, deps, rollups);
+      return;
     case 'not':
     case 'neg':
       collect(node.args[0], deps, rollups);

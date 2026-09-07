@@ -18,8 +18,8 @@ import type { Committed, RowOp, RowState } from '@core/events';
 import { applyOp } from '@core/events';
 import type { Schema, ViewSpec } from '@core/query';
 import { compileView } from '@core/query';
-import type { CompiledColumn, Node, RelationMeta, Resolver } from '@core/formula';
-import { compile, evalRecord, topoOrCycle } from '@core/formula';
+import type { CompiledColumn, Node, RelationMeta, Resolver, TableDef } from '@core/formula';
+import { applicable, compile, evalRecord, topoOrCycle } from '@core/formula';
 import { reduces } from '@core/ontology';
 import type { TypeMap } from '@core/ontology';
 
@@ -29,11 +29,13 @@ export interface Property {
   source?: 'stored' | 'computed';
   formula?: unknown;
   category?: string; // optional HQDM class for this field's values (must reduce)
+  availableWhen?: unknown; // a boolean formula: is this field in play for a record?
 }
 export interface CollectionDoc {
   id: string;
   properties: Property[];
   semanticClass: string; // the HQDM class records are classified by — must reduce to the lattice
+  tables?: Record<string, TableDef>; // lookup tables (the data behind computed consequences)
 }
 export interface RowStateWire {
   coll: string;
@@ -41,6 +43,7 @@ export interface RowStateWire {
   doc: Record<string, Value>;
   deleted: boolean;
   seq: number;
+  hidden?: string[]; // fields whose availableWhen is false for this record (not in play)
 }
 
 interface RelationDef extends RelationMeta {
@@ -50,6 +53,8 @@ interface Prepared {
   schema: Schema;
   computedIds: Set<string>;
   cols: CompiledColumn[]; // topo-ordered within the record
+  tables?: Record<string, TableDef>; // lookup tables for this collection
+  gated: { id: string; ast: Node }[]; // fields carrying an availableWhen predicate
 }
 
 const FIELD_RE = /^[A-Za-z0-9_]+$/;
@@ -178,20 +183,29 @@ export class WorkspaceDO extends DurableObject<Env> {
     const prepared = new Map<string, Prepared>();
     for (const [coll, doc] of docs) {
       const schema = schemas.get(coll)!;
+      const tables = doc.tables;
+      const compileCtx = { columns: schema, resolver: typeResolver, relations: relRecord, tables };
       const computedIds = new Set(doc.properties.filter((p) => p.source === 'computed').map((p) => p.id));
       const cols: CompiledColumn[] = [];
+      const gated: { id: string; ast: Node }[] = [];
       for (const p of doc.properties) {
         if (p.source === 'computed' && p.formula) {
-          const r = compile(p.id, p.formula as Node, { columns: schema, resolver: typeResolver, relations: relRecord });
+          const r = compile(p.id, p.formula as Node, compileCtx);
           if ('errors' in r) throw new Error(`compile ${coll}.${p.id}: ${r.errors.map((e) => e.message).join('; ')}`);
           cols.push(r);
+        }
+        if (p.availableWhen) {
+          const g = compile(`__avail_${p.id}`, p.availableWhen as Node, compileCtx);
+          if ('errors' in g) throw new Error(`availableWhen ${coll}.${p.id}: ${g.errors.map((e) => e.message).join('; ')}`);
+          if (g.type.k !== 'bool') throw new Error(`availableWhen ${coll}.${p.id} must be boolean, got ${g.type.k}`);
+          gated.push({ id: p.id, ast: p.availableWhen as Node });
         }
       }
       const ordered = topoOrCycle(cols);
       if ('cycle' in ordered) throw new Error(`cyclic computed columns in ${coll}: ${ordered.cycle.join(', ')}`);
       const byId = new Map(cols.map((c) => [c.id, c]));
       const orderedCols = ordered.order.map((id) => byId.get(id)).filter((c): c is CompiledColumn => c !== undefined);
-      prepared.set(coll, { schema, computedIds, cols: orderedCols });
+      prepared.set(coll, { schema, computedIds, cols: orderedCols, tables, gated });
     }
     // which vias are actually rolled up (drives cascade seeding)
     const rolledUpVias = new Set<string>();
@@ -280,12 +294,19 @@ export class WorkspaceDO extends DurableObject<Env> {
     };
   }
 
-  // Derive computed columns from the row's stored inputs, resolving ref/rollup.
+  // Derive computed columns from the row's stored inputs, resolving ref/rollup/lookup.
   private recompute(vals: Record<string, Value>, p: Prepared, res: Resolver, self: VRef): Record<string, Value> {
     const inputs: Record<string, Value> = {};
     for (const [k, v] of Object.entries(vals)) if (!p.computedIds.has(k)) inputs[k] = v;
-    const computed = evalRecord(p.cols, inputs, { clock: this.clock(), resolver: res, self });
+    const computed = evalRecord(p.cols, inputs, { clock: this.clock(), resolver: res, self, tables: p.tables });
     return { ...inputs, ...computed };
+  }
+
+  // The fields not in play for a record — availableWhen evaluated over the full record.
+  private hiddenFields(vals: Record<string, Value>, p: Prepared, res: Resolver, self: VRef): string[] {
+    if (!p.gated.length) return [];
+    const ctx = { clock: this.clock(), resolver: res, self, tables: p.tables };
+    return p.gated.filter((g) => !applicable(g.ast, vals, ctx)).map((g) => g.id);
   }
 
   // ---- the write path + cascade ----------------------------------------------
@@ -351,7 +372,8 @@ export class WorkspaceDO extends DurableObject<Env> {
         if (docEq(next, cur.values)) continue; // changed-gate: no change => no propagation
         const saved: RowState = { ...cur, values: next };
         this.persist(coll, saved);
-        out.push({ coll, id: saved.id, doc: saved.values, deleted: saved.deleted, seq: saved.updatedSeq });
+        const hidden = this.hiddenFields(next, p, res, self);
+        out.push({ coll, id: saved.id, doc: saved.values, deleted: saved.deleted, seq: saved.updatedSeq, ...(hidden.length ? { hidden } : {}) });
         // propagate to the (strictly higher-rank) parents that roll this row up
         for (const rel of this.relByChild.get(coll) ?? []) {
           if (!this.rolledUpVias.has(rel.via)) continue;
@@ -367,8 +389,14 @@ export class WorkspaceDO extends DurableObject<Env> {
     const p = this.prepared.get(spec.coll);
     if (!p) throw new Error(`unknown collection ${spec.coll}`);
     const { sql, params } = compileView(spec, p.schema);
+    const res = this.resolver();
     return {
-      rows: this.sql.exec(sql, ...params).toArray().map((r) => ({ coll: spec.coll, id: r.row_id as string, doc: JSON.parse(r.doc as string), deleted: false, seq: 0 })),
+      rows: this.sql.exec(sql, ...params).toArray().map((r) => {
+        const id = r.row_id as string;
+        const doc = JSON.parse(r.doc as string) as Record<string, Value>;
+        const hidden = this.hiddenFields(doc, p, res, { t: 'ref', collection: spec.coll, id });
+        return { coll: spec.coll, id, doc, deleted: false, seq: 0, ...(hidden.length ? { hidden } : {}) };
+      }),
     };
   }
 

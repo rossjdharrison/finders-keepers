@@ -23,7 +23,7 @@ import {
   compare,
   equals,
 } from '@core/values';
-import type { Node, Bin, FnName } from './ast.ts';
+import type { Node, Bin, FnName, TableDef } from './ast.ts';
 import { isBin } from './ast.ts';
 import type { CompiledColumn } from './compile.ts';
 import type { Clock, Resolver } from './resolver.ts';
@@ -35,6 +35,7 @@ export interface EvalCtx {
   resolver: Resolver;
   clock: Clock;
   self?: VRef; // the current record as a VRef {t:'ref', collection, id}
+  tables?: Record<string, TableDef>; // lookup tables for this collection
 }
 
 const truthy = (v: Value): boolean => v.t === 'bool' && v.v;
@@ -218,6 +219,32 @@ function evalRollup(node: Extract<Node, { op: 'rollup' }>, ctx: EvalCtx): Value 
   return aggregate(node.agg, refs.map((r) => ctx.resolver.cell(r, column)));
 }
 
+// A choice/scalar value as its table-key string (an option id, or a stringified scalar).
+function keyOf(v: Value): string | null {
+  if (v.t === 'enum' || v.t === 'text') return v.v;
+  if (v.t === 'num') return String(v.v);
+  if (v.t === 'bool') return String(v.v);
+  return null;
+}
+
+function evalLookup(node: Extract<Node, { op: 'lookup' }>, env: Record<string, Value>, ctx: EvalCtx): Value {
+  const tbl = ctx.tables?.[node.table];
+  if (!tbl) return err('#REF', `unknown table ${node.table}`);
+  const k = evalNode(node.key, env, ctx);
+  if (k.t === 'error') return k;
+  if (k.t === 'blank') return BLANK;
+  const ks = keyOf(k);
+  if (ks === null) return err('#TYPE', `lookup key ${k.t}`);
+  if (tbl.kind === '1d') return tbl.map[ks] ?? tbl.default ?? err('#NA', `no row '${ks}' in ${node.table}`);
+  if (!node.key2) return err('#NA', `2d table ${node.table} needs a second key`);
+  const k2 = evalNode(node.key2, env, ctx);
+  if (k2.t === 'error') return k2;
+  if (k2.t === 'blank') return BLANK;
+  const ks2 = keyOf(k2);
+  if (ks2 === null) return err('#TYPE', `lookup key2 ${k2.t}`);
+  return tbl.cells[ks]?.[ks2] ?? tbl.default ?? err('#NA', `no cell '${ks},${ks2}' in ${node.table}`);
+}
+
 // ---- the evaluator ----------------------------------------------------------
 export function evalNode(node: Node, env: Record<string, Value>, ctx: EvalCtx): Value {
   switch (node.op) {
@@ -229,6 +256,8 @@ export function evalNode(node: Node, env: Record<string, Value>, ctx: EvalCtx): 
       return evalRef(node.path, env, ctx);
     case 'rollup':
       return evalRollup(node, ctx);
+    case 'lookup':
+      return evalLookup(node, env, ctx);
     case 'not': {
       const a = evalNode(node.args[0], env, ctx);
       return a.t === 'error' ? a : bool(!truthy(a));
@@ -260,6 +289,7 @@ export function evalRecord(
     resolver: ctx.resolver ?? emptyResolver(),
     clock: ctx.clock ?? { today: 0, nowMs: 0 },
     self: ctx.self,
+    tables: ctx.tables,
   };
   const work: Record<string, Value> = { ...env };
   const out: Record<string, Value> = {};
@@ -269,4 +299,26 @@ export function evalRecord(
     work[c.id] = v;
   }
   return out;
+}
+
+/**
+ * Evaluate a field's `availableWhen` predicate against a record — the choice-gating
+ * primitive. True (the field is in play) when there is no gate, or the gate's
+ * predicate is a true bool. Anything else (blank, error, non-bool) reads as NOT in
+ * play, so a broken gate fails safe by hiding the field, never by throwing.
+ */
+export function applicable(
+  gate: Node | undefined,
+  env: Record<string, Value>,
+  ctx: Partial<EvalCtx> = {},
+): boolean {
+  if (!gate) return true;
+  const full: EvalCtx = {
+    resolver: ctx.resolver ?? emptyResolver(),
+    clock: ctx.clock ?? { today: 0, nowMs: 0 },
+    self: ctx.self,
+    tables: ctx.tables,
+  };
+  const v = evalNode(gate, env, full);
+  return v.t === 'bool' && v.v;
 }
