@@ -43,7 +43,7 @@ export const isKnownType = (id: string, extra?: TypeMap): boolean => id in merge
 
 /**
  * The reducibility invariant: `id` is a known type AND climbs to the HQDM root.
- * A domain class that specializes a real HQDM category (e.g. Feature → activity)
+ * A domain class that specializes a real HQDM category (e.g. Widget → activity)
  * reduces; one that dangles on an unknown parent, or a typo, does not.
  */
 export function reduces(id: string, extra?: TypeMap): boolean {

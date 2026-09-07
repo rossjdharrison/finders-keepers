@@ -15,7 +15,9 @@
     "vite": "^7.1.0"
   },
   "scripts": {
+    "predev": "node ../../scripts/bundle-model.mjs",
     "dev": "vite",
+    "prebuild": "node ../../scripts/bundle-model.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test \"src/**/*.test.ts\"",

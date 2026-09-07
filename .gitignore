@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# generated from model/ by scripts/bundle-model.mjs — edit the model, not this
+packages/client/src/model.data.json
 .wrangler/
 *.tsbuildinfo
 coverage/

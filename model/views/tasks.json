@@ -1,0 +1,13 @@
+{
+  "id": "tasks",
+  "collection": "tasks",
+  "title": "Tasks",
+  "renderer": "table",
+  "query": { "coll": "tasks" },
+  "visibleProps": ["title", "feature", "status", "hours", "doneFlag"],
+  "config": {
+    "labels": { "title": "Task", "feature": "Feature", "status": "Status", "hours": "Hours", "doneFlag": "Done?" },
+    "enums": { "status": [{ "id": "todo", "label": "To do" }, { "id": "doing", "label": "Doing" }, { "id": "done", "label": "Done" }] },
+    "refs": { "feature": { "collection": "features", "labelField": "name" } }
+  }
+}

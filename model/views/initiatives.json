@@ -1,0 +1,12 @@
+{
+  "id": "initiatives",
+  "collection": "initiatives",
+  "title": "Initiatives",
+  "renderer": "table",
+  "query": { "coll": "initiatives" },
+  "visibleProps": ["name", "status", "featureCount", "totalPoints", "shippedPoints"],
+  "config": {
+    "labels": { "name": "Initiative", "status": "Status", "featureCount": "Features", "totalPoints": "Total pts", "shippedPoints": "Shipped pts" },
+    "enums": { "status": [{ "id": "active", "label": "Active" }, { "id": "paused", "label": "Paused" }, { "id": "done", "label": "Done" }] }
+  }
+}

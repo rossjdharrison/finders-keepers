@@ -1,0 +1,46 @@
+{
+  "id": "features",
+  "semanticClass": "Feature",
+  "properties": [
+    { "id": "name", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "initiative", "valueType": { "k": "ref", "collection": "initiatives" }, "source": "stored", "category": "association" },
+    { "id": "status", "valueType": { "k": "enum", "set": "featureStatus" }, "source": "stored", "category": "state" },
+    { "id": "points", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity" },
+    {
+      "id": "effort", "valueType": { "k": "num" }, "source": "computed", "category": "physical_quantity",
+      "formula": { "op": "rollup", "via": "tasks", "agg": "sum", "of": { "op": "field", "id": "hours" } }
+    },
+    {
+      "id": "taskCount", "valueType": { "k": "num" }, "source": "computed", "category": "physical_quantity",
+      "formula": { "op": "rollup", "via": "tasks", "agg": "count", "of": { "op": "field", "id": "hours" } }
+    },
+    {
+      "id": "taskDone", "valueType": { "k": "num" }, "source": "computed", "category": "physical_quantity",
+      "formula": { "op": "rollup", "via": "tasks", "agg": "sum", "of": { "op": "field", "id": "doneFlag" } }
+    },
+    {
+      "id": "docCount", "valueType": { "k": "num" }, "source": "computed", "category": "physical_quantity",
+      "formula": { "op": "rollup", "via": "docs", "agg": "count", "of": { "op": "field", "id": "title" } }
+    },
+    {
+      "id": "shippedPoints", "valueType": { "k": "num" }, "source": "computed", "category": "physical_quantity",
+      "formula": {
+        "op": "call", "fn": "if", "args": [
+          { "op": "eq", "args": [{ "op": "field", "id": "status" }, { "op": "lit", "value": { "t": "enum", "set": "featureStatus", "v": "shipped" } }] },
+          { "op": "field", "id": "points" },
+          { "op": "lit", "value": { "t": "num", "v": 0 } }
+        ]
+      }
+    },
+    {
+      "id": "progress", "valueType": { "k": "num" }, "source": "computed",
+      "formula": {
+        "op": "call", "fn": "if", "args": [
+          { "op": "gt", "args": [{ "op": "field", "id": "taskCount" }, { "op": "lit", "value": { "t": "num", "v": 0 } }] },
+          { "op": "div", "args": [{ "op": "field", "id": "taskDone" }, { "op": "field", "id": "taskCount" }] },
+          { "op": "lit", "value": { "t": "num", "v": 0 } }
+        ]
+      }
+    }
+  ]
+}

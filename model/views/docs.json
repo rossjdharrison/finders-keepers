@@ -1,0 +1,17 @@
+{
+  "id": "docs",
+  "collection": "docs",
+  "title": "Docs",
+  "renderer": "board",
+  "query": { "coll": "docs" },
+  "visibleProps": ["title", "space"],
+  "config": {
+    "groupField": "status",
+    "columns": ["draft", "review", "published"],
+    "labels": { "title": "Doc", "space": "Space" },
+    "enums": {
+      "status": [{ "id": "draft", "label": "Draft" }, { "id": "review", "label": "In review" }, { "id": "published", "label": "Published" }],
+      "space": [{ "id": "product", "label": "Product" }, { "id": "eng", "label": "Engineering" }, { "id": "design", "label": "Design" }]
+    }
+  }
+}

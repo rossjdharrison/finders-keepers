@@ -1,0 +1,20 @@
+{
+  "id": "initiatives",
+  "semanticClass": "Initiative",
+  "properties": [
+    { "id": "name", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "status", "valueType": { "k": "enum", "set": "initiativeStatus" }, "source": "stored", "category": "state" },
+    {
+      "id": "featureCount", "valueType": { "k": "num" }, "source": "computed", "category": "physical_quantity",
+      "formula": { "op": "rollup", "via": "features", "agg": "count", "of": { "op": "field", "id": "points" } }
+    },
+    {
+      "id": "totalPoints", "valueType": { "k": "num" }, "source": "computed", "category": "physical_quantity",
+      "formula": { "op": "rollup", "via": "features", "agg": "sum", "of": { "op": "field", "id": "points" } }
+    },
+    {
+      "id": "shippedPoints", "valueType": { "k": "num" }, "source": "computed", "category": "physical_quantity",
+      "formula": { "op": "rollup", "via": "features", "agg": "sum", "of": { "op": "field", "id": "shippedPoints" } }
+    }
+  ]
+}

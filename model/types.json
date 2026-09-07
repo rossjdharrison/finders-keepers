@@ -1,0 +1,6 @@
+{
+  "Initiative": { "specializes": ["activity"] },
+  "Feature": { "specializes": ["activity"] },
+  "Task": { "specializes": ["activity"] },
+  "Doc": { "specializes": ["sign"] }
+}

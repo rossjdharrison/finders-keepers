@@ -1,0 +1,20 @@
+{
+  "id": "tasks",
+  "semanticClass": "Task",
+  "properties": [
+    { "id": "title", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "feature", "valueType": { "k": "ref", "collection": "features" }, "source": "stored", "category": "association" },
+    { "id": "status", "valueType": { "k": "enum", "set": "taskStatus" }, "source": "stored", "category": "state" },
+    { "id": "hours", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity" },
+    {
+      "id": "doneFlag", "valueType": { "k": "num" }, "source": "computed",
+      "formula": {
+        "op": "call", "fn": "if", "args": [
+          { "op": "eq", "args": [{ "op": "field", "id": "status" }, { "op": "lit", "value": { "t": "enum", "set": "taskStatus", "v": "done" } }] },
+          { "op": "lit", "value": { "t": "num", "v": 1 } },
+          { "op": "lit", "value": { "t": "num", "v": 0 } }
+        ]
+      }
+    }
+  ]
+}

@@ -16,16 +16,16 @@ test('isA is transitive specialization', () => {
 
 test('a domain class reduces when it specializes a real HQDM category', () => {
   const types: TypeMap = {
-    Feature: { specializes: ['activity'] },
+    Widget: { specializes: ['activity'] },
     PurchasePrice: { specializes: ['amount_of_money'] },
     StoryPoints: { specializes: ['physical_quantity'] },
   };
-  assert.ok(reduces('Feature', types));
+  assert.ok(reduces('Widget', types));
   assert.ok(reduces('PurchasePrice', types));
   assert.ok(isA('PurchasePrice', 'thing', types));
   // the inferred neutral category (for rendering / taxonomy)
   assert.equal(leafCategoryOf('PurchasePrice', types), 'amount_of_money');
-  assert.equal(leafCategoryOf('Feature', types), 'activity');
+  assert.equal(leafCategoryOf('Widget', types), 'activity');
 });
 
 test('reducibility FAILS for a dangling parent, a typo, or an unknown class', () => {

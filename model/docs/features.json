@@ -1,0 +1,10 @@
+[
+  { "id": "d-features", "home": "features", "title": "Features", "body": "A unit of product work under an Initiative. An HQDM `activity`. Rolls up effort and progress from its Tasks and doc count from its Docs." },
+  { "id": "d-features-points", "home": "features.points", "title": "Points", "body": "Estimated size of the feature (a `physical_quantity`). Stored, set by the team." },
+  { "id": "d-features-effort", "home": "features.effort", "title": "Effort (hours)", "body": "Sum of `hours` across this feature's Tasks — a rollup that moves the instant any task's hours change." },
+  { "id": "d-features-taskDone", "home": "features.taskDone", "title": "Tasks done", "body": "Sum of each Task's `doneFlag` (a rollup of a computed column) — how many of the feature's tasks are complete." },
+  { "id": "d-features-progress", "home": "features.progress", "title": "Progress", "body": "taskDone ÷ taskCount (a computed column over two rollups); 0 when there are no tasks. This is computed-from-rollup." },
+  { "id": "d-features-shippedPoints", "home": "features.shippedPoints", "title": "Shipped points", "body": "This feature's `points` if its status is shipped, else 0 — a computed column the Initiative rolls up." },
+  { "id": "r-tasks", "home": "relation:tasks", "title": "Feature → Tasks", "body": "Each Task names its feature; this relation carries the effort/progress rollups." },
+  { "id": "r-docs", "home": "relation:docs", "title": "Feature → Docs", "body": "Each Doc names the feature it documents; the feature's docCount rolls up over it." }
+]

@@ -2,11 +2,48 @@
 
 A typed, computed, event-sourced database with a Notion-database-style multi-view
 UX — but every column can be a **real, statically-typed formula**, every rich value
-(money, date, duration, enum, reference) is first-class, and (later) every edit is
-live across clients. It is **Notion's database half with a spreadsheet's brain** —
+(money, date, duration, enum, reference) is first-class, and every edit is live
+across clients. It is **Notion's database half with a spreadsheet's brain** —
 deliberately *not* Notion's prose/blocks half.
 
-This repo begins with the one thing worth owning: the **typed formula engine**.
+## The repo is a seed
+
+You build an application here by **editing the model, not the code**. The model —
+data-only JSON under [`model/`](model) — *is* the application: a generic engine
+interprets it, and the documentation is a projection of it. That inverts the usual
+drift: the docs mirror the app by construction, because they hang off the same model.
+
+This makes the repo safe for **many authors — human and AI — at once**. The rules
+that keep it honest are not prompts or conventions; they are **enforced by code**:
+
+- [`scripts/gate.mjs`](scripts/gate.mjs) — the contract, mechanized. Every type,
+  `semanticClass`, and property `category` must **reduce to HQDM**; every computed
+  column must **typecheck** and be acyclic; every relation/`ref` must point at a
+  real collection; and every doc must be **homed on a real model node** (the Place
+  law). It runs in `npm run check` and CI — a change that isn't grounded, typed, and
+  homed does not land.
+- [`.claude/settings.json`](.claude/settings.json) + [`scripts/hook.mjs`](scripts/hook.mjs)
+  — committed hooks that block code from being written into `model/` and run the gate
+  on every model edit. Enforcement is **ambient**: an agent is channelled into
+  model-first whether or not it read the rules.
+- [`AGENTS.md`](AGENTS.md) — the contract in prose, for authors. The gate is the
+  same contract in code.
+
+### The model
+
+```
+model/
+  types.json          domain types → HQDM (specializes chains)
+  collections/*.json  typed columns + computed columns (semanticClass, HQDM category tags)
+  relations.json      many-to-one links (parent ← child.field)
+  docs/*.json         doc-records, each homed on a model node (the Place law)
+  views/*.json        table/board projections
+  seed.json           example rows
+```
+
+`scripts/bundle-model.mjs` publishes the model to the client (`model.data.json`,
+generated + gitignored) — mirroring how it is `PUT` to the running `WorkspaceDO`.
+Nothing about the engine is domain-specific; swap `model/` and you have a different app.
 
 ## Packages
 
@@ -49,11 +86,14 @@ The `@core/*` packages are pure and run under `node:test`; `@app/server` runs it
 ```bash
 nvm use            # Node 24+ (native TypeScript type-stripping — tests run .ts directly)
 npm install        # links the workspace packages
-npm test           # runs the node:test suites across both packages
-npm run typecheck  # tsc --noEmit per package
+npm run gate       # enforce the contract on the model (reduces / typechecks / homed)
+npm run bundle     # publish model/ -> packages/client/src/model.data.json
+npm run check      # gate + typecheck + tests + server (workerd) tests — the full bar
 ```
 
-`npm run check` runs typecheck + tests.
+Edit the application by editing [`model/`](model). `npm run gate` is the fast loop;
+`npm run check` is what CI runs. Change the **engine** (`packages/*/src`) only for
+framework work — the gate keeps it domain-neutral.
 
 ## Roadmap
 

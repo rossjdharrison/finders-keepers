@@ -1,0 +1,5 @@
+{
+  "features": { "parentColl": "initiatives", "childColl": "features", "childField": "initiative" },
+  "tasks": { "parentColl": "features", "childColl": "tasks", "childField": "feature" },
+  "docs": { "parentColl": "features", "childColl": "docs", "childField": "feature" }
+}

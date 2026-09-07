@@ -1,0 +1,7 @@
+[
+  { "id": "d-initiatives", "home": "initiatives", "title": "Initiatives", "body": "A big bet the team is pursuing. An HQDM `activity`. Its point totals roll up from the Features that reference it." },
+  { "id": "d-initiatives-totalPoints", "home": "initiatives.totalPoints", "title": "Total points", "body": "Sum of `points` across every Feature that references this initiative — a rollup, recomputed on the server whenever a child feature changes." },
+  { "id": "d-initiatives-shippedPoints", "home": "initiatives.shippedPoints", "title": "Shipped points", "body": "Sum of each Feature's `shippedPoints` (a rollup of a computed column): points that have actually shipped." },
+  { "id": "d-initiatives-featureCount", "home": "initiatives.featureCount", "title": "Feature count", "body": "How many Features reference this initiative (a count rollup over the `features` relation)." },
+  { "id": "r-features", "home": "relation:features", "title": "Initiative → Features", "body": "Each Feature names its initiative; this relation lets an Initiative roll up its Features." }
+]

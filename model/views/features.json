@@ -1,0 +1,13 @@
+{
+  "id": "features",
+  "collection": "features",
+  "title": "Features",
+  "renderer": "table",
+  "query": { "coll": "features" },
+  "visibleProps": ["name", "initiative", "status", "points", "effort", "taskDone", "taskCount", "progress", "docCount", "shippedPoints"],
+  "config": {
+    "labels": { "name": "Feature", "initiative": "Initiative", "status": "Status", "points": "Points", "effort": "Effort (h)", "taskDone": "Done", "taskCount": "Tasks", "progress": "Progress", "docCount": "Docs", "shippedPoints": "Shipped" },
+    "enums": { "status": [{ "id": "backlog", "label": "Backlog" }, { "id": "building", "label": "Building" }, { "id": "shipped", "label": "Shipped" }] },
+    "refs": { "initiative": { "collection": "initiatives", "labelField": "name" } }
+  }
+}

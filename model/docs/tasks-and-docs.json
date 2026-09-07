@@ -1,0 +1,9 @@
+[
+  { "id": "d-tasks", "home": "tasks", "title": "Tasks", "body": "A concrete piece of work under a Feature. An HQDM `activity`. Its `hours` and `doneFlag` feed the feature's rollups." },
+  { "id": "d-tasks-hours", "home": "tasks.hours", "title": "Hours", "body": "Estimated hours (a `physical_quantity`). Editing this cascades to the feature's `effort`." },
+  { "id": "d-tasks-doneFlag", "home": "tasks.doneFlag", "title": "Done flag", "body": "1 when status is done, else 0 (a computed column). The feature rolls this up into `taskDone`." },
+  { "id": "d-tasks-status", "home": "tasks.status", "title": "Status", "body": "The task's lifecycle state (an HQDM `state`); the event log's timestamps give each state change its 4-D temporal extent." },
+
+  { "id": "d-docs", "home": "docs", "title": "Docs", "body": "A Confluence-style page. An HQDM `sign` (a representation) that documents a Feature; the Docs board is its editorial pipeline by status." },
+  { "id": "d-docs-status", "home": "docs.status", "title": "Editorial status", "body": "draft → in review → published: the doc's lifecycle state, grouped as columns on the Docs board." }
+]

@@ -1,13 +1,23 @@
-// The demo shell: one workspace ("Product Studio"), a collection switcher, and a
-// data-defined view per collection. Edit a Task's hours/status (or drag a Doc
-// between editorial columns) and the Feature + Initiative rollups update live in
-// every open tab — the server computes them; the client runs no formula code.
+// The demo shell. The model is DATA (model/**, bundled into ./model.data.json);
+// this file is pure view engine — a collection switcher + a data-defined view per
+// collection. Editing a Task's hours/status recomputes the Feature and Initiative
+// rollups on the server and updates every open tab live, with no formula on the client.
 
 import { effect } from '@preact/signals-core';
 import { createWorkspaceStore } from './store.ts';
 import { RENDERERS } from './registry.ts';
-import { collections, relations, seedOps, types, views } from './product-studio.ts';
-import type { ViewDoc } from './types.ts';
+import type { CollectionDoc, RelationMeta, RowOp, TypeMap, ViewDoc } from './types.ts';
+import model from './model.data.json';
+
+const collections = model.collections as unknown as CollectionDoc[];
+const relations = model.relations as unknown as Record<string, RelationMeta>;
+const types = model.types as unknown as TypeMap;
+const seedOps = model.seedOps as unknown as RowOp[];
+
+const ORDER = ['initiatives', 'features', 'tasks', 'docs'];
+const views = (model.views as unknown as ViewDoc[])
+  .slice()
+  .sort((a, b) => ORDER.indexOf(a.collection) - ORDER.indexOf(b.collection));
 
 const app = document.querySelector<HTMLElement>('#app')!;
 app.innerHTML = `
@@ -56,4 +66,4 @@ for (const view of views) {
   tabsEl.append(b);
 }
 
-show(views[1]); // open on Features — where the rollups are most visible
+show(views.find((v) => v.collection === 'features') ?? views[0]);
