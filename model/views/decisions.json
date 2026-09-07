@@ -4,10 +4,14 @@
   "title": "Decisions",
   "renderer": "table",
   "query": { "coll": "decisions" },
-  "visibleProps": ["title", "status", "optionCount", "satisfies", "mustSatisfied", "chosen", "context"],
+  "visibleProps": ["title", "level", "kind", "status", "optionCount", "satisfies", "mustSatisfied", "chosen"],
   "config": {
-    "labels": { "title": "Decision", "status": "Status", "optionCount": "Options", "satisfies": "Requirements", "mustSatisfied": "Musts met", "chosen": "Chosen", "context": "Context" },
-    "enums": { "status": [{ "id": "proposed", "label": "Proposed" }, { "id": "accepted", "label": "Accepted" }, { "id": "superseded", "label": "Superseded" }] },
+    "labels": { "title": "Decision", "level": "Level", "kind": "Category", "status": "Status", "optionCount": "Options", "satisfies": "Requirements", "mustSatisfied": "Musts met", "chosen": "Chosen", "context": "Context" },
+    "enums": {
+      "status": [{ "id": "proposed", "label": "Proposed" }, { "id": "accepted", "label": "Accepted" }, { "id": "superseded", "label": "Superseded" }],
+      "level": [{ "id": "design", "label": "Design" }, { "id": "operation", "label": "Operation" }],
+      "kind": [{ "id": "use-case", "label": "Use-case" }, { "id": "technology", "label": "Technology" }, { "id": "network", "label": "Network" }, { "id": "data-model", "label": "Data model" }, { "id": "process", "label": "Process" }, { "id": "governance", "label": "Governance" }]
+    },
     "refs": { "chosen": { "collection": "options", "labelField": "title" } }
   }
 }
