@@ -6,7 +6,7 @@
 import { effect } from '@preact/signals-core';
 import { createWorkspaceStore } from './store.ts';
 import { RENDERERS } from './registry.ts';
-import { collections, relations, seedOps, views } from './product-studio.ts';
+import { collections, relations, seedOps, types, views } from './product-studio.ts';
 import type { ViewDoc } from './types.ts';
 
 const app = document.querySelector<HTMLElement>('#app')!;
@@ -29,6 +29,7 @@ const workspace = await createWorkspaceStore({
   actor: `tab-${Math.random().toString(36).slice(2, 6)}`,
   collections,
   relations,
+  types,
   seedOps,
 });
 

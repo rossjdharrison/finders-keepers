@@ -8,7 +8,8 @@
     "@core/values": "*",
     "@core/events": "*",
     "@core/query": "*",
-    "@core/formula": "*"
+    "@core/formula": "*",
+    "@core/ontology": "*"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.8.19",

@@ -12,7 +12,17 @@
 
 import { num, text, ref, enumV } from '@core/values';
 import type { Value, ValueType } from '@core/values';
-import type { CollectionDoc, RelationMeta, RowOp, ViewDoc } from './types.ts';
+import type { CollectionDoc, RelationMeta, RowOp, TypeMap, ViewDoc } from './types.ts';
+
+// Domain classes, each specializing an HQDM category — the server's reduce-check
+// verifies every one climbs to the lattice root. Initiatives/Features/Tasks are
+// activities; a Doc is a sign (a representation).
+export const types: TypeMap = {
+  Initiative: { specializes: ['activity'] },
+  Feature: { specializes: ['activity'] },
+  Task: { specializes: ['activity'] },
+  Doc: { specializes: ['sign'] },
+};
 
 // --- formula-AST builders (Property.formula is opaque on the client) ---------
 const field = (id: string) => ({ op: 'field', id });
@@ -23,52 +33,56 @@ const eq = (a: unknown, b: unknown) => ({ op: 'eq', args: [a, b] });
 const gt = (a: unknown, b: unknown) => ({ op: 'gt', args: [a, b] });
 const div = (a: unknown, b: unknown) => ({ op: 'div', args: [a, b] });
 const numT: ValueType = { k: 'num' };
-const st = (id: string, valueType: ValueType) => ({ id, valueType, source: 'stored' as const });
-const cp = (id: string, valueType: ValueType, formula: unknown) => ({ id, valueType, source: 'computed' as const, formula });
+const st = (id: string, valueType: ValueType, category?: string) => ({ id, valueType, source: 'stored' as const, ...(category ? { category } : {}) });
+const cp = (id: string, valueType: ValueType, formula: unknown, category?: string) => ({ id, valueType, source: 'computed' as const, formula, ...(category ? { category } : {}) });
 
 export const collections: CollectionDoc[] = [
   {
     id: 'initiatives',
+    semanticClass: 'Initiative',
     properties: [
       st('name', { k: 'text' }),
-      st('status', { k: 'enum', set: 'initiativeStatus' }),
-      cp('totalPoints', numT, rollup('features', 'sum', 'points')),
-      cp('shippedPoints', numT, rollup('features', 'sum', 'shippedPoints')),
-      cp('featureCount', numT, rollup('features', 'count', 'points')),
+      st('status', { k: 'enum', set: 'initiativeStatus' }, 'state'),
+      cp('totalPoints', numT, rollup('features', 'sum', 'points'), 'physical_quantity'),
+      cp('shippedPoints', numT, rollup('features', 'sum', 'shippedPoints'), 'physical_quantity'),
+      cp('featureCount', numT, rollup('features', 'count', 'points'), 'physical_quantity'),
     ],
   },
   {
     id: 'features',
+    semanticClass: 'Feature',
     properties: [
       st('name', { k: 'text' }),
-      st('initiative', { k: 'ref', collection: 'initiatives' }),
-      st('status', { k: 'enum', set: 'featureStatus' }),
-      st('points', { k: 'num' }),
-      cp('effort', numT, rollup('tasks', 'sum', 'hours')),
-      cp('taskCount', numT, rollup('tasks', 'count', 'hours')),
-      cp('taskDone', numT, rollup('tasks', 'sum', 'doneFlag')),
-      cp('docCount', numT, rollup('docs', 'count', 'title')),
-      cp('shippedPoints', numT, iff(eq(field('status'), lit(enumV('featureStatus', 'shipped'))), field('points'), lit(num(0)))),
+      st('initiative', { k: 'ref', collection: 'initiatives' }, 'association'),
+      st('status', { k: 'enum', set: 'featureStatus' }, 'state'),
+      st('points', { k: 'num' }, 'physical_quantity'),
+      cp('effort', numT, rollup('tasks', 'sum', 'hours'), 'physical_quantity'),
+      cp('taskCount', numT, rollup('tasks', 'count', 'hours'), 'physical_quantity'),
+      cp('taskDone', numT, rollup('tasks', 'sum', 'doneFlag'), 'physical_quantity'),
+      cp('docCount', numT, rollup('docs', 'count', 'title'), 'physical_quantity'),
+      cp('shippedPoints', numT, iff(eq(field('status'), lit(enumV('featureStatus', 'shipped'))), field('points'), lit(num(0))), 'physical_quantity'),
       cp('progress', numT, iff(gt(field('taskCount'), lit(num(0))), div(field('taskDone'), field('taskCount')), lit(num(0)))),
     ],
   },
   {
     id: 'tasks',
+    semanticClass: 'Task',
     properties: [
       st('title', { k: 'text' }),
-      st('feature', { k: 'ref', collection: 'features' }),
-      st('status', { k: 'enum', set: 'taskStatus' }),
-      st('hours', { k: 'num' }),
+      st('feature', { k: 'ref', collection: 'features' }, 'association'),
+      st('status', { k: 'enum', set: 'taskStatus' }, 'state'),
+      st('hours', { k: 'num' }, 'physical_quantity'),
       cp('doneFlag', numT, iff(eq(field('status'), lit(enumV('taskStatus', 'done'))), lit(num(1)), lit(num(0)))),
     ],
   },
   {
     id: 'docs',
+    semanticClass: 'Doc',
     properties: [
       st('title', { k: 'text' }),
       st('space', { k: 'enum', set: 'docSpace' }),
-      st('status', { k: 'enum', set: 'docStatus' }),
-      st('feature', { k: 'ref', collection: 'features' }),
+      st('status', { k: 'enum', set: 'docStatus' }, 'state'),
+      st('feature', { k: 'ref', collection: 'features' }, 'association'),
     ],
   },
 ];

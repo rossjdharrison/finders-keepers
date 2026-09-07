@@ -20,16 +20,20 @@ import type { Schema, ViewSpec } from '@core/query';
 import { compileView } from '@core/query';
 import type { CompiledColumn, Node, RelationMeta, Resolver } from '@core/formula';
 import { compile, evalRecord, topoOrCycle } from '@core/formula';
+import { reduces } from '@core/ontology';
+import type { TypeMap } from '@core/ontology';
 
 export interface Property {
   id: string;
   valueType: ValueType;
   source?: 'stored' | 'computed';
   formula?: unknown;
+  category?: string; // optional HQDM class for this field's values (must reduce)
 }
 export interface CollectionDoc {
   id: string;
   properties: Property[];
+  semanticClass: string; // the HQDM class records are classified by — must reduce to the lattice
 }
 export interface RowStateWire {
   coll: string;
@@ -115,14 +119,45 @@ export class WorkspaceDO extends DurableObject<Env> {
     this.sql.exec(`CREATE TABLE IF NOT EXISTS oplog(seq INTEGER PRIMARY KEY, coll TEXT NOT NULL, at TEXT NOT NULL, actor TEXT NOT NULL, op TEXT NOT NULL)`);
     this.sql.exec(`CREATE TABLE IF NOT EXISTS collections(coll TEXT PRIMARY KEY, doc TEXT NOT NULL)`);
     this.sql.exec(`CREATE TABLE IF NOT EXISTS relations(via TEXT PRIMARY KEY, parent_coll TEXT NOT NULL, child_coll TEXT NOT NULL, child_field TEXT NOT NULL)`);
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT NOT NULL)`);
     this.reload();
   }
 
-  // ---- schema + relations (rebuilt atomically from the tables) ----------------
-  private reload(): void {
+  // ---- schema + relations -----------------------------------------------------
+  private readState(): { docs: Map<string, CollectionDoc>; relations: Map<string, RelationDef>; types: TypeMap } {
     const docs = new Map<string, CollectionDoc>(
       this.sql.exec(`SELECT coll, doc FROM collections`).toArray().map((r) => [r.coll as string, JSON.parse(r.doc as string)]),
     );
+    const relations = new Map<string, RelationDef>();
+    for (const r of this.sql.exec(`SELECT via, parent_coll, child_coll, child_field FROM relations`).toArray()) {
+      relations.set(r.via as string, { via: r.via as string, parentColl: r.parent_coll as string, childColl: r.child_coll as string, childField: r.child_field as string });
+    }
+    const t = this.sql.exec(`SELECT v FROM meta WHERE k = 'types'`).toArray()[0];
+    const types: TypeMap = t ? JSON.parse(t.v as string) : {};
+    return { docs, relations, types };
+  }
+
+  // Build (and VALIDATE) the whole workspace from a candidate state. Throws on any
+  // problem — HQDM reducibility, a compile error, a cycle — so callers can validate
+  // BEFORE persisting. This is where "every model is HQDM-based" is enforced.
+  private buildPrepared(
+    docs: Map<string, CollectionDoc>,
+    relations: Map<string, RelationDef>,
+    types: TypeMap,
+  ): { prepared: Map<string, Prepared>; relations: Map<string, RelationDef>; relByChild: Map<string, RelationDef[]>; rolledUpVias: Set<string>; rank: Map<string, number> } {
+    // ---- REDUCIBILITY GATE: every declared type, every collection's semanticClass,
+    //      and every tagged property category must reduce to the HQDM lattice.
+    for (const id of Object.keys(types)) {
+      if (!reduces(id, types)) throw new Error(`type '${id}' does not reduce to HQDM (bad or missing 'specializes' chain)`);
+    }
+    for (const [coll, doc] of docs) {
+      if (!doc.semanticClass) throw new Error(`collection '${coll}' must declare a semanticClass (HQDM reducibility is required)`);
+      if (!reduces(doc.semanticClass, types)) throw new Error(`collection '${coll}': semanticClass '${doc.semanticClass}' does not reduce to HQDM`);
+      for (const p of doc.properties) {
+        if (p.category && !reduces(p.category, types)) throw new Error(`'${coll}.${p.id}': category '${p.category}' does not reduce to HQDM`);
+      }
+    }
+
     // declared value types per collection (computed cols declare their result type)
     const schemas = new Map<string, Schema>();
     for (const [coll, doc] of docs) {
@@ -130,13 +165,10 @@ export class WorkspaceDO extends DurableObject<Env> {
       for (const p of doc.properties) s[p.id] = p.valueType;
       schemas.set(coll, s);
     }
-    // relations
-    const relations = new Map<string, RelationDef>();
+    // relation indexes (relations are passed in, already validated)
     const relByChild = new Map<string, RelationDef[]>();
     const relRecord: Record<string, RelationMeta> = {};
-    for (const r of this.sql.exec(`SELECT via, parent_coll, child_coll, child_field FROM relations`).toArray()) {
-      const def: RelationDef = { via: r.via as string, parentColl: r.parent_coll as string, childColl: r.child_coll as string, childField: r.child_field as string };
-      relations.set(def.via, def);
+    for (const def of relations.values()) {
       (relByChild.get(def.childColl) ?? relByChild.set(def.childColl, []).get(def.childColl)!).push(def);
       relRecord[def.via] = def;
     }
@@ -174,11 +206,26 @@ export class WorkspaceDO extends DurableObject<Env> {
     }
     const rank = kahnRank(new Set(docs.keys()), edges);
 
-    this.prepared = prepared;
-    this.relations = relations;
-    this.relByChild = relByChild;
-    this.rolledUpVias = rolledUpVias;
-    this.rank = rank;
+    return { prepared, relations, relByChild, rolledUpVias, rank };
+  }
+
+  private applyBuilt(b: {
+    prepared: Map<string, Prepared>;
+    relations: Map<string, RelationDef>;
+    relByChild: Map<string, RelationDef[]>;
+    rolledUpVias: Set<string>;
+    rank: Map<string, number>;
+  }): void {
+    this.prepared = b.prepared;
+    this.relations = b.relations;
+    this.relByChild = b.relByChild;
+    this.rolledUpVias = b.rolledUpVias;
+    this.rank = b.rank;
+  }
+
+  private reload(): void {
+    const s = this.readState();
+    this.applyBuilt(this.buildPrepared(s.docs, s.relations, s.types));
   }
 
   // ---- storage helpers --------------------------------------------------------
@@ -326,16 +373,18 @@ export class WorkspaceDO extends DurableObject<Env> {
   }
 
   // ---- HTTP + WebSocket -------------------------------------------------------
-  private setCollections(docs: CollectionDoc[]): void {
-    for (const doc of docs) {
-      this.sql.exec(`INSERT INTO collections(coll, doc) VALUES(?, ?) ON CONFLICT(coll) DO UPDATE SET doc = excluded.doc`, doc.id, JSON.stringify(doc));
-    }
+  private persistCollectionDoc(doc: CollectionDoc): void {
+    this.sql.exec(`INSERT INTO collections(coll, doc) VALUES(?, ?) ON CONFLICT(coll) DO UPDATE SET doc = excluded.doc`, doc.id, JSON.stringify(doc));
   }
-  private setRelations(rels: Record<string, RelationMeta>): void {
+  private persistWorkspace(docs: Map<string, CollectionDoc>, relations: Map<string, RelationDef>, types: TypeMap): void {
+    this.sql.exec(`DELETE FROM collections`);
     this.sql.exec(`DELETE FROM relations`);
-    for (const [via, m] of Object.entries(rels)) {
-      this.sql.exec(`INSERT INTO relations(via, parent_coll, child_coll, child_field) VALUES(?, ?, ?, ?)`, via, m.parentColl, m.childColl, m.childField);
+    this.sql.exec(`DELETE FROM meta WHERE k = 'types'`);
+    for (const doc of docs.values()) this.persistCollectionDoc(doc);
+    for (const def of relations.values()) {
+      this.sql.exec(`INSERT INTO relations(via, parent_coll, child_coll, child_field) VALUES(?, ?, ?, ?)`, def.via, def.parentColl, def.childColl, def.childField);
     }
+    if (Object.keys(types).length) this.sql.exec(`INSERT INTO meta(k, v) VALUES('types', ?)`, JSON.stringify(types));
   }
 
   override async fetch(req: Request): Promise<Response> {
@@ -343,10 +392,13 @@ export class WorkspaceDO extends DurableObject<Env> {
     const url = new URL(req.url);
     try {
       if (req.method === 'PUT' && url.pathname === '/workspace') {
-        const body = (await req.json()) as { collections: CollectionDoc[]; relations?: Record<string, RelationMeta> };
-        this.setCollections(body.collections);
-        if (body.relations) this.setRelations(body.relations);
-        this.reload();
+        const body = (await req.json()) as { collections: CollectionDoc[]; relations?: Record<string, RelationMeta>; types?: TypeMap };
+        const docs = new Map(body.collections.map((d) => [d.id, d] as const));
+        const relations = new Map<string, RelationDef>(Object.entries(body.relations ?? {}).map(([via, m]) => [via, { via, ...m }]));
+        const types = body.types ?? {};
+        const built = this.buildPrepared(docs, relations, types); // validates (incl. reducibility) BEFORE persisting
+        this.persistWorkspace(docs, relations, types);
+        this.applyBuilt(built);
         return Response.json({ ok: true, collections: [...this.prepared.keys()] });
       }
       if (req.method === 'GET' && url.pathname === '/workspace') {
@@ -357,8 +409,12 @@ export class WorkspaceDO extends DurableObject<Env> {
         const coll = m[1];
         const sub = m[2] ?? '/';
         if (req.method === 'PUT' && sub === '/collection') {
-          this.setCollections([(await req.json()) as CollectionDoc]);
-          this.reload();
+          const doc = (await req.json()) as CollectionDoc;
+          const s = this.readState();
+          s.docs.set(coll, doc);
+          const built = this.buildPrepared(s.docs, s.relations, s.types); // validate before persisting
+          this.persistCollectionDoc(doc);
+          this.applyBuilt(built);
           return Response.json({ ok: true });
         }
         if (req.method === 'POST' && sub === '/ops') {

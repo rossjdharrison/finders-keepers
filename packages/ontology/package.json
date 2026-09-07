@@ -1,0 +1,13 @@
+{
+  "name": "@core/ontology",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The HQDM upper lattice + the reducibility reader (isA / supertypesOf / reduces): every model's semanticClass must reduce to HQDM.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

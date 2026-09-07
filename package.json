@@ -13,10 +13,10 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "node --test \"packages/{values,formula,events,query,client}/src/**/*.test.ts\"",
+    "test": "node --test \"packages/{values,formula,events,query,ontology,client}/src/**/*.test.ts\"",
     "test:server": "npm -w @app/server run test",
     "test:tsx": "node --import tsx --test \"packages/**/src/**/*.test.ts\"",
-    "typecheck": "tsc -p packages/values/tsconfig.json && tsc -p packages/formula/tsconfig.json && tsc -p packages/events/tsconfig.json && tsc -p packages/query/tsconfig.json && tsc -p packages/server/tsconfig.json && tsc -p packages/client/tsconfig.json",
+    "typecheck": "tsc -p packages/values/tsconfig.json && tsc -p packages/formula/tsconfig.json && tsc -p packages/events/tsconfig.json && tsc -p packages/query/tsconfig.json && tsc -p packages/ontology/tsconfig.json && tsc -p packages/server/tsconfig.json && tsc -p packages/client/tsconfig.json",
     "check": "npm run typecheck && npm run test && npm run test:server"
   },
   "devDependencies": {

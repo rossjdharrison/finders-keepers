@@ -18,11 +18,15 @@ export interface Property {
   valueType: ValueType;
   source?: 'stored' | 'computed';
   formula?: unknown;
+  category?: string; // optional HQDM class for this field's values (must reduce)
 }
 export interface CollectionDoc {
   id: string;
   properties: Property[];
+  semanticClass: string; // the HQDM class records are classified by (must reduce)
 }
+/** Domain classes declared by `specializes`, merged over the HQDM core lattice. */
+export type TypeMap = Record<string, { specializes: string[] }>;
 export interface RelationMeta {
   parentColl: string;
   childColl: string;

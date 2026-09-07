@@ -15,6 +15,7 @@ import type {
   RelationMeta,
   RowOp,
   RowStateWire,
+  TypeMap,
   WorkspaceStore,
 } from './types.ts';
 import { mergeRows } from './reconcile.ts';
@@ -24,6 +25,7 @@ export interface WorkspaceInit {
   actor: string;
   collections: CollectionDoc[];
   relations: Record<string, RelationMeta>;
+  types?: TypeMap; // domain classes specializing HQDM (reducibility enforced server-side)
   seedOps?: RowOp[]; // applied only when the workspace is empty
 }
 
@@ -78,8 +80,8 @@ export async function createWorkspaceStore(init: WorkspaceInit): Promise<Workspa
     });
   }
 
-  // one-time workspace schema + relations, then per-collection snapshot + seed-if-empty
-  await api('/workspace', 'PUT', { collections, relations });
+  // one-time workspace schema + relations + HQDM types, then snapshot + seed-if-empty
+  await api('/workspace', 'PUT', { collections, relations, types: init.types ?? {} });
   await Promise.all([...stores.values()].map((s) => s._snapshot()));
   const total = [...stores.values()].reduce((n, s) => n + s.rows.value.length, 0);
   if (total === 0 && init.seedOps?.length) {
