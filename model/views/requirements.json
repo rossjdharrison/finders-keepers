@@ -4,7 +4,7 @@
   "title": "Requirements",
   "renderer": "table",
   "query": { "coll": "requirements" },
-  "visibleProps": ["title", "kind", "priority", "observable", "comparator", "target", "measured", "criterionExpr", "met", "intention", "decision"],
+  "visibleProps": ["title", "kind", "priority", "observable", "comparator", "target", "measured", "criterionExpr", "met", "status", "intention"],
   "config": {
     "labels": { "title": "Requirement", "kind": "Kind", "priority": "Priority", "criterion": "Acceptance criterion", "observable": "Observable", "comparator": "Compare", "target": "Target", "measured": "Measured", "criterionExpr": "Criterion (built)", "met": "Met?", "verifyMethod": "Verify by", "status": "Status", "isMust": "Must", "intention": "From intention", "decision": "Resolved by" },
     "enums": {

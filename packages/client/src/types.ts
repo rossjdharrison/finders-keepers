@@ -27,6 +27,7 @@ export interface CollectionDoc {
   properties: Property[];
   semanticClass: string; // the HQDM class records are classified by (must reduce)
   tables?: Record<string, unknown>; // lookup tables (opaque to the client; used by the engine)
+  transitions?: unknown[]; // gated state moves (opaque to the client; enforced by the DO)
 }
 /** Domain classes declared by `specializes`, merged over the HQDM core lattice. */
 export type TypeMap = Record<string, { specializes: string[] }>;

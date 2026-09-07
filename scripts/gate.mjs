@@ -100,6 +100,12 @@ for (const c of collections) {
   }
   const ordered = topoOrCycle(compiled);
   if ('cycle' in ordered) err(`'${c.id}' has a cyclic computed dependency: ${ordered.cycle.join(', ')}`);
+  for (const t of c.transitions ?? []) {
+    if (!columns[t.field]) err(`'${c.id}' transition '${t.id}': field '${t.field}' does not exist`);
+    const g = compile(`__guard_${t.id}`, t.when, compileCtx);
+    if ('errors' in g) err(`'${c.id}' transition '${t.id}' guard does not typecheck: ${g.errors.map((e) => e.message).join('; ')}`);
+    else if (g.type.k !== 'bool') err(`'${c.id}' transition '${t.id}' guard must be boolean, got ${g.type.k}`);
+  }
 }
 
 // ---- INTEGRITY (relations + ref fields) -------------------------------------

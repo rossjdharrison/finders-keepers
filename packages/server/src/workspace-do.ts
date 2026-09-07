@@ -31,11 +31,19 @@ export interface Property {
   category?: string; // optional HQDM class for this field's values (must reduce)
   availableWhen?: unknown; // a boolean formula: is this field in play for a record?
 }
+export interface Transition {
+  id: string;
+  field: string; // the enum field whose value moves
+  from?: string; // required current option (any, if omitted)
+  to: string; // the target option
+  when: unknown; // a boolean guard formula over the record — the move is refused unless it holds
+}
 export interface CollectionDoc {
   id: string;
   properties: Property[];
   semanticClass: string; // the HQDM class records are classified by — must reduce to the lattice
   tables?: Record<string, TableDef>; // lookup tables (the data behind computed consequences)
+  transitions?: Transition[]; // gated state moves: a verification seam is a transition guarded by a predicate
 }
 export interface RowStateWire {
   coll: string;
@@ -55,6 +63,7 @@ interface Prepared {
   cols: CompiledColumn[]; // topo-ordered within the record
   tables?: Record<string, TableDef>; // lookup tables for this collection
   gated: { id: string; ast: Node }[]; // fields carrying an availableWhen predicate
+  transitions: { id: string; field: string; from?: string; to: string; when: Node }[]; // gated state moves
 }
 
 const FIELD_RE = /^[A-Za-z0-9_]+$/;
@@ -205,7 +214,15 @@ export class WorkspaceDO extends DurableObject<Env> {
       if ('cycle' in ordered) throw new Error(`cyclic computed columns in ${coll}: ${ordered.cycle.join(', ')}`);
       const byId = new Map(cols.map((c) => [c.id, c]));
       const orderedCols = ordered.order.map((id) => byId.get(id)).filter((c): c is CompiledColumn => c !== undefined);
-      prepared.set(coll, { schema, computedIds, cols: orderedCols, tables, gated });
+      const transitions: { id: string; field: string; from?: string; to: string; when: Node }[] = [];
+      for (const t of doc.transitions ?? []) {
+        if (!schema[t.field]) throw new Error(`transition '${t.id}': field '${t.field}' does not exist in ${coll}`);
+        const g = compile(`__guard_${t.id}`, t.when as Node, compileCtx);
+        if ('errors' in g) throw new Error(`transition '${t.id}' guard: ${g.errors.map((e) => e.message).join('; ')}`);
+        if (g.type.k !== 'bool') throw new Error(`transition '${t.id}' guard must be boolean, got ${g.type.k}`);
+        transitions.push({ id: t.id, field: t.field, from: t.from, to: t.to, when: t.when as Node });
+      }
+      prepared.set(coll, { schema, computedIds, cols: orderedCols, tables, gated, transitions });
     }
     // which vias are actually rolled up (drives cascade seeding)
     const rolledUpVias = new Set<string>();
@@ -309,12 +326,30 @@ export class WorkspaceDO extends DurableObject<Env> {
     return p.gated.filter((g) => !applicable(g.ast, vals, ctx)).map((g) => g.id);
   }
 
+  // The verification seam: a declared state move is refused unless its guard holds
+  // on the resulting (recomputed) record — the runtime guard hook. Fail-closed.
+  private guardTransitions(op: RowOp, before: RowState | null, folded: RowState, res: Resolver): void {
+    if (op.op !== 'setField') return;
+    const p = this.prepared.get(op.coll);
+    if (!p || !p.transitions.length) return;
+    const enumOf = (v: Value | undefined): string | undefined => (v && v.t === 'enum' ? v.v : undefined);
+    const toVal = enumOf(folded.values[op.field]);
+    const fromVal = enumOf(before?.values[op.field]);
+    const match = p.transitions.find((t) => t.field === op.field && t.to === toVal && (t.from === undefined || t.from === fromVal));
+    if (!match) return;
+    const self: VRef = { t: 'ref', collection: op.coll, id: op.row };
+    const rec = this.recompute(folded.values, p, res, self); // compute the guard's inputs (e.g. `met`)
+    const ok = applicable(match.when, rec, { clock: this.clock(), resolver: res, self, tables: p.tables });
+    if (!ok) throw new Error(`transition '${match.id}' blocked: ${op.field} ${fromVal ?? '∅'} → ${match.to} is not permitted yet (guard not satisfied)`);
+  }
+
   // ---- the write path + cascade ----------------------------------------------
   submit(ops: RowOp[], actor: string): { assigned: number[]; rows: RowStateWire[] } {
     if (!this.prepared.size) throw new Error('workspace schema not set — PUT /workspace first');
     const assigned: number[] = [];
     const seeds = new Set<string>();
     const cache = new Map<string, RowState>();
+    const res = this.resolver();
 
     for (const op of ops) {
       if (!this.prepared.has(op.coll)) throw new Error(`unknown collection ${op.coll}`);
@@ -323,6 +358,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       const bk = this.key(op.coll, op.row);
       const before = cache.get(bk) ?? this.loadRow(op.coll, op.row);
       const folded = applyOp(before, committed); // stored edit; computed still stale
+      this.guardTransitions(op, before, folded, res); // fail-closed BEFORE persist: a gated move must satisfy its guard
       this.persist(op.coll, folded);
       this.sql.exec(`INSERT INTO oplog(seq, coll, at, actor, op) VALUES(?, ?, ?, ?, ?)`, seq, op.coll, committed.meta.at, actor, JSON.stringify(op));
       cache.set(bk, folded);

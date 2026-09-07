@@ -45,5 +45,8 @@
       "id": "met", "valueType": { "k": "bool" }, "source": "computed",
       "formula": { "op": "check", "pred": { "op": "field", "id": "criterionExpr" }, "evidence": { "op": "field", "id": "measured" } }
     }
+  ],
+  "transitions": [
+    { "id": "verify", "field": "status", "from": "accepted", "to": "verified", "when": { "op": "field", "id": "met" } }
   ]
 }

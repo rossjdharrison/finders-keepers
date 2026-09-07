@@ -188,3 +188,44 @@ describe('WorkspaceDO lookup + availableWhen (the configurator primitives)', () 
     expect(o2.hidden ?? []).toContain('target'); // purpose != perf -> target gated off
   });
 });
+
+describe('WorkspaceDO verification seam (a transition gated by met)', () => {
+  const reqCols: CollectionDoc[] = [
+    {
+      id: 'reqs',
+      semanticClass: 'Requirement',
+      properties: [
+        stored('title', { k: 'text' }),
+        stored('status', { k: 'enum', set: 'st' }),
+        stored('comparator', { k: 'enum', set: 'cmp' }),
+        stored('observable', { k: 'enum', set: 'metric' }),
+        stored('target', { k: 'num' }),
+        stored('measured', { k: 'num' }),
+        computed('criterionExpr', { k: 'predicate' }, { op: 'build', cmp: field('comparator'), observable: field('observable'), threshold: field('target') }),
+        computed('met', { k: 'bool' }, { op: 'check', pred: field('criterionExpr'), evidence: field('measured') }),
+      ],
+      transitions: [{ id: 'verify', field: 'status', from: 'accepted', to: 'verified', when: field('met') }],
+    } as CollectionDoc,
+  ];
+  const seedReq = async (row: string, measured: number) => {
+    await ops('reqs', [{ op: 'insert', coll: 'reqs', row, values: {
+      title: text(row), status: en('st', 'accepted'), comparator: en('cmp', 'lte'), observable: en('metric', 'latency_ms'), target: num(200), measured: num(measured),
+    } }]);
+  };
+  const statusOf = async (id: string) =>
+    (((await (await call('/collections/reqs/query', { coll: 'reqs' })).json()) as { rows: { id: string; doc: Record<string, { v?: string }> }[] }).rows.find((r) => r.id === id))!.doc.status.v;
+
+  it('permits accepted -> verified when met, refuses it (fail-closed) when not', async () => {
+    expect((await call('/workspace', { collections: reqCols, relations: {}, types: { Requirement: { specializes: ['sign'] } } }, 'PUT')).ok).toBe(true);
+    await seedReq('r-ok', 180); // 180 <= 200 -> met
+    await seedReq('r-bad', 250); // 250 <= 200 -> not met
+
+    const ok = await ops('reqs', [{ op: 'setField', coll: 'reqs', row: 'r-ok', field: 'status', value: en('st', 'verified') }]);
+    expect(ok.ok).toBe(true);
+    expect(await statusOf('r-ok')).toBe('verified');
+
+    const bad = await ops('reqs', [{ op: 'setField', coll: 'reqs', row: 'r-bad', field: 'status', value: en('st', 'verified') }]);
+    expect(bad.status).toBe(400); // guard not satisfied -> the move is refused
+    expect(await statusOf('r-bad')).toBe('accepted'); // and nothing changed
+  });
+});
