@@ -9,6 +9,7 @@
     { "id": "criterion", "valueType": { "k": "text" }, "source": "stored" },
     { "id": "verifyMethod", "valueType": { "k": "enum", "set": "verifyMethod" }, "source": "stored" },
     { "id": "status", "valueType": { "k": "enum", "set": "reqStatus" }, "source": "stored", "category": "state" },
+    { "id": "intention", "valueType": { "k": "ref", "collection": "intentions" }, "source": "stored", "category": "part_of_plan" },
     { "id": "decision", "valueType": { "k": "ref", "collection": "decisions" }, "source": "stored", "category": "association" },
     {
       "id": "isMust", "valueType": { "k": "num" }, "source": "computed",

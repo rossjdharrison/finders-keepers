@@ -53,6 +53,21 @@ export const CORE: HqdmCore = {
     sign: { specializes: ['abstract_object'] },
     period_of_time: { specializes: ['spatio_temporal_extent'] },
     point_in_time: { specializes: ['spatio_temporal_extent'] },
+
+    // The intention → plan → requirement → activity region. A `plan` is a
+    // `possible_world` that a party intends; a `requirement_specification` is a
+    // class of states/activities that plan requires (part_of_plan); an `activity`
+    // realizes the plan. This is the ontological spine of the development journey:
+    // intention is prior to requirement — you hold the intended world before you
+    // can specify it.
+    class_of_spatio_temporal_extent: { specializes: ['class'] },
+    class_of_state: { specializes: ['class_of_spatio_temporal_extent'] },
+    class_of_activity: { specializes: ['class_of_spatio_temporal_extent'] },
+    requirement_specification: { specializes: ['class_of_spatio_temporal_extent'] },
+    possible_world: { specializes: ['spatio_temporal_extent'] },
+    plan: { specializes: ['possible_world'] },
+    intentionally_constructed_object: { specializes: ['individual'] },
+    part_of_plan: { specializes: ['association'] },
   },
   renderHints: {
     amount_of_money: { glyph: '¤', render: 'money', label: 'Amount of money', authorable: 2 },
@@ -69,5 +84,10 @@ export const CORE: HqdmCore = {
     association: { glyph: '⇄', render: 'relation', label: 'Association' },
     transfer_of_ownership: { glyph: '⇄', render: 'transfer', label: 'Transfer of ownership' },
     transfer_of_possession: { glyph: '⇄', render: 'transfer', label: 'Transfer of possession' },
+    plan: { glyph: '❖', render: 'plan', label: 'Plan (intended world)', authorable: 8 },
+    possible_world: { glyph: '◇', render: 'world', label: 'Possible world' },
+    requirement_specification: { glyph: '❑', render: 'spec', label: 'Requirements specification', authorable: 9 },
+    class_of_activity: { glyph: '▷', render: 'kind', label: 'Kind of activity' },
+    part_of_plan: { glyph: '⊂', render: 'relation', label: 'Part of plan' },
   },
 };

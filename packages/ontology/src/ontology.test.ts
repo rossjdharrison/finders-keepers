@@ -43,3 +43,11 @@ test('cycles are handled without hanging, and never reduce', () => {
 test('every core type itself reduces to the root', () => {
   for (const id of Object.keys(CORE.types)) assert.ok(reduces(id), `${id} should reduce`);
 });
+
+test('the intention chain: a plan is an intended possible world; a requirement spec is a class', () => {
+  assert.ok(isA('plan', 'possible_world'));
+  assert.ok(isA('plan', 'spatio_temporal_extent'));
+  assert.ok(isA('requirement_specification', 'class'));
+  assert.ok(isA('requirement_specification', 'abstract_object'));
+  assert.ok(isA('part_of_plan', 'association'));
+});

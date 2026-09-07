@@ -14,7 +14,7 @@ const relations = model.relations as unknown as Record<string, RelationMeta>;
 const types = model.types as unknown as TypeMap;
 const seedOps = model.seedOps as unknown as RowOp[];
 
-const ORDER = ['requirements', 'decisions', 'options', 'initiatives', 'features', 'tasks', 'docs'];
+const ORDER = ['intentions', 'requirements', 'decisions', 'options', 'initiatives', 'features', 'tasks', 'docs'];
 const views = (model.views as unknown as ViewDoc[])
   .slice()
   .sort((a, b) => ORDER.indexOf(a.collection) - ORDER.indexOf(b.collection));
@@ -27,7 +27,7 @@ app.innerHTML = `
     <div class="conn" id="conn" title="connection"></div>
   </header>
   <main id="mount" class="mount"></main>
-  <footer class="hint">Change an <b>Option</b>'s size — its <b>Effort</b> is computed down from the choice, and the <b>Decision</b>'s option/requirement rollups recompute on the server, live across every tab. Each Requirement is resolved by a committed Decision.</footer>
+  <footer class="hint"><b>Intention → Requirement → Decision → Option.</b> One intention decomposes into requirements; each is resolved by a committed decision whose options' effort is computed down from size — grounded in HQDM (plan → requirement&#95;specification → agreement), live across every tab.</footer>
 `;
 
 const tabsEl = app.querySelector<HTMLElement>('#tabs')!;
@@ -66,4 +66,4 @@ for (const view of views) {
   tabsEl.append(b);
 }
 
-show(views.find((v) => v.collection === 'requirements') ?? views[0]);
+show(views.find((v) => v.collection === 'intentions') ?? views[0]);

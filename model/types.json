@@ -3,7 +3,8 @@
   "Feature": { "specializes": ["activity"] },
   "Task": { "specializes": ["activity"] },
   "Doc": { "specializes": ["sign"] },
-  "Requirement": { "specializes": ["sign"] },
+  "Intention": { "specializes": ["plan"] },
+  "Requirement": { "specializes": ["requirement_specification"] },
   "Decision": { "specializes": ["agreement"] },
   "Option": { "specializes": ["sign"] }
 }

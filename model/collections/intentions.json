@@ -1,0 +1,18 @@
+{
+  "id": "intentions",
+  "semanticClass": "Intention",
+  "properties": [
+    { "id": "title", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "statement", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "intendedBy", "valueType": { "k": "enum", "set": "intendedBy" }, "source": "stored" },
+    { "id": "status", "valueType": { "k": "enum", "set": "intentionStatus" }, "source": "stored", "category": "state" },
+    {
+      "id": "requirementCount", "valueType": { "k": "num" }, "source": "computed", "category": "physical_quantity",
+      "formula": { "op": "rollup", "via": "intentionReqs", "agg": "count", "of": { "op": "field", "id": "title" } }
+    },
+    {
+      "id": "mustCount", "valueType": { "k": "num" }, "source": "computed", "category": "physical_quantity",
+      "formula": { "op": "rollup", "via": "intentionReqs", "agg": "sum", "of": { "op": "field", "id": "isMust" } }
+    }
+  ]
+}
