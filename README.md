@@ -17,8 +17,9 @@ This repo begins with the one thing worth owning: the **typed formula engine**.
 | [`@core/events`](packages/events) | The row change model — a `RowOp` union + a **pure, seq-ordered reducer** (`applyOp`/`fold`). Scalars are last-writer-by-seq; multi-value fields use commutative `addElement`/`removeElement`; `invert` powers undo. CRUD-with-history, not event-sourcing (that's a v2 concern). |
 | [`@core/query`](packages/query) | The read path — compile a data-defined `ViewSpec` (filter/sort/group) into **parameterised SQL** over the records table. Money compares on integer minor units with a currency guard; dates on `epochDay`; field ids are validated against injection. |
 | [`@app/server`](packages/server) | The **CollectionDO** — one Cloudflare Durable Object per collection: it assigns a monotonic `seq`, folds ops with `@core/events`, **recomputes typed computed columns** with `@core/formula`, persists to embedded **SQLite**, serves `@core/query` reads strongly, and **broadcasts recomputed rows over WebSockets**. All the hard logic lives in the pure `@core` packages; the DO is the thin authority shell. |
+| [`@app/client`](packages/client) | The **view engine** — data-defined `View` docs (`collection` + `ViewSpec` + `renderer` + `config`) rendered through a **renderer registry** (`table` + `board`) and a **cell registry** keyed by value type. A signals-backed store seeds, snapshots, edits optimistically, and **reconciles by id** on the WebSocket broadcast. Stored cells are editable; computed cells are read-only and update live. Vite + `@preact/signals-core`, no framework. |
 
-`@core/values` has no dependencies; the other `@core/*` packages build on it; `@app/server` wires them into the Durable Object.
+`@core/values` has no dependencies; the other `@core/*` packages build on it; `@app/server` wires them into the Durable Object; `@app/client` is the browser view engine over the same wire contract.
 
 The `@core/*` packages are pure and run under `node:test`; `@app/server` runs its Durable Object tests inside **workerd** via `@cloudflare/vitest-pool-workers` (`npm run test:server`).
 
@@ -51,14 +52,24 @@ npm run typecheck  # tsc --noEmit per package
 
 ## Roadmap
 
-**v0 in progress.** The engine (`@core/values` + `@core/formula`) and the
-persistence spine (`@core/events` + `@core/query` + the `CollectionDO`) are in
-place: a typed computed column recomputes on write, is queryable via SQL, and is
-broadcast live over WebSockets. Remaining for the walking skeleton is the client —
-the data-defined view engine (table + board) rendering it across two tabs.
+**v0 walking skeleton — done.** The engine (`@core/values` + `@core/formula`), the
+persistence spine (`@core/events` + `@core/query` + the `CollectionDO`), and the
+client view engine (`@app/client`) are all in place and verified end to end: a
+typed computed column recomputes on the server, renders through data-defined table
++ board views, and updates **live across two browser tabs** — editing `qty` in one
+tab recomputes `lineTotal` and both tabs reflect it, with no formula code on the client.
 
-- **v0 walking skeleton:** one collection in one Durable Object, one typed computed
-  column rendered as table + board, live across two tabs. *(server done; client next)*
+### Run the two-tab demo
+
+```bash
+# terminal 1 — the Durable Object worker
+cd packages/server && npx wrangler dev --port 8787
+# terminal 2 — the client (Vite proxies /collections + ws to :8787, same-origin)
+cd packages/client && npm run dev
+```
+
+Open http://localhost:5173 in two tabs. Edit a `qty` or `unit price` (or drag a card
+between board columns); the server recomputes `lineTotal` and both tabs update live.
 - **v1 (the real MVP):** multiple collections, relations + rollups, real-time
   multi-user, auth, gallery + calendar views — "Notion-lite with a real type system".
 - **v2 (the moat, once v1 has users):** event-sourced process instances, an optional

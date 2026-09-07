@@ -1,0 +1,23 @@
+{
+  "name": "@app/client",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "The client view engine — data-defined View docs rendered through a renderer registry (table + board), live over the CollectionDO WebSocket.",
+  "dependencies": {
+    "@core/values": "*",
+    "@core/query": "*",
+    "@preact/signals-core": "^1.8.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^7.1.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}
