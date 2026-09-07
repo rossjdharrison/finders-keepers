@@ -14,8 +14,13 @@ This repo begins with the one thing worth owning: the **typed formula engine**.
 |---|---|
 | [`@core/values`](packages/values) | The canonical value domain — a tagged `Value` union, its static `ValueType` mirror, **integer-minor-unit money** (never floats), civil-date math, and a total `compare`/`equals`. Errors and blanks are first-class values, never thrown. |
 | [`@core/formula`](packages/formula) | The formula engine — a JSON `{op,args}` AST, a **static typechecker** (catches `money(EUR) + money(USD)` as `#CCY` at column save time), `compile` (typecheck + dependency extraction), a Kahn **cycle guard** (`#CYCLE`), and a **pure, total evaluator** that doubles as the test oracle. |
+| [`@core/events`](packages/events) | The row change model — a `RowOp` union + a **pure, seq-ordered reducer** (`applyOp`/`fold`). Scalars are last-writer-by-seq; multi-value fields use commutative `addElement`/`removeElement`; `invert` powers undo. CRUD-with-history, not event-sourcing (that's a v2 concern). |
+| [`@core/query`](packages/query) | The read path — compile a data-defined `ViewSpec` (filter/sort/group) into **parameterised SQL** over the records table. Money compares on integer minor units with a currency guard; dates on `epochDay`; field ids are validated against injection. |
+| [`@app/server`](packages/server) | The **CollectionDO** — one Cloudflare Durable Object per collection: it assigns a monotonic `seq`, folds ops with `@core/events`, **recomputes typed computed columns** with `@core/formula`, persists to embedded **SQLite**, serves `@core/query` reads strongly, and **broadcasts recomputed rows over WebSockets**. All the hard logic lives in the pure `@core` packages; the DO is the thin authority shell. |
 
-`@core/values` has no dependencies; `@core/formula` depends on it.
+`@core/values` has no dependencies; the other `@core/*` packages build on it; `@app/server` wires them into the Durable Object.
+
+The `@core/*` packages are pure and run under `node:test`; `@app/server` runs its Durable Object tests inside **workerd** via `@cloudflare/vitest-pool-workers` (`npm run test:server`).
 
 ## Design principles baked into the code
 
@@ -46,10 +51,14 @@ npm run typecheck  # tsc --noEmit per package
 
 ## Roadmap
 
-This is **v0 groundwork** — the engine. Next, per the design sketch:
+**v0 in progress.** The engine (`@core/values` + `@core/formula`) and the
+persistence spine (`@core/events` + `@core/query` + the `CollectionDO`) are in
+place: a typed computed column recomputes on write, is queryable via SQL, and is
+broadcast live over WebSockets. Remaining for the walking skeleton is the client —
+the data-defined view engine (table + board) rendering it across two tabs.
 
 - **v0 walking skeleton:** one collection in one Durable Object, one typed computed
-  column rendered as table + board, live across two tabs.
+  column rendered as table + board, live across two tabs. *(server done; client next)*
 - **v1 (the real MVP):** multiple collections, relations + rollups, real-time
   multi-user, auth, gallery + calendar views — "Notion-lite with a real type system".
 - **v2 (the moat, once v1 has users):** event-sourced process instances, an optional

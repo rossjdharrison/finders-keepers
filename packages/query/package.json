@@ -1,0 +1,16 @@
+{
+  "name": "@core/query",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Compile a data-defined ViewSpec (filter/sort/group) into parameterised SQL over the records table.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@core/values": "*"
+  },
+  "scripts": {
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

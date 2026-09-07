@@ -1,0 +1,16 @@
+{
+  "name": "@core/events",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The row op model + pure reducer: CRUD-with-history, seq-ordered, with set-ops and undo.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@core/values": "*"
+  },
+  "scripts": {
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}
