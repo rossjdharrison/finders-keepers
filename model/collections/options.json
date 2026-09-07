@@ -1,0 +1,34 @@
+{
+  "id": "options",
+  "semanticClass": "Option",
+  "properties": [
+    { "id": "title", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "decision", "valueType": { "k": "ref", "collection": "decisions" }, "source": "stored", "category": "association" },
+    { "id": "summary", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "size", "valueType": { "k": "enum", "set": "optionSize" }, "source": "stored" },
+    { "id": "risk", "valueType": { "k": "enum", "set": "riskLevel" }, "source": "stored" },
+    { "id": "reversibility", "valueType": { "k": "enum", "set": "reversibility" }, "source": "stored" },
+    {
+      "id": "effort", "valueType": { "k": "num" }, "source": "computed", "category": "physical_quantity",
+      "formula": {
+        "op": "call", "fn": "if", "args": [
+          { "op": "eq", "args": [{ "op": "field", "id": "size" }, { "op": "lit", "value": { "t": "enum", "set": "optionSize", "v": "S" } }] },
+          { "op": "lit", "value": { "t": "num", "v": 2 } },
+          {
+            "op": "call", "fn": "if", "args": [
+              { "op": "eq", "args": [{ "op": "field", "id": "size" }, { "op": "lit", "value": { "t": "enum", "set": "optionSize", "v": "M" } }] },
+              { "op": "lit", "value": { "t": "num", "v": 5 } },
+              {
+                "op": "call", "fn": "if", "args": [
+                  { "op": "eq", "args": [{ "op": "field", "id": "size" }, { "op": "lit", "value": { "t": "enum", "set": "optionSize", "v": "L" } }] },
+                  { "op": "lit", "value": { "t": "num", "v": 13 } },
+                  { "op": "lit", "value": { "t": "num", "v": 34 } }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

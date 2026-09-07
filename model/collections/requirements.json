@@ -1,0 +1,24 @@
+{
+  "id": "requirements",
+  "semanticClass": "Requirement",
+  "properties": [
+    { "id": "title", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "statement", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "kind", "valueType": { "k": "enum", "set": "reqKind" }, "source": "stored" },
+    { "id": "priority", "valueType": { "k": "enum", "set": "reqPriority" }, "source": "stored" },
+    { "id": "criterion", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "verifyMethod", "valueType": { "k": "enum", "set": "verifyMethod" }, "source": "stored" },
+    { "id": "status", "valueType": { "k": "enum", "set": "reqStatus" }, "source": "stored", "category": "state" },
+    { "id": "decision", "valueType": { "k": "ref", "collection": "decisions" }, "source": "stored", "category": "association" },
+    {
+      "id": "isMust", "valueType": { "k": "num" }, "source": "computed",
+      "formula": {
+        "op": "call", "fn": "if", "args": [
+          { "op": "eq", "args": [{ "op": "field", "id": "priority" }, { "op": "lit", "value": { "t": "enum", "set": "reqPriority", "v": "must" } }] },
+          { "op": "lit", "value": { "t": "num", "v": 1 } },
+          { "op": "lit", "value": { "t": "num", "v": 0 } }
+        ]
+      }
+    }
+  ]
+}

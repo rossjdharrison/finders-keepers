@@ -2,5 +2,8 @@
   "Initiative": { "specializes": ["activity"] },
   "Feature": { "specializes": ["activity"] },
   "Task": { "specializes": ["activity"] },
-  "Doc": { "specializes": ["sign"] }
+  "Doc": { "specializes": ["sign"] },
+  "Requirement": { "specializes": ["sign"] },
+  "Decision": { "specializes": ["agreement"] },
+  "Option": { "specializes": ["sign"] }
 }

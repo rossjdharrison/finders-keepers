@@ -14,7 +14,7 @@ const relations = model.relations as unknown as Record<string, RelationMeta>;
 const types = model.types as unknown as TypeMap;
 const seedOps = model.seedOps as unknown as RowOp[];
 
-const ORDER = ['initiatives', 'features', 'tasks', 'docs'];
+const ORDER = ['requirements', 'decisions', 'options', 'initiatives', 'features', 'tasks', 'docs'];
 const views = (model.views as unknown as ViewDoc[])
   .slice()
   .sort((a, b) => ORDER.indexOf(a.collection) - ORDER.indexOf(b.collection));
@@ -22,12 +22,12 @@ const views = (model.views as unknown as ViewDoc[])
 const app = document.querySelector<HTMLElement>('#app')!;
 app.innerHTML = `
   <header class="topbar">
-    <div class="brand">Product Studio <span class="muted">· Computable Records</span></div>
+    <div class="brand">Dev Journey <span class="muted">· Computable Records</span></div>
     <div class="tabs" id="tabs"></div>
     <div class="conn" id="conn" title="connection"></div>
   </header>
   <main id="mount" class="mount"></main>
-  <footer class="hint">Edit a <b>Task</b>'s hours or status — the <b>Feature</b> and <b>Initiative</b> rollups (effort, progress, points) recompute on the server and update every open tab live.</footer>
+  <footer class="hint">Change an <b>Option</b>'s size — its <b>Effort</b> is computed down from the choice, and the <b>Decision</b>'s option/requirement rollups recompute on the server, live across every tab. Each Requirement is resolved by a committed Decision.</footer>
 `;
 
 const tabsEl = app.querySelector<HTMLElement>('#tabs')!;
@@ -66,4 +66,4 @@ for (const view of views) {
   tabsEl.append(b);
 }
 
-show(views.find((v) => v.collection === 'features') ?? views[0]);
+show(views.find((v) => v.collection === 'requirements') ?? views[0]);

@@ -1,0 +1,18 @@
+{
+  "id": "requirements",
+  "collection": "requirements",
+  "title": "Requirements",
+  "renderer": "table",
+  "query": { "coll": "requirements" },
+  "visibleProps": ["title", "kind", "priority", "criterion", "verifyMethod", "status", "isMust", "decision"],
+  "config": {
+    "labels": { "title": "Requirement", "kind": "Kind", "priority": "Priority", "criterion": "Acceptance criterion", "verifyMethod": "Verify by", "status": "Status", "isMust": "Must", "decision": "Resolved by" },
+    "enums": {
+      "kind": [{ "id": "functional", "label": "Functional" }, { "id": "performance", "label": "Performance" }, { "id": "interface", "label": "Interface" }, { "id": "constraint", "label": "Constraint" }, { "id": "quality", "label": "Quality" }],
+      "priority": [{ "id": "must", "label": "Must" }, { "id": "should", "label": "Should" }, { "id": "could", "label": "Could" }, { "id": "wont", "label": "Won't" }],
+      "verifyMethod": [{ "id": "test", "label": "Test" }, { "id": "analysis", "label": "Analysis" }, { "id": "inspection", "label": "Inspection" }, { "id": "demonstration", "label": "Demonstration" }],
+      "status": [{ "id": "draft", "label": "Draft" }, { "id": "accepted", "label": "Accepted" }, { "id": "verified", "label": "Verified" }]
+    },
+    "refs": { "decision": { "collection": "decisions", "labelField": "title" } }
+  }
+}

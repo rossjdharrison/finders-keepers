@@ -1,0 +1,19 @@
+{
+  "id": "options",
+  "collection": "options",
+  "title": "Options",
+  "renderer": "board",
+  "query": { "coll": "options" },
+  "visibleProps": ["title", "effort", "risk", "summary"],
+  "config": {
+    "groupField": "size",
+    "columns": ["S", "M", "L", "XL"],
+    "labels": { "title": "Option", "decision": "For decision", "size": "Size", "effort": "Effort (pts)", "risk": "Risk", "reversibility": "Reversibility", "summary": "Summary" },
+    "enums": {
+      "size": [{ "id": "S", "label": "S · 2 pts" }, { "id": "M", "label": "M · 5 pts" }, { "id": "L", "label": "L · 13 pts" }, { "id": "XL", "label": "XL · 34 pts" }],
+      "risk": [{ "id": "low", "label": "Low" }, { "id": "med", "label": "Medium" }, { "id": "high", "label": "High" }],
+      "reversibility": [{ "id": "oneway", "label": "One-way door" }, { "id": "reversible", "label": "Reversible" }]
+    },
+    "refs": { "decision": { "collection": "decisions", "labelField": "title" } }
+  }
+}

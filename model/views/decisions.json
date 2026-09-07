@@ -1,0 +1,13 @@
+{
+  "id": "decisions",
+  "collection": "decisions",
+  "title": "Decisions",
+  "renderer": "table",
+  "query": { "coll": "decisions" },
+  "visibleProps": ["title", "status", "optionCount", "satisfies", "mustSatisfied", "chosen", "context"],
+  "config": {
+    "labels": { "title": "Decision", "status": "Status", "optionCount": "Options", "satisfies": "Requirements", "mustSatisfied": "Musts met", "chosen": "Chosen", "context": "Context" },
+    "enums": { "status": [{ "id": "proposed", "label": "Proposed" }, { "id": "accepted", "label": "Accepted" }, { "id": "superseded", "label": "Superseded" }] },
+    "refs": { "chosen": { "collection": "options", "labelField": "title" } }
+  }
+}
