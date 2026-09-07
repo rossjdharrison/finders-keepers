@@ -5,6 +5,6 @@
   "Doc": { "specializes": ["sign"] },
   "Intention": { "specializes": ["plan"] },
   "Requirement": { "specializes": ["requirement_specification"] },
-  "Decision": { "specializes": ["agreement"] },
-  "Option": { "specializes": ["sign"] }
+  "Decision": { "specializes": ["activity"] },
+  "Option": { "specializes": ["possible_world"] }
 }
