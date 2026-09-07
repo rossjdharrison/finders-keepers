@@ -8,11 +8,12 @@ import type { ErrCode, ValueType } from '@core/values';
 import { typeEq, typeOf } from '@core/values';
 import type { Bin, Node } from './ast.ts';
 import { isBin } from './ast.ts';
-import type { Resolver } from './resolver.ts';
+import type { RelationMeta, Resolver } from './resolver.ts';
 
 export interface TypeCtx {
   columns: Record<string, ValueType>; // this collection's property types
-  resolver?: Resolver; // for ref/rollup path checking
+  resolver?: Resolver; // for ref/rollup path checking (columnType over other collections)
+  relations?: Record<string, RelationMeta>; // via -> {parentColl, childColl, childField}
 }
 export interface InferFail {
   err: ErrCode;
@@ -164,11 +165,17 @@ export function inferType(node: Node, ctx: TypeCtx): Infer {
       return t;
     }
     case 'rollup': {
-      const inner = inferType(node.of, ctx);
-      if (isFail(inner)) return inner;
+      // The rolled-up field lives on the CHILD collection, not this (parent) one —
+      // resolve its type through the relation registry + the child's schema.
+      if (node.of.op !== 'field') return fail('#NA', 'rollup supports a field target');
+      const childColl = ctx.relations?.[node.via]?.childColl;
+      if (!childColl) return fail('#REF', `unknown relation ${node.via}`);
+      if (!ctx.resolver) return fail('#REF', 'no resolver for rollup');
+      const inner = ctx.resolver.columnType(childColl, node.of.id);
+      if (!inner) return fail('#REF', `unknown ${childColl}.${node.of.id}`);
       if (node.agg === 'count') return numT;
       if (node.agg === 'avg') return inner.k === 'money' ? inner : numT;
-      return inner; // sum/min/max keep the element type
+      return inner; // sum/min/max keep the child element type
     }
     case 'not': {
       const a = inferType(node.args[0], ctx);

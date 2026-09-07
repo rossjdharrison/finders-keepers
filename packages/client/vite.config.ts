@@ -6,11 +6,8 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   server: {
     proxy: {
-      '/collections': {
-        target: 'http://localhost:8787',
-        changeOrigin: true,
-        ws: true,
-      },
+      '/collections': { target: 'http://localhost:8787', changeOrigin: true, ws: true },
+      '/workspace': { target: 'http://localhost:8787', changeOrigin: true, ws: true },
     },
   },
 });

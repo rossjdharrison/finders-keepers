@@ -32,7 +32,8 @@ test('a filtered, sorted board query compiles to parameterised SQL', () => {
   assert.match(sql, /json_extract\(t\.doc, '\$\.amount\.ccy'\) = \?/);
   assert.match(sql, /ORDER BY json_extract\(t\.doc, '\$\.closeDate\.epochDay'\) DESC, t\.seq ASC/);
   assert.match(sql, /LIMIT 50$/);
-  assert.deepEqual(params, ['won', 100000, 'EUR']); // 1000.00 EUR -> 100000 minor
+  assert.match(sql, /t\.coll = \?/); // reads are scoped to the collection
+  assert.deepEqual(params, ['deals', 'won', 100000, 'EUR']); // coll first, then 1000.00 EUR -> 100000 minor
 });
 
 test('empty / notEmpty / contains compile without a comparison param', () => {
@@ -41,11 +42,11 @@ test('empty / notEmpty / contains compile without a comparison param', () => {
     schema,
   );
   assert.match(c.sql, /json_extract\(t\.doc, '\$\.name\.v'\) LIKE \?/);
-  assert.deepEqual(c.params, ['%ac%']);
+  assert.deepEqual(c.params, ['deals', '%ac%']);
 
   const e = compileView({ coll: 'deals', filter: { field: 'closeDate', op: 'empty' } }, schema);
   assert.match(e.sql, /json_extract\(t\.doc, '\$\.closeDate\.epochDay'\) IS NULL/);
-  assert.deepEqual(e.params, []);
+  assert.deepEqual(e.params, ['deals']);
 });
 
 test('group counts produce a GROUP BY on the key', () => {
@@ -61,6 +62,6 @@ test('unsafe field ids are rejected (no injection via json path)', () => {
 });
 
 test('an all-empty AND is a tautology, an empty OR is false', () => {
-  assert.match(compileView({ coll: 'x', filter: { and: [] } }, schema).sql, /WHERE t\.deleted = 0 AND 1/);
-  assert.match(compileView({ coll: 'x', filter: { or: [] } }, schema).sql, /WHERE t\.deleted = 0 AND 0/);
+  assert.match(compileView({ coll: 'x', filter: { and: [] } }, schema).sql, /WHERE t\.deleted = 0 AND t\.coll = \? AND 1/);
+  assert.match(compileView({ coll: 'x', filter: { or: [] } }, schema).sql, /WHERE t\.deleted = 0 AND t\.coll = \? AND 0/);
 });

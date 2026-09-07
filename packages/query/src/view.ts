@@ -131,8 +131,10 @@ function compileFilter(node: FilterNode, schema: Schema, out: SqlParam[], table:
 
 /** Compile a view into `SELECT row_id, doc FROM records WHERE … ORDER BY … LIMIT …`. */
 export function compileView(spec: ViewSpec, schema: Schema, table = 't'): CompiledSql {
-  const params: SqlParam[] = [];
-  const where = [`${table}.deleted = 0`];
+  // A workspace's records share one table keyed by (coll, row_id), so every read
+  // is scoped to the collection. The coll param goes first, before any filter params.
+  const params: SqlParam[] = [spec.coll];
+  const where = [`${table}.deleted = 0`, `${table}.coll = ?`];
   if (spec.filter) where.push(compileFilter(spec.filter, schema, params, table));
 
   let sql = `SELECT ${table}.row_id, ${table}.doc FROM records ${table} WHERE ${where.join(' AND ')}`;
@@ -154,8 +156,8 @@ export function compileView(spec: ViewSpec, schema: Schema, table = 't'): Compil
 /** Board/group counts: `SELECT <key> AS k, COUNT(*) AS c … GROUP BY k`. */
 export function compileGroupCounts(spec: ViewSpec, schema: Schema, table = 't'): CompiledSql {
   if (!spec.group) throw new Error('compileGroupCounts needs spec.group');
-  const params: SqlParam[] = [];
-  const where = [`${table}.deleted = 0`];
+  const params: SqlParam[] = [spec.coll];
+  const where = [`${table}.deleted = 0`, `${table}.coll = ?`];
   if (spec.filter) where.push(compileFilter(spec.filter, schema, params, table));
   const key = keyExpr(spec.group.field, schema[spec.group.field], table);
   const sql =

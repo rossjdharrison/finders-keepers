@@ -4,7 +4,7 @@ import { num, moneyDec } from '@core/values';
 import { mergeRows } from './reconcile.ts';
 import type { RowStateWire } from './types.ts';
 
-const row = (id: string, doc: RowStateWire['doc'], deleted = false): RowStateWire => ({ id, doc, deleted, seq: 1 });
+const row = (id: string, doc: RowStateWire['doc'], deleted = false): RowStateWire => ({ coll: 'x', id, doc, deleted, seq: 1 });
 
 test('a touched-rows broadcast merges by id and leaves untouched rows intact', () => {
   const cur = new Map([

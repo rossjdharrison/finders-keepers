@@ -1,76 +1,102 @@
-// The client store — a signals-backed view of one collection.
+// The workspace store — all collections behind one WebSocket to the WorkspaceDO.
 //
-// Lifecycle: PUT the schema, seed once if empty, snapshot via POST /query, then
-// open the WebSocket. Edits to STORED fields are applied optimistically (inline
-// patch) and sent as ops; computed columns are left stale until the server's
-// authoritative {k:'rows'} broadcast lands and reconcile merges them by id.
-//
-// Contract details that MUST hold (verified against collection-do.ts):
-//  - send {k:'hello', token: actor} on open, else writes are attributed 'anon'
-//  - HTTP fallback body carries {actor, ops}
-//  - reconcile MERGES by id (broadcasts are touched-rows-only)
-//  - computed fields are read-only (the server drops setField to them)
+// One socket carries {k:rows} broadcasts for EVERY collection; the handler groups
+// them by `coll` and merges each into that collection's own map (merge-by-id,
+// since the server sends only touched rows — and a task edit's cascade touches
+// feature rows too, which is exactly how a rollup updates in another tab).
 
 import { computed, signal } from '@preact/signals-core';
 import type { Value } from '@core/values';
-import type { ViewSpec } from '@core/query';
-import type { CollectionDoc, ConnStatus, Property, RowOp, RowStateWire, Store } from './types.ts';
+import type {
+  CollectionDoc,
+  CollectionStore,
+  ConnStatus,
+  Property,
+  RelationMeta,
+  RowOp,
+  RowStateWire,
+  WorkspaceStore,
+} from './types.ts';
 import { mergeRows } from './reconcile.ts';
 
-export interface StoreInit {
-  baseUrl: string; // same-origin in dev (Vite proxy forwards /collections + ws)
-  collectionId: string;
+export interface WorkspaceInit {
+  baseUrl: string;
   actor: string;
-  collection: CollectionDoc;
-  query: ViewSpec;
-  seedOps?: RowOp[]; // inserted only when the collection is empty
+  collections: CollectionDoc[];
+  relations: Record<string, RelationMeta>;
+  seedOps?: RowOp[]; // applied only when the workspace is empty
 }
 
 const rid = (): string => `${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
 
-export async function createStore(init: StoreInit): Promise<Store> {
-  const { baseUrl, collectionId, actor, collection, query } = init;
-  const at = (p: string): string => `${baseUrl}/collections/${collectionId}${p}`;
-  const props = new Map<string, Property>(collection.properties.map((p) => [p.id, p]));
-
-  const rowMap = signal(new Map<string, RowStateWire>());
+export async function createWorkspaceStore(init: WorkspaceInit): Promise<WorkspaceStore> {
+  const { baseUrl, actor, collections, relations } = init;
+  const at = (p: string): string => `${baseUrl}${p}`;
   const status = signal<ConnStatus>('connecting');
-  const rows = computed(() => [...rowMap.value.values()].filter((r) => !r.deleted));
 
   async function api<T>(path: string, method: string, body: unknown): Promise<T> {
-    const res = await fetch(at(path), {
-      method,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    const res = await fetch(at(path), { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     const json = (await res.json().catch(() => ({}))) as T & { error?: string };
     if (!res.ok) throw new Error(json.error ?? res.statusText);
     return json;
   }
 
-  async function snapshot(): Promise<void> {
-    const { rows: qr } = await api<{ rows: RowStateWire[] }>('/query', 'POST', query);
-    rowMap.value = new Map(qr.map((r) => [r.id, r]));
-  }
-
-  // one-time schema + (idempotent) seed
-  await api('/collection', 'PUT', collection);
-  await snapshot();
-  if (rowMap.value.size === 0 && init.seedOps?.length) {
-    await api('/ops', 'POST', { actor, ops: init.seedOps });
-    await snapshot();
-  }
-
   let ws: WebSocket | null = null;
-  let closed = false;
+  const send = (ops: RowOp[]): void => {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ k: 'ops', ops, nonce: rid() }));
+    else void api('/collections/' + ops[0].coll + '/ops', 'POST', { actor, ops }).catch(() => undefined);
+  };
 
+  // per-collection sub-store
+  const stores = new Map<string, CollectionStore & { _reconcile(w: RowStateWire[]): void; _snapshot(): Promise<void> }>();
+  for (const doc of collections) {
+    const props = new Map<string, Property>(doc.properties.map((p) => [p.id, p]));
+    const rowMap = signal(new Map<string, RowStateWire>());
+    const rows = computed(() => [...rowMap.value.values()].filter((r) => !r.deleted));
+    stores.set(doc.id, {
+      id: doc.id,
+      rows,
+      propOf: (field) => props.get(field),
+      labelOf(rowId, labelField) {
+        const v = rowMap.value.get(rowId)?.doc[labelField];
+        return v && v.t === 'text' ? v.v : rowId;
+      },
+      setField(row, field, value) {
+        if (props.get(field)?.source === 'computed') return;
+        const cur = rowMap.value.get(row);
+        const next: RowStateWire = { coll: doc.id, id: row, doc: { ...(cur?.doc ?? {}), [field]: value }, deleted: cur?.deleted ?? false, seq: cur?.seq ?? 0 };
+        rowMap.value = new Map(rowMap.value).set(row, next); // optimistic
+        send([{ op: 'setField', coll: doc.id, row, field, value }]);
+      },
+      _reconcile(w) {
+        rowMap.value = mergeRows(rowMap.value, w);
+      },
+      async _snapshot() {
+        const { rows: qr } = await api<{ rows: RowStateWire[] }>(`/collections/${doc.id}/query`, 'POST', { coll: doc.id });
+        rowMap.value = new Map(qr.map((r) => [r.id, r]));
+      },
+    });
+  }
+
+  // one-time workspace schema + relations, then per-collection snapshot + seed-if-empty
+  await api('/workspace', 'PUT', { collections, relations });
+  await Promise.all([...stores.values()].map((s) => s._snapshot()));
+  const total = [...stores.values()].reduce((n, s) => n + s.rows.value.length, 0);
+  if (total === 0 && init.seedOps?.length) {
+    const byColl = new Map<string, RowOp[]>();
+    for (const op of init.seedOps) (byColl.get(op.coll) ?? byColl.set(op.coll, []).get(op.coll)!).push(op);
+    for (const [coll, list] of byColl) await api(`/collections/${coll}/ops`, 'POST', { actor, ops: list });
+    await Promise.all([...stores.values()].map((s) => s._snapshot()));
+  }
+
+  let closed = false;
   function connect(): void {
     status.value = 'connecting';
-    ws = new WebSocket(at('/ws').replace(/^http/, 'ws'));
+    ws = new WebSocket(at('/workspace/ws').replace(/^http/, 'ws'));
     ws.addEventListener('open', () => {
       status.value = 'open';
       ws?.send(JSON.stringify({ k: 'hello', token: actor }));
-      void snapshot(); // catch anything missed while the socket was down
+      void Promise.all([...stores.values()].map((s) => s._snapshot())); // catch missed writes
     });
     ws.addEventListener('message', (e: MessageEvent) => {
       let f: { k?: string; rows?: RowStateWire[] };
@@ -79,8 +105,13 @@ export async function createStore(init: StoreInit): Promise<Store> {
       } catch {
         return;
       }
-      if (f.k === 'rows' && f.rows) rowMap.value = mergeRows(rowMap.value, f.rows);
-      else if (f.k === 'reject') void snapshot(); // drop optimistic edit, refetch truth
+      if (f.k === 'rows' && f.rows) {
+        const byColl = new Map<string, RowStateWire[]>();
+        for (const r of f.rows) (byColl.get(r.coll) ?? byColl.set(r.coll, []).get(r.coll)!).push(r);
+        for (const [coll, list] of byColl) stores.get(coll)?._reconcile(list);
+      } else if (f.k === 'reject') {
+        void Promise.all([...stores.values()].map((s) => s._snapshot()));
+      }
     });
     ws.addEventListener('close', () => {
       status.value = 'closed';
@@ -96,27 +127,10 @@ export async function createStore(init: StoreInit): Promise<Store> {
   }
   connect();
 
-  function send(ops: RowOp[]): void {
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ k: 'ops', ops, nonce: rid() }));
-    else void api('/ops', 'POST', { actor, ops }).catch(() => undefined);
-  }
-
   return {
-    rows,
     status,
-    propOf: (id) => props.get(id),
-    setField(row, field, value) {
-      if (props.get(field)?.source === 'computed') return; // server would drop it
-      const cur = rowMap.value.get(row);
-      const nextRow: RowStateWire = {
-        id: row,
-        doc: { ...(cur?.doc ?? {}), [field]: value },
-        deleted: cur?.deleted ?? false,
-        seq: cur?.seq ?? 0,
-      };
-      rowMap.value = new Map(rowMap.value).set(row, nextRow); // optimistic
-      send([{ op: 'setField', coll: collectionId, row, field, value }]);
-    },
+    collectionIds: collections.map((c) => c.id),
+    collection: (id) => stores.get(id),
     close() {
       closed = true;
       try {

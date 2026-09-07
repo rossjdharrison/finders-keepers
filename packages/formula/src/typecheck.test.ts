@@ -4,7 +4,8 @@ import type { ValueType } from '@core/values';
 import { money } from '@core/values';
 import type { Node } from './ast.ts';
 import { compile } from './compile.ts';
-import { inferType } from './typecheck.ts';
+import { inferType, isFail } from './typecheck.ts';
+import type { Resolver } from './resolver.ts';
 
 const columns: Record<string, ValueType> = {
   unitPrice: { k: 'money', ccy: 'EUR' },
@@ -55,6 +56,29 @@ test('an if() with an error guard branch types to the concrete branch', () => {
 test('an unknown field is a #REF compile error', () => {
   const r = compile('x', field('nope'), { columns });
   assert.ok('errors' in r && r.errors[0].code === '#REF');
+});
+
+test('a rollup types against the CHILD collection via the relations registry', () => {
+  const childTypes: Record<string, ValueType> = { hours: { k: 'num' }, doneFlag: { k: 'num' } };
+  const resolver: Resolver = {
+    related: () => [],
+    cell: () => ({ t: 'blank' }),
+    columnType: (coll, col) => (coll === 'tasks' ? childTypes[col] : undefined),
+  };
+  const relations = { tasks: { parentColl: 'features', childColl: 'tasks', childField: 'feature' } };
+  const ctx = { columns: {}, resolver, relations };
+
+  // rollup-of-stored: sum(tasks.hours) -> num
+  assert.deepEqual(inferType({ op: 'rollup', via: 'tasks', agg: 'sum', of: field('hours') }, ctx), { k: 'num' });
+  // rollup-of-computed: sum(tasks.doneFlag) where doneFlag is a declared child computed num
+  assert.deepEqual(inferType({ op: 'rollup', via: 'tasks', agg: 'sum', of: field('doneFlag') }, ctx), { k: 'num' });
+  // count -> num
+  assert.deepEqual(inferType({ op: 'rollup', via: 'tasks', agg: 'count', of: field('hours') }, ctx), { k: 'num' });
+
+  const badRel = inferType({ op: 'rollup', via: 'nope', agg: 'sum', of: field('hours') }, ctx);
+  assert.ok(isFail(badRel) && badRel.err === '#REF');
+  const badCol = inferType({ op: 'rollup', via: 'tasks', agg: 'sum', of: field('nope') }, ctx);
+  assert.ok(isFail(badCol) && badCol.err === '#REF');
 });
 
 test('compile records same-record dependencies for ordering', () => {

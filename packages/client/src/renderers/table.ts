@@ -4,10 +4,18 @@
 // rows signal changes, so a server-recomputed column updates live.
 
 import { effect } from '@preact/signals-core';
-import type { Renderer } from '../types.ts';
+import type { EnumOption, Renderer } from '../types.ts';
 import { mountCell } from '../cells.ts';
+import { format } from '../format.ts';
 
-export const tableRenderer: Renderer = (mount, { store, view }) => {
+export const tableRenderer: Renderer = (mount, { store, view, workspace }) => {
+  // Candidate parent rows for a ref field, read live from the parent collection.
+  const refOptionsFor = (field: string): EnumOption[] | undefined => {
+    const cfg = view.config?.refs?.[field];
+    const parent = cfg && workspace.collection(cfg.collection);
+    if (!cfg || !parent) return undefined;
+    return parent.rows.value.map((r) => ({ id: r.id, label: format(r.doc[cfg.labelField]) || r.id }));
+  };
   mount.replaceChildren();
   const table = document.createElement('table');
   table.className = 'view-table';
@@ -49,6 +57,7 @@ export const tableRenderer: Renderer = (mount, { store, view }) => {
             value: row.doc[f],
             prop,
             options: view.config?.enums?.[f],
+            refOptions: prop.valueType.k === 'ref' ? refOptionsFor(f) : undefined,
             readOnly: prop.source === 'computed',
             onEdit: (val) => store.setField(row.id, f, val),
           });

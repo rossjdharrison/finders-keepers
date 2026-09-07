@@ -3,7 +3,7 @@
 // propagate. The server and client share this exact function; the test suite
 // pins it. This is the runtime companion to the compile-time typechecker.
 
-import type { Value } from '@core/values';
+import type { Value, VRef } from '@core/values';
 import {
   BLANK,
   bool,
@@ -34,7 +34,7 @@ const MS_PER_DAY = 86_400_000;
 export interface EvalCtx {
   resolver: Resolver;
   clock: Clock;
-  recordId?: string;
+  self?: VRef; // the current record as a VRef {t:'ref', collection, id}
 }
 
 const truthy = (v: Value): boolean => v.t === 'bool' && v.v;
@@ -186,7 +186,7 @@ function evalRef(path: string[], env: Record<string, Value>, ctx: EvalCtx): Valu
   let cur: Value = env[path[0]] ?? BLANK;
   for (let i = 1; i < path.length; i++) {
     if (cur.t !== 'ref') return cur.t === 'blank' ? BLANK : err('#REF', `${path[i - 1]} not a ref`);
-    cur = ctx.resolver.cell(cur.id, path[i]);
+    cur = ctx.resolver.cell(cur, path[i]); // cur is a VRef here — carries its .collection
   }
   return cur;
 }
@@ -211,11 +211,11 @@ function aggregate(agg: string, vals: Value[]): Value {
 }
 
 function evalRollup(node: Extract<Node, { op: 'rollup' }>, ctx: EvalCtx): Value {
-  if (ctx.recordId === undefined) return err('#REF', 'rollup needs a record context');
+  if (ctx.self === undefined) return err('#REF', 'rollup needs a record context');
   if (node.of.op !== 'field') return err('#NA', 'rollup supports a field target in v0');
-  const ids = ctx.resolver.related(ctx.recordId, node.via);
+  const refs = ctx.resolver.related(ctx.self, node.via);
   const column = node.of.id;
-  return aggregate(node.agg, ids.map((rid) => ctx.resolver.cell(rid, column)));
+  return aggregate(node.agg, refs.map((r) => ctx.resolver.cell(r, column)));
 }
 
 // ---- the evaluator ----------------------------------------------------------
@@ -259,7 +259,7 @@ export function evalRecord(
   const full: EvalCtx = {
     resolver: ctx.resolver ?? emptyResolver(),
     clock: ctx.clock ?? { today: 0, nowMs: 0 },
-    recordId: ctx.recordId,
+    self: ctx.self,
   };
   const work: Record<string, Value> = { ...env };
   const out: Record<string, Value> = {};

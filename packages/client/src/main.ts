@@ -1,54 +1,49 @@
-// The walking skeleton wired together: seed the Deals collection, open the store,
-// and mount a data-defined view with a table<->board switcher. Editing a stored
-// cell (or dragging a card) writes an op; the server recomputes lineTotal and
-// broadcasts, so every open tab updates live — with no formula code on the client.
+// The demo shell: one workspace ("Product Studio"), a collection switcher, and a
+// data-defined view per collection. Edit a Task's hours/status (or drag a Doc
+// between editorial columns) and the Feature + Initiative rollups update live in
+// every open tab — the server computes them; the client runs no formula code.
 
 import { effect } from '@preact/signals-core';
-import { createStore } from './store.ts';
+import { createWorkspaceStore } from './store.ts';
 import { RENDERERS } from './registry.ts';
-import { COLLECTION, dealsDoc, seedOps } from './deals.ts';
+import { collections, relations, seedOps, views } from './product-studio.ts';
 import type { ViewDoc } from './types.ts';
-import tableView from './views/deals-table.json';
-import boardView from './views/deals-board.json';
 
-const views = [tableView, boardView] as unknown as ViewDoc[];
 const app = document.querySelector<HTMLElement>('#app')!;
-
-// shell: header (title + connection dot + view tabs) and a mount point
 app.innerHTML = `
   <header class="topbar">
-    <div class="brand">Computable Records <span class="muted">· Deals</span></div>
+    <div class="brand">Product Studio <span class="muted">· Computable Records</span></div>
     <div class="tabs" id="tabs"></div>
     <div class="conn" id="conn" title="connection"></div>
   </header>
   <main id="mount" class="mount"></main>
-  <footer class="hint">Edit a cell or drag a card — <b>lineTotal</b> is computed on the server and updates every open tab live.</footer>
+  <footer class="hint">Edit a <b>Task</b>'s hours or status — the <b>Feature</b> and <b>Initiative</b> rollups (effort, progress, points) recompute on the server and update every open tab live.</footer>
 `;
 
 const tabsEl = app.querySelector<HTMLElement>('#tabs')!;
 const mount = app.querySelector<HTMLElement>('#mount')!;
 const conn = app.querySelector<HTMLElement>('#conn')!;
 
-const actor = `tab-${Math.random().toString(36).slice(2, 6)}`;
-const store = await createStore({
-  baseUrl: location.origin, // Vite proxy forwards /collections + ws to :8787 (same-origin)
-  collectionId: COLLECTION,
-  actor,
-  collection: dealsDoc,
-  query: views[0].query,
+const workspace = await createWorkspaceStore({
+  baseUrl: location.origin, // Vite proxy forwards /collections + /workspace + ws to :8787
+  actor: `tab-${Math.random().toString(36).slice(2, 6)}`,
+  collections,
+  relations,
   seedOps,
 });
 
 effect(() => {
-  conn.dataset.status = store.status.value;
-  conn.textContent = store.status.value;
+  conn.dataset.status = workspace.status.value;
+  conn.textContent = workspace.status.value;
 });
 
 let dispose: () => void = () => undefined;
 function show(view: ViewDoc): void {
   dispose();
+  mount.replaceChildren();
+  const store = workspace.collection(view.collection);
   const renderer = RENDERERS[view.renderer];
-  dispose = renderer ? renderer(mount, { store, view }) : () => undefined;
+  dispose = store && renderer ? renderer(mount, { store, view, workspace }) : () => undefined;
   for (const b of tabsEl.querySelectorAll('button')) b.classList.toggle('active', b.dataset.id === view.id);
 }
 
@@ -60,4 +55,4 @@ for (const view of views) {
   tabsEl.append(b);
 }
 
-show(views[0]);
+show(views[1]); // open on Features — where the rollups are most visible

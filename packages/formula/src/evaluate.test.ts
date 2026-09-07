@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Value, ValueType } from '@core/values';
-import { num, money, moneyDec, date, dur, equals, ymdToEpochDay } from '@core/values';
+import { num, money, moneyDec, date, dur, equals, ymdToEpochDay, ref } from '@core/values';
 import type { Node } from './ast.ts';
 import { compile } from './compile.ts';
 import { topoOrCycle } from './graph.ts';
@@ -75,17 +75,20 @@ test('evalRecord computes a chain of columns in dependency order', () => {
   assert.ok(equals(out.withVat, moneyDec(238, 'EUR')));
 });
 
-test('rollup sums a money column across related records', () => {
+test('rollup sums a child column across related records (collection-aware)', () => {
   const resolver: Resolver = {
-    related: (id, via) => (id === 'acc1' && via === 'deals' ? ['d1', 'd2'] : []),
-    cell: (id, col) =>
-      col === 'total' ? (id === 'd1' ? moneyDec(300, 'EUR') : moneyDec(150, 'EUR')) : { t: 'blank' },
+    related: (from, via) =>
+      from.collection === 'accounts' && from.id === 'acc1' && via === 'deals'
+        ? [ref('deals', 'd1'), ref('deals', 'd2')]
+        : [],
+    cell: (r, col) =>
+      col === 'total' ? (r.id === 'd1' ? moneyDec(300, 'EUR') : moneyDec(150, 'EUR')) : { t: 'blank' },
     columnType: () => ({ k: 'money', ccy: 'EUR' }),
   };
-  const r = evalNode({ op: 'rollup', via: 'deals', agg: 'sum', of: field('total') }, {}, {
+  const out = evalNode({ op: 'rollup', via: 'deals', agg: 'sum', of: field('total') }, {}, {
     resolver,
     clock: { today: 0, nowMs: 0 },
-    recordId: 'acc1',
+    self: ref('accounts', 'acc1'),
   });
-  assert.ok(equals(r, moneyDec(450, 'EUR')));
+  assert.ok(equals(out, moneyDec(450, 'EUR')));
 });

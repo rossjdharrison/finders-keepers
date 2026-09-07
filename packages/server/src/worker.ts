@@ -1,20 +1,21 @@
-// The Worker entry: route /collections/:id/* to that collection's Durable Object,
-// which is the single authority for the collection (log + SQLite + WS fanout).
+// The Worker entry: route the whole workspace surface to a single WorkspaceDO
+// (one DO per workspace holds all its collections + relations + SQLite + WS fanout).
 
-import { CollectionDO } from './collection-do.ts';
+import { WorkspaceDO } from './workspace-do.ts';
 
-export { CollectionDO };
+export { WorkspaceDO };
 
 export interface Env {
-  COLLECTION: DurableObjectNamespace<CollectionDO>;
+  WORKSPACE: DurableObjectNamespace<WorkspaceDO>;
 }
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
-    const url = new URL(req.url);
-    const m = url.pathname.match(/^\/collections\/([^/]+)/);
-    if (!m) return new Response('usage: /collections/:id/{collection,ops,query,ws}', { status: 404 });
-    const stub = env.COLLECTION.get(env.COLLECTION.idFromName(m[1]));
+    const { pathname } = new URL(req.url);
+    if (!/^\/(collections\/[^/]+|workspace)\b/.test(pathname)) {
+      return new Response('usage: /workspace, /collections/:coll/{collection,ops,query}, /collections/:coll/ws', { status: 404 });
+    }
+    const stub = env.WORKSPACE.get(env.WORKSPACE.idFromName('demo')); // one workspace for the demo
     return stub.fetch(req);
   },
 } satisfies ExportedHandler<Env>;

@@ -4,14 +4,15 @@
 // decimal input <-> minor units via moneyDec; enum: option id).
 
 import type { Value } from '@core/values';
-import { moneyDec, enumV } from '@core/values';
+import { moneyDec, enumV, ref, BLANK } from '@core/values';
 import { format } from './format.ts';
 import type { EnumOption, Property } from './types.ts';
 
 export interface CellArgs {
   value: Value | undefined;
   prop: Property;
-  options?: EnumOption[];
+  options?: EnumOption[]; // enum option labels
+  refOptions?: EnumOption[]; // candidate parent rows for a ref field {id,label}
   readOnly: boolean;
   onEdit: (v: Value) => void;
 }
@@ -22,6 +23,36 @@ export function mountCell(host: HTMLElement, a: CellArgs): void {
   host.replaceChildren();
   const v = a.value;
   const k = a.prop.valueType.k;
+
+  // reference field -> a dropdown of parent rows (the relation editor)
+  if (k === 'ref') {
+    const target = a.prop.valueType.k === 'ref' ? a.prop.valueType.collection : '';
+    const curId = v?.t === 'ref' ? v.id : '';
+    const labelFor = (id: string): string => a.refOptions?.find((o) => o.id === id)?.label ?? id;
+    if (a.readOnly) {
+      const span = document.createElement('span');
+      span.className = 'cell';
+      span.textContent = curId ? labelFor(curId) : '';
+      host.append(span);
+      return;
+    }
+    const sel = document.createElement('select');
+    sel.className = 'cell-input';
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = '—';
+    sel.append(none);
+    for (const o of a.refOptions ?? []) {
+      const opt = document.createElement('option');
+      opt.value = o.id;
+      opt.textContent = o.label;
+      sel.append(opt);
+    }
+    sel.value = curId;
+    sel.addEventListener('change', () => a.onEdit(sel.value ? ref(target, sel.value) : BLANK));
+    host.append(sel);
+    return;
+  }
 
   if (a.readOnly || !EDITABLE.has(k)) {
     const span = document.createElement('span');

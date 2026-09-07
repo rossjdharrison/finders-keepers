@@ -1,13 +1,13 @@
-// Client-side mirrors + the frozen view-engine contracts. The server package is
-// not browser-bundleable (Durable Objects), so the wire shapes are re-declared
-// here against the exact contract in packages/server/src/collection-do.ts.
+// Client-side mirrors + the view-engine contracts, against the WorkspaceDO wire
+// contract in packages/server/src/workspace-do.ts.
 
 import type { Value, ValueType } from '@core/values';
 import type { ViewSpec } from '@core/query';
 import type { ReadonlySignal } from '@preact/signals-core';
 
-// --- wire (matches collection-do.ts RowStateWire / CollectionDoc) ------------
+// --- wire --------------------------------------------------------------------
 export interface RowStateWire {
+  coll: string;
   id: string;
   doc: Record<string, Value>;
   deleted: boolean;
@@ -17,15 +17,18 @@ export interface Property {
   id: string;
   valueType: ValueType;
   source?: 'stored' | 'computed';
-  formula?: unknown; // opaque on the client — the server owns computation
+  formula?: unknown;
 }
 export interface CollectionDoc {
   id: string;
   properties: Property[];
 }
+export interface RelationMeta {
+  parentColl: string;
+  childColl: string;
+  childField: string;
+}
 
-// The subset of RowOp the client submits (mirror of @core/events, kept local so
-// the client doesn't depend on that package).
 export type RowOp =
   | { op: 'insert'; coll: string; row: string; values: Record<string, Value> }
   | { op: 'setField'; coll: string; row: string; field: string; value: Value }
@@ -37,10 +40,11 @@ export interface EnumOption {
   label: string;
 }
 export interface ViewConfig {
-  labels?: Record<string, string>; // field id -> column header
-  enums?: Record<string, EnumOption[]>; // field id -> options (label + order)
-  groupField?: string; // board: the enum field to group columns by
-  columns?: string[]; // board: option-id column order
+  labels?: Record<string, string>;
+  enums?: Record<string, EnumOption[]>;
+  refs?: Record<string, { collection: string; labelField: string }>; // ref field -> parent collection + its label field
+  groupField?: string;
+  columns?: string[];
 }
 export interface ViewDoc {
   id: string;
@@ -52,17 +56,29 @@ export interface ViewDoc {
   config?: ViewConfig;
 }
 
-// --- the store + renderer contracts ------------------------------------------
+// --- stores ------------------------------------------------------------------
 export type ConnStatus = 'connecting' | 'open' | 'closed';
-export interface Store {
-  readonly rows: ReadonlySignal<RowStateWire[]>; // live, deleted removed, server order
-  readonly status: ReadonlySignal<ConnStatus>;
-  propOf(id: string): Property | undefined;
+
+/** One collection's live rows + editing. */
+export interface CollectionStore {
+  readonly id: string;
+  readonly rows: ReadonlySignal<RowStateWire[]>;
+  propOf(field: string): Property | undefined;
+  labelOf(rowId: string, labelField: string): string; // for ref display
   setField(row: string, field: string, value: Value): void;
+}
+
+/** The whole workspace: all collections behind one socket. */
+export interface WorkspaceStore {
+  readonly status: ReadonlySignal<ConnStatus>;
+  readonly collectionIds: string[];
+  collection(id: string): CollectionStore | undefined;
   close(): void;
 }
+
 export interface RenderCtx {
-  store: Store;
+  store: CollectionStore; // the active collection
   view: ViewDoc;
+  workspace: WorkspaceStore; // for cross-collection ref pickers
 }
 export type Renderer = (mount: HTMLElement, ctx: RenderCtx) => () => void;

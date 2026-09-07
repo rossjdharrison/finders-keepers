@@ -16,10 +16,12 @@ This repo begins with the one thing worth owning: the **typed formula engine**.
 | [`@core/formula`](packages/formula) | The formula engine — a JSON `{op,args}` AST, a **static typechecker** (catches `money(EUR) + money(USD)` as `#CCY` at column save time), `compile` (typecheck + dependency extraction), a Kahn **cycle guard** (`#CYCLE`), and a **pure, total evaluator** that doubles as the test oracle. |
 | [`@core/events`](packages/events) | The row change model — a `RowOp` union + a **pure, seq-ordered reducer** (`applyOp`/`fold`). Scalars are last-writer-by-seq; multi-value fields use commutative `addElement`/`removeElement`; `invert` powers undo. CRUD-with-history, not event-sourcing (that's a v2 concern). |
 | [`@core/query`](packages/query) | The read path — compile a data-defined `ViewSpec` (filter/sort/group) into **parameterised SQL** over the records table. Money compares on integer minor units with a currency guard; dates on `epochDay`; field ids are validated against injection. |
-| [`@app/server`](packages/server) | The **CollectionDO** — one Cloudflare Durable Object per collection: it assigns a monotonic `seq`, folds ops with `@core/events`, **recomputes typed computed columns** with `@core/formula`, persists to embedded **SQLite**, serves `@core/query` reads strongly, and **broadcasts recomputed rows over WebSockets**. All the hard logic lives in the pure `@core` packages; the DO is the thin authority shell. |
-| [`@app/client`](packages/client) | The **view engine** — data-defined `View` docs (`collection` + `ViewSpec` + `renderer` + `config`) rendered through a **renderer registry** (`table` + `board`) and a **cell registry** keyed by value type. A signals-backed store seeds, snapshots, edits optimistically, and **reconciles by id** on the WebSocket broadcast. Stored cells are editable; computed cells are read-only and update live. Vite + `@preact/signals-core`, no framework. |
+| [`@app/server`](packages/server) | The **WorkspaceDO** — one Cloudflare Durable Object holds an entire workspace (many collections + the relations registry) in one embedded **SQLite**. It assigns a monotonic `seq`, folds ops with `@core/events`, and runs a rank-ordered **recompute cascade**: a `@core/formula` recompute of the edited row, then every row that **rolls it up**, transitively, until stable (a task's hours ripple to its feature's `effort` and up to the initiative). Terminates structurally — the cross-collection rollup graph is a DAG. Broadcasts recomputed rows (tagged by collection) over WebSockets. |
+| [`@app/client`](packages/client) | The **view engine** — data-defined `View` docs rendered through a **renderer registry** (`table` + `board`) and a **cell registry** keyed by value type, incl. a **ref picker** (dropdown of parent rows). A signals-backed workspace store holds all collections behind one socket, edits optimistically, and **reconciles by id per collection** on the broadcast — so a task edit updates a feature's rollup in another tab. Vite + `@preact/signals-core`, no framework. |
 
 `@core/values` has no dependencies; the other `@core/*` packages build on it; `@app/server` wires them into the Durable Object; `@app/client` is the browser view engine over the same wire contract.
+
+**Relations + rollups.** Relations are ref-field (many-to-one): a child stores a `ref` to its parent, and a `via` in the workspace registry maps it to a relation. **Rollups are just computed columns** whose formula is a `rollup` AST node — so `Feature.effort = sum(Tasks.hours)`, `Feature.progress = taskDone / taskCount` (computed-from-rollup), and `Initiative.shippedPoints = sum(Feature.shippedPoints)` (rollup-of-computed) all reuse the whole typecheck/eval path. The typechecker resolves a rolled-up field against the *child* collection; the resolver is collection-aware (VRef-based).
 
 The `@core/*` packages are pure and run under `node:test`; `@app/server` runs its Durable Object tests inside **workerd** via `@cloudflare/vitest-pool-workers` (`npm run test:server`).
 
@@ -52,24 +54,26 @@ npm run typecheck  # tsc --noEmit per package
 
 ## Roadmap
 
-**v0 walking skeleton — done.** The engine (`@core/values` + `@core/formula`), the
-persistence spine (`@core/events` + `@core/query` + the `CollectionDO`), and the
-client view engine (`@app/client`) are all in place and verified end to end: a
-typed computed column recomputes on the server, renders through data-defined table
-+ board views, and updates **live across two browser tabs** — editing `qty` in one
-tab recomputes `lineTotal` and both tabs reflect it, with no formula code on the client.
+**v1 in progress — relations + rollups shipped.** The engine, the persistence spine
+(now a `WorkspaceDO`), the client view engine, **and row↔row relations + rollups**
+are in place and verified end to end. The demo is **"Product Studio"** (product
+development × Confluence): Initiatives → Features → Tasks (hierarchy via ref fields)
+plus Docs (Confluence pages on an editorial board). Editing a Task's hours or status
+ripples through the rollups (`effort`, `progress`, `shippedPoints`) up to the
+Feature and Initiative, **live across every open tab**, with no formula code on the client.
 
 ### Run the two-tab demo
 
 ```bash
 # terminal 1 — the Durable Object worker
 cd packages/server && npx wrangler dev --port 8787
-# terminal 2 — the client (Vite proxies /collections + ws to :8787, same-origin)
+# terminal 2 — the client (Vite proxies /collections + /workspace + ws to :8787)
 cd packages/client && npm run dev
 ```
 
-Open http://localhost:5173 in two tabs. Edit a `qty` or `unit price` (or drag a card
-between board columns); the server recomputes `lineTotal` and both tabs update live.
+Open http://localhost:5173 in two tabs. Switch one to **Tasks** and the other to
+**Features**; change a task's hours or status — the feature's `effort`/`progress`
+rollups (and the initiative's totals) recompute on the server and update both tabs.
 - **v1 (the real MVP):** multiple collections, relations + rollups, real-time
   multi-user, auth, gallery + calendar views — "Notion-lite with a real type system".
 - **v2 (the moat, once v1 has users):** event-sourced process instances, an optional
