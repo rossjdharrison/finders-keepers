@@ -1,0 +1,26 @@
+{
+  "name": "computable-records",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A typed, computed, event-sourced database — Notion's database half with a spreadsheet's brain.",
+  "license": "MIT",
+  "author": "rossjdharrison",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test \"packages/**/src/**/*.test.ts\"",
+    "test:tsx": "node --import tsx --test \"packages/**/src/**/*.test.ts\"",
+    "typecheck": "tsc -p packages/values/tsconfig.json && tsc -p packages/formula/tsconfig.json",
+    "check": "npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.3"
+  }
+}

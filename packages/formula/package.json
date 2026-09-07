@@ -1,0 +1,16 @@
+{
+  "name": "@core/formula",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The typed formula engine: AST, static typechecker, compile + cycle guard, and the pure evaluator/oracle.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@core/values": "*"
+  },
+  "scripts": {
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}
