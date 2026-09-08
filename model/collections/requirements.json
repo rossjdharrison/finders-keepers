@@ -20,11 +20,7 @@
       "id": "target", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity",
       "availableWhen": { "op": "eq", "args": [{ "op": "field", "id": "kind" }, { "op": "lit", "value": { "t": "enum", "set": "reqKind", "v": "performance" } }] }
     },
-    {
-      "id": "measured", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity",
-      "availableWhen": { "op": "eq", "args": [{ "op": "field", "id": "kind" }, { "op": "lit", "value": { "t": "enum", "set": "reqKind", "v": "performance" } }] }
-    },
-    { "id": "status", "valueType": { "k": "enum", "set": "reqStatus" }, "source": "stored", "category": "state" },
+    { "id": "status", "valueType": { "k": "enum", "set": "reqStatus" }, "source": "stored", "category": "class_of_state" },
     { "id": "intention", "valueType": { "k": "ref", "collection": "intentions" }, "source": "stored", "category": "part_of_plan" },
     { "id": "decision", "valueType": { "k": "ref", "collection": "decisions" }, "source": "stored", "category": "association" },
     {
@@ -42,11 +38,11 @@
       "formula": { "op": "build", "cmp": { "op": "field", "id": "comparator" }, "observable": { "op": "field", "id": "observable" }, "threshold": { "op": "field", "id": "target" } }
     },
     {
-      "id": "met", "valueType": { "k": "bool" }, "source": "computed",
-      "formula": { "op": "check", "pred": { "op": "field", "id": "criterionExpr" }, "evidence": { "op": "field", "id": "measured" } }
+      "id": "metCount", "valueType": { "k": "num" }, "source": "computed", "category": "physical_quantity",
+      "formula": { "op": "rollup", "via": "observations", "agg": "sum", "of": { "op": "field", "id": "metNum" } }
     }
   ],
   "transitions": [
-    { "id": "verify", "field": "status", "from": "accepted", "to": "verified", "when": { "op": "field", "id": "met" } }
+    { "id": "verify", "field": "status", "from": "accepted", "to": "verified", "category": "event", "when": { "op": "gt", "args": [{ "op": "field", "id": "metCount" }, { "op": "lit", "value": { "t": "num", "v": 0 } }] } }
   ]
 }

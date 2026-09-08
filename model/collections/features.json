@@ -4,7 +4,7 @@
   "properties": [
     { "id": "name", "valueType": { "k": "text" }, "source": "stored" },
     { "id": "initiative", "valueType": { "k": "ref", "collection": "initiatives" }, "source": "stored", "category": "association" },
-    { "id": "status", "valueType": { "k": "enum", "set": "featureStatus" }, "source": "stored", "category": "state" },
+    { "id": "status", "valueType": { "k": "enum", "set": "featureStatus" }, "source": "stored", "category": "class_of_state" },
     { "id": "points", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity" },
     {
       "id": "effort", "valueType": { "k": "num" }, "source": "computed", "category": "physical_quantity",

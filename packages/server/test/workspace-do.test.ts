@@ -230,6 +230,60 @@ describe('WorkspaceDO verification seam (a transition gated by met)', () => {
   });
 });
 
+describe('WorkspaceDO evidence/spec split (a requirement is a class; met is classification)', () => {
+  const cmpLtePred = { op: 'build', cmp: field('comparator'), observable: field('observable'), threshold: field('target') };
+  const cols: CollectionDoc[] = [
+    {
+      id: 'reqs2', semanticClass: 'Requirement',
+      properties: [
+        stored('title', { k: 'text' }), stored('status', { k: 'enum', set: 'st' }),
+        stored('comparator', { k: 'enum', set: 'cmp' }), stored('observable', { k: 'enum', set: 'metric' }), stored('target', { k: 'num' }),
+        computed('criterionExpr', { k: 'predicate' }, cmpLtePred),
+        computed('metCount', { k: 'num' }, rollup('obs2', 'sum', 'metNum')),
+      ],
+      transitions: [{ id: 'verify', field: 'status', from: 'accepted', to: 'verified', category: 'event', when: { op: 'gt', args: [field('metCount'), lit(num(0))] } }],
+    } as CollectionDoc,
+    {
+      id: 'obs2', semanticClass: 'Observation',
+      properties: [
+        stored('requirement', { k: 'ref', collection: 'reqs2' }), stored('measured', { k: 'num' }),
+        computed('metNum', { k: 'num' }, {
+          op: 'call', fn: 'if',
+          args: [{ op: 'check', pred: { op: 'ref', path: ['requirement', 'criterionExpr'] }, evidence: field('measured') }, lit(num(1)), lit(num(0))],
+        }),
+      ],
+    } as CollectionDoc,
+  ];
+  const relations2 = { obs2: { parentColl: 'reqs2', childColl: 'obs2', childField: 'requirement' } };
+  const types2 = { Requirement: { specializes: ['requirement_specification'] }, Observation: { specializes: ['state'] } };
+  const statusOf2 = async (id: string) =>
+    (((await (await call('/collections/reqs2/query', { coll: 'reqs2' })).json()) as { rows: { id: string; doc: Record<string, { v?: string | number }> }[] }).rows.find((r) => r.id === id))!.doc;
+
+  it('an observation is classified against its requirement criterion; the requirement verifies only when some observation satisfies it', async () => {
+    expect((await call('/workspace', { collections: cols, relations: relations2, types: types2 }, 'PUT')).ok).toBe(true);
+    await ops('reqs2', [
+      { op: 'insert', coll: 'reqs2', row: 'q1', values: { title: text('fast'), status: en('st', 'accepted'), comparator: en('cmp', 'lte'), observable: en('metric', 'latency_ms'), target: num(200) } },
+      { op: 'insert', coll: 'reqs2', row: 'q2', values: { title: text('faster'), status: en('st', 'accepted'), comparator: en('cmp', 'lte'), observable: en('metric', 'latency_ms'), target: num(200) } },
+    ]);
+    // an observation classifies against its OWN requirement's criterion (cross-record check)
+    await ops('obs2', [
+      { op: 'insert', coll: 'obs2', row: 'o1', values: { requirement: ref('reqs2', 'q1'), measured: num(180) } }, // 180 <= 200 -> satisfies
+      { op: 'insert', coll: 'obs2', row: 'o2', values: { requirement: ref('reqs2', 'q2'), measured: num(250) } }, // 250 <= 200 -> does not
+    ]);
+    const obs = ((await (await call('/collections/obs2/query', { coll: 'obs2' })).json()) as { rows: { id: string; doc: Record<string, { v?: number }> }[] }).rows;
+    expect(obs.find((r) => r.id === 'o1')!.doc.metNum.v).toBe(1);
+    expect(obs.find((r) => r.id === 'o2')!.doc.metNum.v).toBe(0);
+    // the requirement rolls up how many observations satisfy it
+    expect((await statusOf2('q1')).metCount.v).toBe(1);
+    expect((await statusOf2('q2')).metCount.v).toBe(0);
+    // verify is gated on having a satisfying observation
+    expect((await ops('reqs2', [{ op: 'setField', coll: 'reqs2', row: 'q1', field: 'status', value: en('st', 'verified') }])).ok).toBe(true);
+    expect((await statusOf2('q1')).status.v).toBe('verified');
+    expect((await ops('reqs2', [{ op: 'setField', coll: 'reqs2', row: 'q2', field: 'status', value: en('st', 'verified') }])).status).toBe(400);
+    expect((await statusOf2('q2')).status.v).toBe('accepted');
+  });
+});
+
 describe('WorkspaceDO schema-as-data (reflective Stage 2b)', () => {
   const cols: CollectionDoc[] = [
     {

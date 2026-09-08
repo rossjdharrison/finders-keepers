@@ -14,7 +14,7 @@ const relations = model.relations as unknown as Record<string, RelationMeta>;
 const types = model.types as unknown as TypeMap;
 const seedOps = model.seedOps as unknown as RowOp[];
 
-const ORDER = ['intentions', 'requirements', 'decisions', 'options', 'initiatives', 'features', 'tasks', 'docs', 'collections', 'properties', 'types'];
+const ORDER = ['intentions', 'requirements', 'observations', 'decisions', 'options', 'initiatives', 'features', 'tasks', 'docs', 'collections', 'properties', 'types'];
 const views = (model.views as unknown as ViewDoc[])
   .slice()
   .sort((a, b) => ORDER.indexOf(a.collection) - ORDER.indexOf(b.collection));

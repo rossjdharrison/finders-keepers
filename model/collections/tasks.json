@@ -4,7 +4,7 @@
   "properties": [
     { "id": "title", "valueType": { "k": "text" }, "source": "stored" },
     { "id": "feature", "valueType": { "k": "ref", "collection": "features" }, "source": "stored", "category": "association" },
-    { "id": "status", "valueType": { "k": "enum", "set": "taskStatus" }, "source": "stored", "category": "state" },
+    { "id": "status", "valueType": { "k": "enum", "set": "taskStatus" }, "source": "stored", "category": "class_of_state" },
     { "id": "hours", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity" },
     {
       "id": "doneFlag", "valueType": { "k": "num" }, "source": "computed",

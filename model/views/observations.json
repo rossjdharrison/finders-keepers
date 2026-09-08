@@ -1,0 +1,12 @@
+{
+  "id": "observations",
+  "collection": "observations",
+  "title": "Observations",
+  "renderer": "table",
+  "query": { "coll": "observations" },
+  "visibleProps": ["requirement", "measured", "metNum"],
+  "config": {
+    "labels": { "requirement": "Of requirement", "measured": "Measured", "metNum": "Satisfies? (1/0)" },
+    "refs": { "requirement": { "collection": "requirements", "labelField": "title" } }
+  }
+}

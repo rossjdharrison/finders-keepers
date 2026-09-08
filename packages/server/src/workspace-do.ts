@@ -37,6 +37,7 @@ export interface Transition {
   from?: string; // required current option (any, if omitted)
   to: string; // the target option
   when: unknown; // a boolean guard formula over the record — the move is refused unless it holds
+  category?: string; // optional HQDM class for the state-change itself (an `event`); must reduce
 }
 export interface CollectionDoc {
   id: string;
@@ -213,6 +214,9 @@ export class WorkspaceDO extends DurableObject<Env> {
       if (!reduces(doc.semanticClass, types)) throw new Error(`collection '${coll}': semanticClass '${doc.semanticClass}' does not reduce to HQDM`);
       for (const p of doc.properties) {
         if (p.category && !reduces(p.category, types)) throw new Error(`'${coll}.${p.id}': category '${p.category}' does not reduce to HQDM`);
+      }
+      for (const t of doc.transitions ?? []) {
+        if (t.category && !reduces(t.category, types)) throw new Error(`'${coll}' transition '${t.id}': category '${t.category}' does not reduce to HQDM`);
       }
     }
 

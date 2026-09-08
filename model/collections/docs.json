@@ -4,7 +4,7 @@
   "properties": [
     { "id": "title", "valueType": { "k": "text" }, "source": "stored" },
     { "id": "space", "valueType": { "k": "enum", "set": "docSpace" }, "source": "stored" },
-    { "id": "status", "valueType": { "k": "enum", "set": "docStatus" }, "source": "stored", "category": "state" },
+    { "id": "status", "valueType": { "k": "enum", "set": "docStatus" }, "source": "stored", "category": "class_of_state" },
     { "id": "feature", "valueType": { "k": "ref", "collection": "features" }, "source": "stored", "category": "association" }
   ]
 }

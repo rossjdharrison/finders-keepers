@@ -1,0 +1,18 @@
+{
+  "id": "observations",
+  "semanticClass": "Observation",
+  "properties": [
+    { "id": "requirement", "valueType": { "k": "ref", "collection": "requirements" }, "source": "stored", "category": "association" },
+    { "id": "measured", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity" },
+    {
+      "id": "metNum", "valueType": { "k": "num" }, "source": "computed",
+      "formula": {
+        "op": "call", "fn": "if", "args": [
+          { "op": "check", "pred": { "op": "ref", "path": ["requirement", "criterionExpr"] }, "evidence": { "op": "field", "id": "measured" } },
+          { "op": "lit", "value": { "t": "num", "v": 1 } },
+          { "op": "lit", "value": { "t": "num", "v": 0 } }
+        ]
+      }
+    }
+  ]
+}

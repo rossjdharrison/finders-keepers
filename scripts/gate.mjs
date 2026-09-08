@@ -103,6 +103,9 @@ for (const c of collections) {
   for (const p of c.properties ?? []) {
     if (p.category && !reduces(p.category, types)) err(`'${c.id}.${p.id}': category '${p.category}' does not reduce to HQDM`);
   }
+  for (const t of c.transitions ?? []) {
+    if (t.category && !reduces(t.category, types)) err(`'${c.id}' transition '${t.id}': category '${t.category}' does not reduce to HQDM`);
+  }
 }
 
 // ---- LAW B · THE PLACE LAW --------------------------------------------------

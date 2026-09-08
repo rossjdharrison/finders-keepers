@@ -4,5 +4,6 @@
   "docs": { "parentColl": "features", "childColl": "docs", "childField": "feature" },
   "options": { "parentColl": "decisions", "childColl": "options", "childField": "decision" },
   "requirements": { "parentColl": "decisions", "childColl": "requirements", "childField": "decision" },
-  "intentionReqs": { "parentColl": "intentions", "childColl": "requirements", "childField": "intention" }
+  "intentionReqs": { "parentColl": "intentions", "childColl": "requirements", "childField": "intention" },
+  "observations": { "parentColl": "requirements", "childColl": "observations", "childField": "requirement" }
 }

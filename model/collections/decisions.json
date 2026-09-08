@@ -5,7 +5,7 @@
     { "id": "title", "valueType": { "k": "text" }, "source": "stored" },
     { "id": "context", "valueType": { "k": "text" }, "source": "stored" },
     { "id": "rationale", "valueType": { "k": "text" }, "source": "stored" },
-    { "id": "status", "valueType": { "k": "enum", "set": "decisionStatus" }, "source": "stored", "category": "state" },
+    { "id": "status", "valueType": { "k": "enum", "set": "decisionStatus" }, "source": "stored", "category": "class_of_state" },
     { "id": "level", "valueType": { "k": "enum", "set": "decisionLevel" }, "source": "stored" },
     { "id": "kind", "valueType": { "k": "enum", "set": "decisionKind" }, "source": "stored" },
     { "id": "chosen", "valueType": { "k": "ref", "collection": "options" }, "source": "stored", "category": "association" },
