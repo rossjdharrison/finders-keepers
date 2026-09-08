@@ -1,0 +1,8 @@
+{
+  "id": "model-docs",
+  "collection": "collections",
+  "title": "Model docs",
+  "renderer": "docs",
+  "query": { "coll": "collections" },
+  "visibleProps": []
+}

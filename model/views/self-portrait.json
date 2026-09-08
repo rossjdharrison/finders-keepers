@@ -1,0 +1,8 @@
+{
+  "id": "self-portrait",
+  "collection": "collections",
+  "title": "System",
+  "renderer": "self-portrait",
+  "query": { "coll": "collections" },
+  "visibleProps": []
+}

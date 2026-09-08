@@ -58,10 +58,27 @@ export interface ViewDoc {
   id: string;
   collection: string;
   title: string;
-  renderer: 'table' | 'board';
+  renderer: 'table' | 'board' | 'self-portrait' | 'docs';
   query: ViewSpec;
   visibleProps: string[];
   config?: ViewConfig;
+}
+
+/** A doc-record: authored intent (title + body) homed on a model node (the Place law). */
+export interface DocRecord {
+  id: string;
+  home: string; // a collection id, "coll.field", or "relation:via"
+  title: string;
+  body: string;
+}
+
+/** The static model the client boots from (model.data.json) — the projection source. */
+export interface ModelBundle {
+  collections: CollectionDoc[];
+  relations: Record<string, RelationMeta>;
+  types: TypeMap;
+  docRecords: DocRecord[];
+  seedOps: RowOp[];
 }
 
 // --- stores ------------------------------------------------------------------
@@ -87,6 +104,7 @@ export interface WorkspaceStore {
 export interface RenderCtx {
   store: CollectionStore; // the active collection
   view: ViewDoc;
-  workspace: WorkspaceStore; // for cross-collection ref pickers
+  workspace: WorkspaceStore; // for cross-collection ref pickers + live rows
+  model: ModelBundle; // the static model (schema, relations, types, docs) — for projections
 }
 export type Renderer = (mount: HTMLElement, ctx: RenderCtx) => () => void;

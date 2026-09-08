@@ -47,6 +47,60 @@
       .board-card:active { cursor: grabbing; }
       .card-line { font-size: 12.5px; color: var(--ink2); }
       .card-line:first-child { color: var(--ink); font-weight: 600; margin-bottom: 3px; }
+
+      /* self-portrait + node doc-view (live projections of the model) */
+      .sp, .docs-view { max-width: 1120px; display: flex; flex-direction: column; gap: 20px; }
+      .sp-header { display: flex; flex-direction: column; gap: 5px; }
+      .sp-title { font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
+      .sp-sub { color: var(--faint); font-size: 12.5px; max-width: 70ch; }
+      .sp-super { border: 1px solid var(--line); border-radius: 14px; padding: 16px 16px 18px; background: color-mix(in srgb, var(--panel) 55%, transparent); display: flex; flex-direction: column; gap: 14px; }
+      .sp-super-head { font-size: 13px; font-weight: 700; letter-spacing: .08em; }
+      .sp-super-sub { color: var(--faint); font-size: 12px; margin-top: -8px; }
+      .sp-band { display: flex; flex-direction: column; gap: 9px; }
+      .sp-band-head { font-size: 13px; font-weight: 700; letter-spacing: .04em; }
+      .sp-tag { font-size: 11.5px; font-weight: 600; }
+      .sp-meta { color: var(--good); } .sp-journey { color: var(--computed); } .sp-domain-tag { color: var(--faint); }
+      .sp-core-tag { color: var(--accent); } .sp-law-tag { color: var(--faint); }
+      .sp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 12px; }
+      .sp-chip { background: var(--chip); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; display: flex; flex-direction: column; gap: 3px; }
+      .sp-chip-head { display: flex; justify-content: space-between; align-items: baseline; }
+      .sp-chip-title { font-weight: 600; color: var(--ink); }
+      .sp-count { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--faint); font-size: 12px; }
+      .sp-mono { font-family: ui-monospace, monospace; }
+      .sp-cls { color: var(--ink2); font-size: 11px; }
+      .sp-chain { color: var(--faint); font-size: 10.5px; }
+      .sp-intent { color: var(--ink2); font-size: 11.5px; margin-top: 4px; border-top: 1px solid var(--line); padding-top: 5px; }
+      .sp-edges { color: var(--faint); font-size: 10.5px; font-family: ui-monospace, monospace; }
+      .sp-core-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+      .sp-core-cell { background: var(--chip); border: 1px solid var(--line); border-radius: 7px; padding: 4px 9px; font-size: 11px; }
+      .sp-core-root { background: color-mix(in srgb, var(--accent) 30%, var(--chip)); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+      .sp-prov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+      .sp-prov { background: var(--chip); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; display: flex; flex-direction: column; gap: 5px; }
+      .sp-prov-label { font-weight: 600; color: var(--ink); font-size: 12.5px; }
+      .sp-prov-ids { color: var(--computed); font-size: 11.5px; }
+      .sp-boundary { background: transparent; border: 1px dashed var(--line); border-radius: 8px; padding: 8px 11px; }
+
+      .docs-legend { display: flex; gap: 8px; margin-top: 4px; }
+      .docs-badge { font-size: 10.5px; font-weight: 600; letter-spacing: .04em; border: 1px solid var(--line); border-radius: 20px; padding: 3px 10px; }
+      .doc-what-badge { color: var(--computed); } .doc-intent-badge { color: var(--good); }
+      .docs-section { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+      .docs-section-head { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+      .doc-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; display: flex; flex-direction: column; gap: 7px; }
+      .doc-subject { display: flex; align-items: center; gap: 9px; }
+      .doc-home { color: var(--ink); font-size: 12.5px; }
+      .doc-kind { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; border-radius: 5px; padding: 2px 7px; color: var(--faint); border: 1px solid var(--line); }
+      .doc-kind-collection { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+      .doc-kind-field { color: var(--computed); border-color: color-mix(in srgb, var(--computed) 45%, transparent); }
+      .doc-kind-relation { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+      .doc-title { color: var(--ink); font-weight: 600; }
+      .doc-layer { display: flex; flex-direction: column; gap: 3px; }
+      .doc-layer-label { font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; }
+      .doc-what-label { color: var(--computed); } .doc-intent-label { color: var(--good); }
+      .doc-what-body { color: var(--ink2); font-size: 12.5px; display: flex; flex-direction: column; gap: 2px; }
+      .doc-ground { font-family: ui-monospace, monospace; font-size: 11px; color: var(--faint); }
+      .doc-formula { font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--computed); }
+      .doc-gated { color: var(--faint); font-style: italic; font-size: 11.5px; }
+      .doc-intent-body { color: var(--ink2); font-size: 12.5px; max-width: 78ch; }
     </style>
   </head>
   <body>

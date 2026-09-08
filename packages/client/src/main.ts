@@ -6,18 +6,24 @@
 import { effect } from '@preact/signals-core';
 import { createWorkspaceStore } from './store.ts';
 import { RENDERERS } from './registry.ts';
-import type { CollectionDoc, RelationMeta, RowOp, TypeMap, ViewDoc } from './types.ts';
+import type { CollectionDoc, DocRecord, ModelBundle, RelationMeta, RowOp, TypeMap, ViewDoc } from './types.ts';
 import model from './model.data.json';
 
 const collections = model.collections as unknown as CollectionDoc[];
 const relations = model.relations as unknown as Record<string, RelationMeta>;
 const types = model.types as unknown as TypeMap;
 const seedOps = model.seedOps as unknown as RowOp[];
+const docRecords = (model.docRecords ?? []) as unknown as DocRecord[];
+
+// The static model the projections (self-portrait, node doc-view) read from.
+const modelBundle: ModelBundle = { collections, relations, types, docRecords, seedOps };
 
 const ORDER = ['intentions', 'requirements', 'observations', 'decisions', 'options', 'initiatives', 'features', 'tasks', 'docs', 'collections', 'properties', 'types'];
-const views = (model.views as unknown as ViewDoc[])
-  .slice()
-  .sort((a, b) => ORDER.indexOf(a.collection) - ORDER.indexOf(b.collection));
+// The two projection views lead (System overview, then Model docs); the rest follow
+// the collection order. A view's renderer decides its rank, so no schema change.
+const rankOf = (v: ViewDoc): number =>
+  v.renderer === 'self-portrait' ? -2 : v.renderer === 'docs' ? -1 : ORDER.indexOf(v.collection);
+const views = (model.views as unknown as ViewDoc[]).slice().sort((a, b) => rankOf(a) - rankOf(b));
 
 const app = document.querySelector<HTMLElement>('#app')!;
 app.innerHTML = `
@@ -54,7 +60,7 @@ function show(view: ViewDoc): void {
   mount.replaceChildren();
   const store = workspace.collection(view.collection);
   const renderer = RENDERERS[view.renderer];
-  dispose = store && renderer ? renderer(mount, { store, view, workspace }) : () => undefined;
+  dispose = store && renderer ? renderer(mount, { store, view, workspace, model: modelBundle }) : () => undefined;
   for (const b of tabsEl.querySelectorAll('button')) b.classList.toggle('active', b.dataset.id === view.id);
 }
 
@@ -66,4 +72,4 @@ for (const view of views) {
   tabsEl.append(b);
 }
 
-show(views.find((v) => v.collection === 'intentions') ?? views[0]);
+show(views.find((v) => v.renderer === 'self-portrait') ?? views.find((v) => v.collection === 'intentions') ?? views[0]);

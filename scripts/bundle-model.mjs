@@ -53,6 +53,10 @@ const bundle = {
   views: dir('views'),
   relations: file('relations.json'),
   types: typesFromSeed(seedOps), // domain types only; CORE stays frozen under reduces()
+  // The home-docs (model/docs/*.json, each file an array). Carried to the client so
+  // the self-portrait + node doc-view can PROJECT them — docs stop being gate-only
+  // and become a live view. Each record homes on a node (the Place law).
+  docRecords: dir('docs').flat(),
   seedOps: [...coreTypeRows, ...seedOps],
 };
 
