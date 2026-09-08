@@ -76,6 +76,20 @@ export const CORE: HqdmCore = {
     plan: { specializes: ['possible_world'] },
     intentionally_constructed_object: { specializes: ['individual'] },
     part_of_plan: { specializes: ['association'] },
+
+    // The representation region — HQDM's account of "how a thing is shown, to whom".
+    // A `sign` is an actual label/mark; a `pattern` is its abstract form (a render
+    // family, a message template, a format); a `recognizing_language_community` is the
+    // audience that reads it (a locale, or human-vs-agent); `representation_by_sign`
+    // binds a thing to a sign in a pattern for a community. This grounds the whole
+    // presentation stack: render families/variants/roles are patterns, a rendered value
+    // is a sign, a localized string is a sign in a locale-community, style is the
+    // pattern realized. i18n (the token/pattern axis) and l10n (the per-community sign)
+    // are the two halves of this one region.
+    class_of_sign: { specializes: ['class'] },
+    pattern: { specializes: ['class_of_sign'] },
+    recognizing_language_community: { specializes: ['party'] },
+    representation_by_sign: { specializes: ['association'] },
   },
   renderHints: {
     amount_of_money: { glyph: '¤', render: 'money', label: 'Amount of money', authorable: 2 },

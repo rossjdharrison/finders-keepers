@@ -18,7 +18,7 @@ const docRecords = (model.docRecords ?? []) as unknown as DocRecord[];
 // The static model the projections (self-portrait, node doc-view) read from.
 const modelBundle: ModelBundle = { collections, relations, types, docRecords, seedOps };
 
-const ORDER = ['intentions', 'requirements', 'observations', 'decisions', 'options', 'initiatives', 'features', 'tasks', 'docs', 'actors', 'grants', 'collections', 'properties', 'types'];
+const ORDER = ['intentions', 'requirements', 'observations', 'decisions', 'options', 'initiatives', 'features', 'tasks', 'docs', 'actors', 'grants', 'collections', 'properties', 'types', 'renderVocabulary'];
 // The two projection views lead (System overview, then Model docs); the rest follow
 // the collection order. A view's renderer decides its rank, so no schema change.
 const rankOf = (v: ViewDoc): number =>

@@ -42,6 +42,21 @@ const coreTypeRows = Object.entries(CORE.types).map(([id, def]) => ({
   },
 }));
 
+// The render vocabulary is DATA too: project the frozen CORE.renderHints into rows in
+// the `renderVocabulary` collection (one per HQDM category that carries a hint), so the
+// presentation defaults are queryable, gated, and cannot drift — the render-layer analogue
+// of coreTypeRows. Each row is an HQDM `pattern` (an abstract representational form).
+const renderVocabRows = Object.entries(CORE.renderHints).map(([category, hint]) => ({
+  op: 'insert',
+  coll: 'renderVocabulary',
+  row: category,
+  values: {
+    family: { t: 'text', v: hint.render ?? 'universal' },
+    ...(hint.glyph ? { glyph: { t: 'text', v: hint.glyph } } : {}),
+    ...(hint.label ? { label: { t: 'text', v: hint.label } } : {}),
+  },
+}));
+
 const seedOps = existsSync(join(MODEL, 'seed.json')) ? readJson(join(MODEL, 'seed.json')) : [];
 
 // The `collections` and `properties` meta-collections are populated AUTHORITATIVELY
@@ -57,7 +72,7 @@ const bundle = {
   // the self-portrait + node doc-view can PROJECT them — docs stop being gate-only
   // and become a live view. Each record homes on a node (the Place law).
   docRecords: dir('docs').flat(),
-  seedOps: [...coreTypeRows, ...seedOps],
+  seedOps: [...coreTypeRows, ...renderVocabRows, ...seedOps],
 };
 
 const out = join(ROOT, 'packages', 'client', 'src', 'model.data.json');

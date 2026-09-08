@@ -1,0 +1,9 @@
+{
+  "id": "renderVocabulary",
+  "semanticClass": "pattern",
+  "properties": [
+    { "id": "family", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "glyph", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "label", "valueType": { "k": "text" }, "source": "stored" }
+  ]
+}
