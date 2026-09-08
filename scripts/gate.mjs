@@ -49,7 +49,17 @@ const collDir = join(MODEL, 'collections');
 const collections = existsSync(collDir)
   ? readdirSync(collDir).filter((f) => f.endsWith('.json')).map((f) => readJson(join(collDir, f)))
   : [];
-const types = existsSync(join(MODEL, 'types.json')) ? readJson(join(MODEL, 'types.json')) : {};
+// The type lattice is data: each type is a row in the `types` collection (seed.json).
+// Derive the reducibility map from those rows — the frozen HQDM CORE (in @core/ontology)
+// supplies the genesis roots a type's `specializes` climbs to.
+const seedOps = existsSync(join(MODEL, 'seed.json')) ? readJson(join(MODEL, 'seed.json')) : [];
+const types = {};
+for (const op of seedOps) {
+  if (op.op === 'insert' && op.coll === 'types') {
+    const s = op.values?.specializes;
+    types[op.row] = { specializes: s && s.t === 'list' ? s.items.map((i) => i.v) : [] };
+  }
+}
 const relations = existsSync(join(MODEL, 'relations.json')) ? readJson(join(MODEL, 'relations.json')) : {};
 const docsDir = join(MODEL, 'docs');
 const docRecords = existsSync(docsDir)

@@ -16,12 +16,27 @@ const dir = (name) => {
 };
 const file = (name) => (existsSync(join(MODEL, name)) ? readJson(join(MODEL, name)) : {});
 
+// The domain type lattice is DATA: each type is a row in the `types` collection.
+// Derive the reducibility map the engine consumes from those rows (one source; the
+// frozen HQDM CORE remains the genesis roots inside @core/ontology).
+const typesFromSeed = (ops) => {
+  const out = {};
+  for (const op of ops) {
+    if (op.op === 'insert' && op.coll === 'types') {
+      const s = op.values?.specializes;
+      out[op.row] = { specializes: s && s.t === 'list' ? s.items.map((i) => i.v) : [] };
+    }
+  }
+  return out;
+};
+
+const seedOps = existsSync(join(MODEL, 'seed.json')) ? readJson(join(MODEL, 'seed.json')) : [];
 const bundle = {
   collections: dir('collections'),
   views: dir('views'),
   relations: file('relations.json'),
-  types: file('types.json'),
-  seedOps: existsSync(join(MODEL, 'seed.json')) ? readJson(join(MODEL, 'seed.json')) : [],
+  types: typesFromSeed(seedOps),
+  seedOps,
 };
 
 const out = join(ROOT, 'packages', 'client', 'src', 'model.data.json');

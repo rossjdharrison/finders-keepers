@@ -1,0 +1,11 @@
+{
+  "id": "types",
+  "collection": "types",
+  "title": "Types",
+  "renderer": "table",
+  "query": { "coll": "types" },
+  "visibleProps": ["specializes"],
+  "config": {
+    "labels": { "specializes": "specializes (→ HQDM)" }
+  }
+}

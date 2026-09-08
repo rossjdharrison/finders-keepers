@@ -1,4 +1,13 @@
 [
+  { "op": "insert", "coll": "types", "row": "Initiative", "values": { "specializes": { "t": "list", "of": { "k": "text" }, "items": [{ "t": "text", "v": "activity" }] } } },
+  { "op": "insert", "coll": "types", "row": "Feature", "values": { "specializes": { "t": "list", "of": { "k": "text" }, "items": [{ "t": "text", "v": "activity" }] } } },
+  { "op": "insert", "coll": "types", "row": "Task", "values": { "specializes": { "t": "list", "of": { "k": "text" }, "items": [{ "t": "text", "v": "activity" }] } } },
+  { "op": "insert", "coll": "types", "row": "Doc", "values": { "specializes": { "t": "list", "of": { "k": "text" }, "items": [{ "t": "text", "v": "sign" }] } } },
+  { "op": "insert", "coll": "types", "row": "Intention", "values": { "specializes": { "t": "list", "of": { "k": "text" }, "items": [{ "t": "text", "v": "plan" }] } } },
+  { "op": "insert", "coll": "types", "row": "Requirement", "values": { "specializes": { "t": "list", "of": { "k": "text" }, "items": [{ "t": "text", "v": "requirement_specification" }] } } },
+  { "op": "insert", "coll": "types", "row": "Decision", "values": { "specializes": { "t": "list", "of": { "k": "text" }, "items": [{ "t": "text", "v": "activity" }] } } },
+  { "op": "insert", "coll": "types", "row": "Option", "values": { "specializes": { "t": "list", "of": { "k": "text" }, "items": [{ "t": "text", "v": "possible_world" }] } } },
+
   { "op": "insert", "coll": "initiatives", "row": "i1", "values": { "name": { "t": "text", "v": "Realtime Collaboration" }, "status": { "t": "enum", "set": "initiativeStatus", "v": "active" } } },
   { "op": "insert", "coll": "initiatives", "row": "i2", "values": { "name": { "t": "text", "v": "Mobile App" }, "status": { "t": "enum", "set": "initiativeStatus", "v": "active" } } },
 

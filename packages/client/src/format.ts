@@ -50,7 +50,7 @@ export function format(v: Value | undefined, options?: EnumOption[]): string {
     case 'ref':
       return v.id;
     case 'list':
-      return `[${v.items.length}]`;
+      return v.items.length ? v.items.map((x) => format(x, options)).join(', ') : '[]';
     case 'predicate':
       return predicateStr(v.ast);
     case 'blank':
