@@ -1,0 +1,12 @@
+{
+  "id": "properties",
+  "collection": "properties",
+  "title": "Properties",
+  "renderer": "table",
+  "query": { "coll": "properties" },
+  "visibleProps": ["owner", "field", "kind", "source", "category", "valueType"],
+  "config": {
+    "labels": { "owner": "Collection", "field": "Field", "kind": "Value kind", "source": "Source", "category": "HQDM category", "valueType": "valueType (JSON)" },
+    "refs": { "owner": { "collection": "collections", "labelField": "semanticClass" } }
+  }
+}

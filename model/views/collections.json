@@ -1,0 +1,11 @@
+{
+  "id": "collections",
+  "collection": "collections",
+  "title": "Collections",
+  "renderer": "table",
+  "query": { "coll": "collections" },
+  "visibleProps": ["semanticClass"],
+  "config": {
+    "labels": { "semanticClass": "classifies (semanticClass → HQDM)" }
+  }
+}

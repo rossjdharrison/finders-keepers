@@ -1,0 +1,7 @@
+{
+  "id": "collections",
+  "semanticClass": "class_of_class",
+  "properties": [
+    { "id": "semanticClass", "valueType": { "k": "text" }, "source": "stored" }
+  ]
+}

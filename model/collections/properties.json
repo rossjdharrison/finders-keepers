@@ -1,0 +1,12 @@
+{
+  "id": "properties",
+  "semanticClass": "class_of_association",
+  "properties": [
+    { "id": "owner", "valueType": { "k": "ref", "collection": "collections" }, "source": "stored", "category": "association" },
+    { "id": "field", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "kind", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "valueType", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "source", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "category", "valueType": { "k": "text" }, "source": "stored" }
+  ]
+}
