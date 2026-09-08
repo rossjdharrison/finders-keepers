@@ -34,6 +34,18 @@ export interface Viewer {
   canWrite?: boolean;
 }
 
+/** A P-layer override (a presentation/ record): references a subject node, carries only presentation. */
+export interface PresentationOverride {
+  id?: string;
+  subject: string; // a logic node: "collection" or "collection.field"
+  variant?: string;
+  role?: string;
+  label?: string; // a label-token override
+  emphasis?: string;
+  order?: number;
+  stateRules?: Record<string, string>; // an enum value → a neutral state token (value-conditional style)
+}
+
 export interface FieldPlan {
   node: string; // the logic node this projects: "collection.field"
   cell: string; // the value-type widget kind (valueType.k)
@@ -41,6 +53,7 @@ export interface FieldPlan {
   labelToken: string; // the stable, traceable token (default: the field id)
   label: string; // the resolved, localized label (i18n seam)
   state?: string; // a neutral state token for value-conditional style (e.g. an enum value; "blocked" when gated)
+  emphasis?: string; // a neutral emphasis token (a presentation override)
   editable: boolean; // affordance (viewer seam): stored AND the viewer may write
   hidden: boolean; // availableWhen said not-in-play for this record
 }
@@ -88,36 +101,44 @@ export interface ResolveInput {
   collection: CollectionDoc;
   types: TypeMap;
   vocab: RenderVocabulary;
-  labels?: Record<string, string>; // authored label-token overrides per field (P layer)
-  variant?: string; // authored variant override (P layer)
+  overrides?: Record<string, PresentationOverride>; // P layer, keyed by node ("collection" and "collection.field")
+  labels?: Record<string, string>; // authored label-token overrides per field (falls back under an override)
+  variant?: string; // authored variant override (falls back under a collection override)
   viewer?: Viewer;
   audience?: Audience;
   row?: RowStateWire; // for per-record state/hidden (optional)
 }
 
-/** Project a collection (+ optional record + overrides) into a neutral RenderPlan. Pure. */
+/** Project a collection (+ optional record + P overrides) into a neutral RenderPlan. Pure. */
 export function resolvePlan(input: ResolveInput): RenderPlan {
-  const { collection, types, vocab, labels, variant, viewer, audience, row } = input;
+  const { collection, types, vocab, overrides, labels, variant, viewer, audience, row } = input;
   const family = familyOf(collection.semanticClass, types, vocab);
   const canWrite = viewer?.canWrite ?? true;
+  const collOverride = overrides?.[collection.id];
   const fields: FieldPlan[] = (collection.properties ?? []).map((p) => {
+    const node = `${collection.id}.${p.id}`;
+    const ov = overrides?.[node];
     const k = (p.valueType as { k?: string }).k ?? 'text';
-    const token = labels?.[p.id] ?? p.id;
+    const token = ov?.label ?? labels?.[p.id] ?? p.id;
     const hidden = row?.hidden?.includes(p.id) ?? false;
     const rawVal = row?.doc[p.id];
-    const state = hidden ? 'blocked' : rawVal && rawVal.t === 'enum' ? rawVal.v : undefined;
+    const enumVal = rawVal && rawVal.t === 'enum' ? rawVal.v : undefined;
+    // value → neutral state: a gated field is "blocked"; else the override's stateRules map
+    // the enum value to a neutral token (e.g. accepted → positive), defaulting to the raw value.
+    const state = hidden ? 'blocked' : enumVal !== undefined ? (ov?.stateRules?.[enumVal] ?? enumVal) : undefined;
     return {
-      node: `${collection.id}.${p.id}`,
+      node,
       cell: k,
-      role: deriveRole(p, types),
+      role: ov?.role ?? deriveRole(p, types),
       labelToken: token,
       label: localize(token, p.id, audience),
       state,
+      emphasis: ov?.emphasis,
       editable: p.source !== 'computed' && canWrite,
       hidden,
     };
   });
-  return { collection: collection.id, family, variant, fields };
+  return { collection: collection.id, family, variant: variant ?? collOverride?.variant, fields };
 }
 
 /** Build the row-sourced vocabulary from renderVocabulary insert-ops (the bundle's projection). */

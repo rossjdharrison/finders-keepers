@@ -71,3 +71,17 @@ test('vocabularyFrom reads the render vocabulary out of the seed insert-ops (row
   assert.equal(v.get('party')!.glyph, '☺');
   assert.equal(v.has('Actor'), false);
 });
+
+test('P overrides apply: a collection variant, and a value→state rule + label-token override on a field', () => {
+  const overrides = {
+    decisions: { subject: 'decisions', variant: 'compact' },
+    'decisions.status': { subject: 'decisions.status', label: 'decisionStatus', stateRules: { accepted: 'positive', proposed: 'pending' } },
+  };
+  const row = { coll: 'decisions', id: 'd1', doc: { status: { t: 'enum' as const, set: 'decisionStatus', v: 'accepted' } }, deleted: false, seq: 0 };
+  const plan = resolvePlan({ collection: decisions, types, vocab, overrides, row, audience: { l10n: new Map([['decisionStatus', 'Status']]) } });
+  assert.equal(plan.variant, 'compact'); // collection-level override
+  const status = plan.fields.find((f) => f.node === 'decisions.status')!;
+  assert.equal(status.state, 'positive'); // stateRules mapped the enum value → a neutral token
+  assert.equal(status.labelToken, 'decisionStatus'); // token override (traceable)
+  assert.equal(status.label, 'Status'); // localized via the override token
+});

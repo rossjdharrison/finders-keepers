@@ -4,7 +4,7 @@
 import type { Value, ValueType } from '@core/values';
 import type { ViewSpec } from '@core/query';
 import type { ReadonlySignal } from '@preact/signals-core';
-import type { RenderVocabulary, Viewer } from './resolve.ts';
+import type { PresentationOverride, RenderVocabulary, Viewer } from './resolve.ts';
 
 // --- wire --------------------------------------------------------------------
 export interface RowStateWire {
@@ -79,6 +79,7 @@ export interface ModelBundle {
   relations: Record<string, RelationMeta>;
   types: TypeMap;
   docRecords: DocRecord[];
+  presentation: PresentationOverride[]; // the P layer (overrides referencing logic nodes)
   seedOps: RowOp[];
 }
 

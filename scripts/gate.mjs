@@ -71,6 +71,11 @@ const viewsDir = join(MODEL, 'views');
 const views = existsSync(viewsDir)
   ? readdirSync(viewsDir).filter((f) => f.endsWith('.json')).map((f) => readJson(join(viewsDir, f)))
   : [];
+// The P layer lives PARALLEL to model/ (so model/ stays purely logic).
+const presDir = join(ROOT, 'presentation');
+const presRecords = existsSync(presDir)
+  ? readdirSync(presDir).filter((f) => f.endsWith('.json')).flatMap((f) => readJson(join(presDir, f)))
+  : [];
 
 const byId = new Map(collections.map((c) => [c.id, c]));
 const propsOf = (coll) => new Map((byId.get(coll)?.properties ?? []).map((p) => [p.id, p]));
@@ -150,6 +155,26 @@ for (const v of views) {
   if (gf && !props.has(gf)) err(`view '${v.id}': groupField '${gf}' is not a field of '${v.collection}'`);
 }
 
+// presentation overrides (the P layer): the membrane across the D↔P seam. Each override
+// references a real logic node (the Place law across the seam) and may carry ONLY
+// presentation keys — never logic. (The other half — no presentation keys under model/ —
+// lands with the view migration; "a variant/role/state must resolve to the vocabulary" is
+// a later tightening once the vocabulary carries variants/roles/states.)
+const PRES_KEYS = new Set(['id', 'subject', 'variant', 'role', 'label', 'emphasis', 'order', 'stateRules']);
+const LOGIC_KEYS = new Set(['formula', 'availableWhen', 'valueType', 'specializes', 'source']);
+const seenPresIds = new Set();
+for (const p of presRecords) {
+  if (!p.id) { err(`a presentation override has no id (subject '${p.subject}')`); continue; }
+  if (seenPresIds.has(p.id)) err(`duplicate presentation override id '${p.id}'`);
+  else seenPresIds.add(p.id);
+  if (!p.subject) { err(`presentation override '${p.id}' has no subject`); continue; }
+  if (!isNode(p.subject)) err(`presentation override '${p.id}': subject '${p.subject}' is not a model node — the Place law across the presentation seam`);
+  for (const k of Object.keys(p)) {
+    if (LOGIC_KEYS.has(k)) err(`presentation override '${p.id}' carries a logic key '${k}' — presentation must hold no logic (the membrane)`);
+    else if (!PRES_KEYS.has(k)) warn(`presentation override '${p.id}': unrecognized key '${k}'`);
+  }
+}
+
 // ---- LAW C · TYPED & TOTAL --------------------------------------------------
 const typeResolver = {
   related: () => [],
@@ -207,7 +232,7 @@ for (const c of collections) {
 // ---- report -----------------------------------------------------------------
 const line = (s) => process.stdout.write(s + '\n');
 line('');
-line(`  model: ${collections.length} collections · ${Object.keys(relations).length} relations · ${Object.keys(types).length} types · ${docRecords.length} docs · ${views.length} views`);
+line(`  model: ${collections.length} collections · ${Object.keys(relations).length} relations · ${Object.keys(types).length} types · ${docRecords.length} docs · ${views.length} views · ${presRecords.length} presentation`);
 line(`  documentation coverage: ${documented.size}/${nodes.size} nodes (${pct}%)`);
 for (const w of warnings) line(`  ⚠ ${w}`);
 if (errors.length) {

@@ -1,0 +1,4 @@
+[
+  { "id": "p-decisions", "subject": "decisions", "variant": "compact" },
+  { "id": "p-decisions-status", "subject": "decisions.status", "stateRules": { "proposed": "pending", "accepted": "positive", "superseded": "muted" } }
+]

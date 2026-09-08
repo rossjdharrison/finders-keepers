@@ -15,9 +15,10 @@ const relations = model.relations as unknown as Record<string, RelationMeta>;
 const types = model.types as unknown as TypeMap;
 const seedOps = model.seedOps as unknown as RowOp[];
 const docRecords = (model.docRecords ?? []) as unknown as DocRecord[];
+const presentation = (model.presentation ?? []) as unknown as ModelBundle['presentation'];
 
 // The static model the projections (self-portrait, node doc-view) read from.
-const modelBundle: ModelBundle = { collections, relations, types, docRecords, seedOps };
+const modelBundle: ModelBundle = { collections, relations, types, docRecords, presentation, seedOps };
 
 // The D layer, row-sourced: category → render pattern, read from the renderVocabulary rows.
 const vocab = vocabularyFrom(seedOps as unknown as { op: string; coll: string; row: string; values?: Record<string, { t?: string; v?: string }> }[]);

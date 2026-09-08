@@ -22,15 +22,22 @@ export const tableRenderer: Renderer = (mount, { store, view, workspace, model, 
   // The neutral plan for this collection: config.labels are the l10n resource for the
   // current locale; a field with no authored label falls back to a humanized default.
   const collDoc = model.collections.find((c) => c.id === store.id);
+  // the P-layer overrides scoped to this collection + its fields (subject = node)
+  const overrides = Object.fromEntries(
+    model.presentation.filter((o) => o.subject === store.id || o.subject.startsWith(`${store.id}.`)).map((o) => [o.subject, o]),
+  );
   const plan = collDoc
-    ? resolvePlan({ collection: collDoc, types: model.types, vocab, viewer, audience: { l10n: new Map(Object.entries(view.config?.labels ?? {})) } })
+    ? resolvePlan({ collection: collDoc, types: model.types, vocab, overrides, viewer, audience: { l10n: new Map(Object.entries(view.config?.labels ?? {})) } })
     : undefined;
   const fp = new Map((plan?.fields ?? []).map((f) => [f.node.slice(f.node.indexOf('.') + 1), f]));
 
   mount.replaceChildren();
   const table = document.createElement('table');
   table.className = 'view-table';
-  if (plan) table.dataset.renderFamily = plan.family; // the classification-derived family (a neutral hook)
+  if (plan) {
+    table.dataset.renderFamily = plan.family; // classification-derived family (a neutral hook)
+    if (plan.variant) table.dataset.variant = plan.variant; // a presentation override
+  }
 
   const thead = document.createElement('thead');
   const htr = document.createElement('tr');
@@ -76,7 +83,10 @@ export const tableRenderer: Renderer = (mount, { store, view, workspace, model, 
           td.title = 'not applicable for this record';
         } else if (prop) {
           const value = row.doc[f];
-          if (value && value.t === 'enum') td.dataset.state = value.v; // value-conditional style hook
+          if (value && value.t === 'enum') {
+            const rules = overrides[`${store.id}.${f}`]?.stateRules;
+            td.dataset.state = rules?.[value.v] ?? value.v; // value → neutral state (override) else the raw value
+          }
           mountCell(td, {
             value,
             prop,

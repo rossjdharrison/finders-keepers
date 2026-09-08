@@ -59,6 +59,13 @@ const renderVocabRows = Object.entries(CORE.renderHints).map(([category, hint]) 
 
 const seedOps = existsSync(join(MODEL, 'seed.json')) ? readJson(join(MODEL, 'seed.json')) : [];
 
+// The P layer lives in its own tree PARALLEL to model/ (so model/ stays purely logic):
+// presentation overrides that reference logic nodes + name vocabulary members.
+const PRES = join(ROOT, 'presentation');
+const presentation = existsSync(PRES)
+  ? readdirSync(PRES).filter((f) => f.endsWith('.json')).flatMap((f) => readJson(join(PRES, f)))
+  : [];
+
 // The `collections` and `properties` meta-collections are populated AUTHORITATIVELY
 // by the WorkspaceDO on PUT (it explodes each collection's schema into Property-rows
 // and sources it back — reflective Stage 2b). So the bundle no longer generates them;
@@ -72,6 +79,7 @@ const bundle = {
   // the self-portrait + node doc-view can PROJECT them — docs stop being gate-only
   // and become a live view. Each record homes on a node (the Place law).
   docRecords: dir('docs').flat(),
+  presentation, // the P layer (overrides referencing logic nodes)
   seedOps: [...coreTypeRows, ...renderVocabRows, ...seedOps],
 };
 
