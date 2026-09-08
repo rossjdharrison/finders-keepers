@@ -1,12 +1,13 @@
 // The framework-contract gate — the seed's enforcement spine.
 //
-// It reads the model (data-only, under model/) and holds the constitution:
-//   • REDUCIBILITY  every declared type, semanticClass, and field category reduces to HQDM
-//   • WELL-TYPED    every computed column typechecks against its schema + relations, no cycles
-//   • INTEGRITY     relations and ref fields point at collections that exist
-//   • THE PLACE LAW every doc-record homes on a real model node; homeless docs fail
-//   • NEUTRALITY    the model is data (JSON) only; the engine never imports the model
-//   • COVERAGE      reports how much of the model is documented (a warning, not a failure)
+// It reads the model (data-only, under model/) and holds the constitution as THREE
+// LAWS applied uniformly to every node (a collection, a property, a relation — at any
+// level), plus two model-wide invariants:
+//   A · GROUNDING    every type, semanticClass, and category reduces to HQDM
+//   B · THE PLACE LAW  every edge to a node (ref, relation end, doc home, view) resolves
+//   C · TYPED & TOTAL  every computed formula typechecks; availableWhen/guards are bool; no cycles
+//   ·   NEUTRALITY    the model is data (JSON) only; the engine never imports the model
+//   ·   COVERAGE      how much of the model is documented (a warning, not a failure)
 //
 // It is agent-agnostic: it runs in `npm run check` and CI, so a change that isn't
 // model-first, grounded, and typed simply does not land — no prompt required.
@@ -75,7 +76,24 @@ const byId = new Map(collections.map((c) => [c.id, c]));
 const propsOf = (coll) => new Map((byId.get(coll)?.properties ?? []).map((p) => [p.id, p]));
 const schemas = new Map(collections.map((c) => [c.id, Object.fromEntries(c.properties.map((p) => [p.id, p.valueType]))]));
 
-// ---- REDUCIBILITY -----------------------------------------------------------
+// ---- the node universe ------------------------------------------------------
+// Collections, properties, and relations are all NODES. Every check below is one of
+// THREE LAWS applied uniformly to nodes, at any level (a collection, a property, a
+// relation — and, once the DO sources schema from rows, an instance too):
+//   A · GROUNDING   a node's class reduces to the HQDM lattice
+//   B · THE PLACE LAW   every edge to a node — a ref, a relation end, a doc's home,
+//                       a view's collection — resolves to a real node
+//   C · TYPED & TOTAL   a node's computed formula typechecks and the graph is acyclic
+const nodes = new Set();
+for (const c of collections) {
+  nodes.add(c.id);
+  for (const p of c.properties ?? []) nodes.add(`${c.id}.${p.id}`);
+}
+for (const via of Object.keys(relations)) nodes.add(`relation:${via}`);
+const isNode = (id) => nodes.has(id); // a documentable/homeable node
+const isColl = (id) => byId.has(id); // a node that is a collection
+
+// ---- LAW A · GROUNDING ------------------------------------------------------
 for (const id of Object.keys(types)) {
   if (!reduces(id, types)) err(`type '${id}' does not reduce to HQDM (fix its 'specializes' chain)`);
 }
@@ -87,7 +105,49 @@ for (const c of collections) {
   }
 }
 
-// ---- WELL-TYPED (compile every computed column) -----------------------------
+// ---- LAW B · THE PLACE LAW --------------------------------------------------
+// One law over every edge to a node — the unification of relation-integrity,
+// ref-integrity, the doc home, and view integrity: the target node must exist.
+// relations: both ends are collections; the child field is a ref back to the parent.
+for (const [via, r] of Object.entries(relations)) {
+  if (!isColl(r.parentColl)) err(`relation '${via}': parent collection '${r.parentColl}' does not exist`);
+  if (!isColl(r.childColl)) err(`relation '${via}': child collection '${r.childColl}' does not exist`);
+  else {
+    const cf = propsOf(r.childColl).get(r.childField);
+    if (!cf) err(`relation '${via}': child field '${r.childColl}.${r.childField}' does not exist`);
+    else if (cf.valueType?.k !== 'ref' || cf.valueType.collection !== r.parentColl)
+      err(`relation '${via}': '${r.childColl}.${r.childField}' must be a ref to '${r.parentColl}'`);
+  }
+}
+// ref (and list-of-ref) fields: the target collection exists.
+for (const c of collections) {
+  for (const p of c.properties ?? []) {
+    const vt = p.valueType;
+    if (vt?.k === 'ref' && !isColl(vt.collection)) err(`'${c.id}.${p.id}': ref target collection '${vt.collection}' does not exist`);
+    if (vt?.k === 'list' && vt.of?.k === 'ref' && !isColl(vt.of.collection)) err(`'${c.id}.${p.id}': list ref target collection '${vt.of.collection}' does not exist`);
+  }
+}
+// doc-records: every home resolves to a real node (+ dedupe ids, track coverage).
+const documented = new Set();
+const seenDocIds = new Set();
+for (const d of docRecords) {
+  if (!d.id) err(`a doc-record has no id (home '${d.home}')`);
+  else if (seenDocIds.has(d.id)) err(`duplicate doc-record id '${d.id}'`);
+  else seenDocIds.add(d.id);
+  if (!d.home) { err(`doc-record '${d.id}' has no home (the Place law: every doc attaches to a model node)`); continue; }
+  if (!isNode(d.home)) err(`doc-record '${d.id}' is homeless: '${d.home}' is not a model node — add the node or fix the home`);
+  else documented.add(d.home);
+}
+// views: the collection exists; visible props + group field are real fields of it.
+for (const v of views) {
+  if (!isColl(v.collection)) { err(`view '${v.id}': collection '${v.collection}' does not exist`); continue; }
+  const props = propsOf(v.collection);
+  for (const f of v.visibleProps ?? []) if (!props.has(f)) err(`view '${v.id}': visibleProp '${f}' is not a field of '${v.collection}'`);
+  const gf = v.config?.groupField;
+  if (gf && !props.has(gf)) err(`view '${v.id}': groupField '${gf}' is not a field of '${v.collection}'`);
+}
+
+// ---- LAW C · TYPED & TOTAL --------------------------------------------------
 const typeResolver = {
   related: () => [],
   cell: () => ({ t: 'blank' }),
@@ -117,56 +177,6 @@ for (const c of collections) {
     if ('errors' in g) err(`'${c.id}' transition '${t.id}' guard does not typecheck: ${g.errors.map((e) => e.message).join('; ')}`);
     else if (g.type.k !== 'bool') err(`'${c.id}' transition '${t.id}' guard must be boolean, got ${g.type.k}`);
   }
-}
-
-// ---- INTEGRITY (relations + ref fields) -------------------------------------
-for (const [via, r] of Object.entries(relations)) {
-  if (!byId.has(r.parentColl)) err(`relation '${via}': parent collection '${r.parentColl}' does not exist`);
-  if (!byId.has(r.childColl)) err(`relation '${via}': child collection '${r.childColl}' does not exist`);
-  else {
-    const cf = propsOf(r.childColl).get(r.childField);
-    if (!cf) err(`relation '${via}': child field '${r.childColl}.${r.childField}' does not exist`);
-    else if (cf.valueType?.k !== 'ref' || cf.valueType.collection !== r.parentColl)
-      err(`relation '${via}': '${r.childColl}.${r.childField}' must be a ref to '${r.parentColl}'`);
-  }
-}
-for (const c of collections) {
-  for (const p of c.properties ?? []) {
-    if (p.valueType?.k === 'ref' && !byId.has(p.valueType.collection))
-      err(`'${c.id}.${p.id}': ref target collection '${p.valueType.collection}' does not exist`);
-  }
-}
-
-// ---- THE PLACE LAW + coverage ----------------------------------------------
-// The universe of documentable nodes: every collection, every property, every relation.
-const nodes = new Set();
-for (const c of collections) {
-  nodes.add(c.id);
-  for (const p of c.properties ?? []) nodes.add(`${c.id}.${p.id}`);
-}
-for (const via of Object.keys(relations)) nodes.add(`relation:${via}`);
-
-const documented = new Set();
-const seenDocIds = new Set();
-for (const d of docRecords) {
-  if (!d.id) err(`a doc-record has no id (home '${d.home}')`);
-  else if (seenDocIds.has(d.id)) err(`duplicate doc-record id '${d.id}'`);
-  else seenDocIds.add(d.id);
-  if (!d.home) { err(`doc-record '${d.id}' has no home (the Place law: every doc attaches to a model node)`); continue; }
-  if (!nodes.has(d.home)) {
-    err(`doc-record '${d.id}' is homeless: '${d.home}' is not a model node — add the node or fix the home`);
-  } else {
-    documented.add(d.home);
-  }
-}
-
-// ---- VIEWS (light integrity) ------------------------------------------------
-for (const v of views) {
-  if (!byId.has(v.collection)) { err(`view '${v.id}': collection '${v.collection}' does not exist`); continue; }
-  const props = propsOf(v.collection);
-  for (const f of v.visibleProps ?? []) if (!props.has(f)) err(`view '${v.id}': visibleProp '${f}' is not a field of '${v.collection}'`);
-  const gf = v.config?.groupField;
-  if (gf && !props.has(gf)) err(`view '${v.id}': groupField '${gf}' is not a field of '${v.collection}'`);
 }
 
 // ---- NEUTRALITY (engine never reaches into the model) -----------------------
