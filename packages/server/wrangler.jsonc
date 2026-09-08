@@ -5,6 +5,18 @@
   "durable_objects": {
     "bindings": [{ "name": "WORKSPACE", "class_name": "WorkspaceDO" }]
   },
+  // The auth anchor for local dev + tests. In production this is a SECRET
+  // (`wrangler secret put WORKSPACE_AUTH`), never a plaintext var. tokens map a
+  // bearer token → the actor it proves; bootstrapAdmins is the genesis authority
+  // (before any grant rows exist); authorization is otherwise read from the model's
+  // `grants` rows (field names from policy, so the engine names no domain field).
+  "vars": {
+    "WORKSPACE_AUTH": {
+      "tokens": { "dev-admin": "a-admin", "dev-agent": "a-agent", "dev-observer": "a-observer" },
+      "bootstrapAdmins": ["a-admin"],
+      "policy": { "grantsColl": "grants", "actorField": "actor", "scopeField": "scope", "writeScopes": ["write", "admin"], "adminScope": "admin" }
+    }
+  },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["CollectionDO"] },
     { "tag": "v2", "deleted_classes": ["CollectionDO"], "new_sqlite_classes": ["WorkspaceDO"] }

@@ -68,9 +68,17 @@ const types = {
   Task: { specializes: ['activity'] },
 };
 
-const call = (path: string, body: unknown, method = 'POST') =>
-  SELF.fetch('https://x' + path, { method, body: JSON.stringify(body) });
-const ops = (coll: string, list: unknown[]) => call(`/collections/${coll}/ops`, { actor: 'u1', ops: list });
+// Every call carries a bearer token the DO verifies (dev-admin → the bootstrap admin
+// a-admin, from wrangler.jsonc's WORKSPACE_AUTH). Pass a different token, or null for
+// none, to exercise the write-gate. GET carries no body.
+const call = (path: string, body: unknown, method = 'POST', token: string | null = 'dev-admin') =>
+  SELF.fetch('https://x' + path, {
+    method,
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+    ...(method === 'GET' ? {} : { body: JSON.stringify(body) }),
+  });
+const ops = (coll: string, list: unknown[], token: string | null = 'dev-admin') =>
+  call(`/collections/${coll}/ops`, { ops: list }, 'POST', token);
 const rowsOf = async (coll: string) =>
   ((await (await call(`/collections/${coll}/query`, { coll })).json()) as { rows: { id: string; doc: Record<string, { v?: number }> }[] }).rows;
 const featureById = async (id: string) => (await rowsOf('features')).find((r) => r.id === id)!;
@@ -317,5 +325,43 @@ describe('WorkspaceDO schema-as-data (reflective Stage 2b)', () => {
     await ops('widgets', [{ op: 'insert', coll: 'widgets', row: 'w1', values: { name: text('a'), n: num(21) } }]);
     const w = ((await (await call('/collections/widgets/query', { coll: 'widgets' })).json()) as { rows: { doc: Record<string, { v?: number }> }[] }).rows[0];
     expect(w.doc.dbl.v).toBe(42); // dbl = n + n, from a Property-row-sourced computed column
+  });
+});
+
+describe('WorkspaceDO auth (every write is authored by a verified actor)', () => {
+  // A workspace WITH the model's own actors/grants collections, so authorization is
+  // MODEL-DRIVEN: the DO reads the grants rows to decide who may write.
+  const authCols: CollectionDoc[] = [
+    { id: 'actors', semanticClass: 'Actor', properties: [stored('name', { k: 'text' })] } as CollectionDoc,
+    { id: 'grants', semanticClass: 'Grant', properties: [stored('actor', { k: 'ref', collection: 'actors' }), stored('scope', { k: 'enum', set: 'authScope' })] } as CollectionDoc,
+    { id: 'notes', semanticClass: 'Note', properties: [stored('body', { k: 'text' })] } as CollectionDoc,
+  ];
+  const authTypes = { Actor: { specializes: ['party'] }, Grant: { specializes: ['association'] }, Note: { specializes: ['sign'] } };
+  const insert = (coll: string, row: string, values: Record<string, unknown>) => ({ op: 'insert', coll, row, values });
+
+  it('refuses unauthenticated (401) and unauthorized (403) writes fail-closed; a granted actor writes and is stamped with the VERIFIED id', async () => {
+    // admin (dev-admin → a-admin, a bootstrapAdmin) establishes the schema…
+    expect((await call('/workspace', { collections: authCols, relations: {}, types: authTypes }, 'PUT')).ok).toBe(true);
+    // …and seeds the actors + a WRITE grant for a-agent (dev-agent), leaving a-observer ungranted
+    await ops('actors', [insert('actors', 'a-agent', { name: text('Claude') }), insert('actors', 'a-observer', { name: text('Guest') })]);
+    await ops('grants', [insert('grants', 'g-agent', { actor: ref('actors', 'a-agent'), scope: en('authScope', 'write') })]);
+
+    const write = (token: string | null) => ops('notes', [insert('notes', 'n1', { body: text('hi') })], token);
+
+    expect((await write(null)).status).toBe(401); // no token → unauthenticated
+    expect((await write('dev-observer')).status).toBe(403); // authenticated, but no write grant
+    expect((await rowsOf('notes')).length).toBe(0); // nothing persisted by either
+
+    expect((await write('dev-agent')).ok).toBe(true); // a-agent has a write grant in the model
+    expect((await rowsOf('notes')).length).toBe(1);
+
+    // the oplog records the VERIFIED actor, never a client-declared string
+    const log = (await (await call('/workspace/oplog', {}, 'GET')).json()) as { entries: { coll: string; actor: string }[] };
+    expect(log.entries.find((e) => e.coll === 'notes')?.actor).toBe('a-agent');
+  });
+
+  it('a schema change requires admin: a write-only actor is refused (403)', async () => {
+    const r = await call('/workspace', { collections: authCols, relations: {}, types: authTypes }, 'PUT', 'dev-agent');
+    expect(r.status).toBe(403); // a-agent may write rows, but not change the schema
   });
 });

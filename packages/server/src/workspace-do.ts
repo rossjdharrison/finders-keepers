@@ -113,8 +113,21 @@ function kahnRank(nodes: Set<string>, edges: [string, string][]): Map<string, nu
   return rank;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface Env {}
+export interface Env {
+  // The deployment's auth anchor (a secret in production; a dev var locally). JSON:
+  //   { "tokens": { "<token>": "<actorId>" },      // authn: which actor a token proves
+  //     "bootstrapAdmins": ["<actorId>"],          // genesis authority (before any grants exist)
+  //     "policy": { grantsColl, actorField, scopeField, writeScopes[], adminScope } }
+  // Authorization is otherwise MODEL-DRIVEN: the DO reads the grants rows (field names
+  // from `policy`, so the engine names no domain field) to decide write/admin.
+  WORKSPACE_AUTH?: string | Record<string, unknown>;
+}
+
+interface AuthConfig {
+  tokens: Record<string, string>;
+  bootstrapAdmins: Set<string>;
+  policy: { grantsColl: string; actorField: string; scopeField: string; writeScopes: Set<string>; adminScope: string };
+}
 
 export class WorkspaceDO extends DurableObject<Env> {
   private sql: SqlStorage;
@@ -334,6 +347,74 @@ export class WorkspaceDO extends DurableObject<Env> {
     return v && v.t === 'ref' ? v.id : null;
   }
 
+  // ---- auth: verify the actor, then authorize model-first ---------------------
+  private authConfig?: AuthConfig;
+  private authCfg(): AuthConfig {
+    if (this.authConfig) return this.authConfig;
+    type Raw = {
+      tokens?: Record<string, string>;
+      bootstrapAdmins?: string[];
+      policy?: Partial<Omit<AuthConfig['policy'], 'writeScopes'>> & { writeScopes?: string[] };
+    };
+    let raw: Raw = {};
+    try {
+      const src = this.env.WORKSPACE_AUTH; // a JSON string (a secret) or an inline object (a dev var)
+      raw = (typeof src === 'string' ? JSON.parse(src) : (src ?? {})) as Raw;
+    } catch {
+      raw = {};
+    }
+    const p = raw.policy ?? {};
+    this.authConfig = {
+      tokens: raw.tokens ?? {},
+      bootstrapAdmins: new Set(raw.bootstrapAdmins ?? []),
+      policy: {
+        grantsColl: p.grantsColl ?? 'grants',
+        actorField: p.actorField ?? 'actor',
+        scopeField: p.scopeField ?? 'scope',
+        writeScopes: new Set(p.writeScopes ?? ['write', 'admin']),
+        adminScope: p.adminScope ?? 'admin',
+      },
+    };
+    return this.authConfig;
+  }
+  // authn: a bearer token proves an actor (or nothing).
+  private verifiedActor(req: Request): string | null {
+    const h = req.headers.get('authorization');
+    const bearer = h ? /^Bearer\s+(.+)$/i.exec(h)?.[1] : null;
+    const token = bearer ?? req.headers.get('x-actor-token');
+    return token ? (this.authCfg().tokens[token] ?? null) : null;
+  }
+  // authz: the actor's scopes, read from the model's grants rows (neutral: field names
+  // come from policy config, so the engine names no domain field).
+  private scopesOf(actor: string): string[] {
+    const { policy } = this.authCfg();
+    const out: string[] = [];
+    for (const r of this.sql.exec(`SELECT doc FROM records WHERE coll = ? AND deleted = 0`, policy.grantsColl).toArray()) {
+      const doc = JSON.parse(r.doc as string) as Record<string, Value>;
+      const a = doc[policy.actorField];
+      const s = doc[policy.scopeField];
+      if (a && a.t === 'ref' && a.id === actor && s && s.t === 'enum') out.push(s.v);
+    }
+    return out;
+  }
+  private isAdmin(actor: string): boolean {
+    const cfg = this.authCfg();
+    return cfg.bootstrapAdmins.has(actor) || this.scopesOf(actor).includes(cfg.policy.adminScope);
+  }
+  private canWrite(actor: string): boolean {
+    const { policy } = this.authCfg();
+    return this.isAdmin(actor) || this.scopesOf(actor).some((s) => policy.writeScopes.has(s));
+  }
+  // A guard returns the verified actor, or a fail-closed Response (401 unauthenticated,
+  // 403 authenticated-but-unauthorized).
+  private guard(req: Request, need: 'write' | 'admin'): { actor: string } | Response {
+    const actor = this.verifiedActor(req);
+    if (!actor) return Response.json({ error: 'authentication required' }, { status: 401 });
+    const ok = need === 'admin' ? this.isAdmin(actor) : this.canWrite(actor);
+    if (!ok) return Response.json({ error: `actor '${actor}' is not authorized to ${need}` }, { status: 403 });
+    return { actor };
+  }
+
   private resolver(): Resolver {
     const sql = this.sql;
     const relations = this.relations;
@@ -514,6 +595,8 @@ export class WorkspaceDO extends DurableObject<Env> {
     const url = new URL(req.url);
     try {
       if (req.method === 'PUT' && url.pathname === '/workspace') {
+        const g = this.guard(req, 'admin'); // schema is a design-level change — admin only
+        if (g instanceof Response) return g;
         const body = (await req.json()) as { collections: CollectionDoc[]; relations?: Record<string, RelationMeta>; types?: TypeMap };
         const docs = new Map(body.collections.map((d) => [d.id, d] as const));
         const relations = new Map<string, RelationDef>(Object.entries(body.relations ?? {}).map(([via, m]) => [via, { via, ...m }]));
@@ -526,11 +609,22 @@ export class WorkspaceDO extends DurableObject<Env> {
       if (req.method === 'GET' && url.pathname === '/workspace') {
         return Response.json({ collections: [...this.prepared.keys()] });
       }
+      if (req.method === 'GET' && url.pathname === '/workspace/oplog') {
+        // the audit trail — proof that writes are stamped with the VERIFIED actor (a read, open)
+        const limit = Math.min(Number(url.searchParams.get('limit') ?? 50) || 50, 500);
+        const entries = this.sql
+          .exec(`SELECT seq, coll, at, actor, op FROM oplog ORDER BY seq DESC LIMIT ?`, limit)
+          .toArray()
+          .map((r) => ({ seq: Number(r.seq), coll: r.coll as string, at: r.at as string, actor: r.actor as string, op: JSON.parse(r.op as string) }));
+        return Response.json({ entries });
+      }
       const m = url.pathname.match(/^\/collections\/([^/]+)(\/.*)?$/);
       if (m) {
         const coll = m[1];
         const sub = m[2] ?? '/';
         if (req.method === 'PUT' && sub === '/collection') {
+          const g = this.guard(req, 'admin'); // a schema change — admin only
+          if (g instanceof Response) return g;
           const doc = (await req.json()) as CollectionDoc;
           const s = this.readState();
           s.docs.set(coll, doc);
@@ -540,9 +634,11 @@ export class WorkspaceDO extends DurableObject<Env> {
           return Response.json({ ok: true });
         }
         if (req.method === 'POST' && sub === '/ops') {
-          const body = (await req.json()) as { actor?: string; ops: RowOp[] };
+          const g = this.guard(req, 'write'); // a mutation — a verified actor with write scope
+          if (g instanceof Response) return g;
+          const body = (await req.json()) as { ops: RowOp[] };
           for (const op of body.ops) if (op.coll !== coll) throw new Error(`op.coll ${op.coll} != ${coll}`);
-          return Response.json(this.submit(body.ops, body.actor ?? 'anon'));
+          return Response.json(this.submit(body.ops, g.actor)); // stamp the VERIFIED actor, never a client-declared string
         }
         if (req.method === 'POST' && sub === '/query') {
           const spec = (await req.json()) as ViewSpec;
@@ -573,13 +669,19 @@ export class WorkspaceDO extends DurableObject<Env> {
     }
     if (frame.k === 'ping') return ws.send(JSON.stringify({ k: 'pong' }));
     if (frame.k === 'hello') {
-      ws.serializeAttachment({ actor: frame.token || 'anon' });
-      return ws.send(JSON.stringify({ k: 'welcome', seq: this.nextSeq() - 1 }));
+      // verify the token → actor once; the socket carries only the VERIFIED actor
+      const actor = frame.token ? (this.authCfg().tokens[frame.token] ?? null) : null;
+      ws.serializeAttachment({ actor });
+      return ws.send(JSON.stringify({ k: 'welcome', seq: this.nextSeq() - 1, actor }));
     }
     if (frame.k === 'ops' && frame.ops) {
-      const att = ws.deserializeAttachment() as { actor?: string } | null;
+      const att = ws.deserializeAttachment() as { actor?: string | null } | null;
+      const actor = att?.actor ?? null;
+      if (!actor || !this.canWrite(actor)) {
+        return ws.send(JSON.stringify({ k: 'reject', nonce: frame.nonce, error: actor ? `actor '${actor}' is not authorized to write` : 'authentication required' }));
+      }
       try {
-        const { assigned } = this.submit(frame.ops, att?.actor ?? 'anon');
+        const { assigned } = this.submit(frame.ops, actor);
         ws.send(JSON.stringify({ k: 'ack', nonce: frame.nonce, assigned }));
       } catch (e) {
         ws.send(JSON.stringify({ k: 'reject', nonce: frame.nonce, error: (e as Error).message }));

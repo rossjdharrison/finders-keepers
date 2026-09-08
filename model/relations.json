@@ -5,5 +5,6 @@
   "options": { "parentColl": "decisions", "childColl": "options", "childField": "decision" },
   "requirements": { "parentColl": "decisions", "childColl": "requirements", "childField": "decision" },
   "intentionReqs": { "parentColl": "intentions", "childColl": "requirements", "childField": "intention" },
-  "observations": { "parentColl": "requirements", "childColl": "observations", "childField": "requirement" }
+  "observations": { "parentColl": "requirements", "childColl": "observations", "childField": "requirement" },
+  "actorGrants": { "parentColl": "actors", "childColl": "grants", "childField": "actor" }
 }

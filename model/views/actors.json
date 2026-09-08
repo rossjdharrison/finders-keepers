@@ -1,0 +1,22 @@
+{
+  "id": "actors",
+  "collection": "actors",
+  "title": "Actors",
+  "renderer": "table",
+  "query": { "coll": "actors" },
+  "visibleProps": ["name", "kind", "status"],
+  "config": {
+    "labels": { "name": "actor", "kind": "kind", "status": "status" },
+    "enums": {
+      "kind": [
+        { "id": "human", "label": "human" },
+        { "id": "agent", "label": "agent" },
+        { "id": "service", "label": "service" }
+      ],
+      "status": [
+        { "id": "active", "label": "active" },
+        { "id": "revoked", "label": "revoked" }
+      ]
+    }
+  }
+}

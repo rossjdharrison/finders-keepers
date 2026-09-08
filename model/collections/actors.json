@@ -1,0 +1,9 @@
+{
+  "id": "actors",
+  "semanticClass": "Actor",
+  "properties": [
+    { "id": "name", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "kind", "valueType": { "k": "enum", "set": "actorKind" }, "source": "stored" },
+    { "id": "status", "valueType": { "k": "enum", "set": "actorStatus" }, "source": "stored", "category": "class_of_state" }
+  ]
+}

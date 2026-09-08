@@ -123,7 +123,7 @@ export const selfPortraitRenderer: Renderer = (mount, { workspace, model }) => {
     modelBand.append(elem('div', 'sp-super-sub', 'model/** — data only. Banded by HQDM grounding + relation-connectivity, not a hand-written list.'));
     modelBand.append(band('Reflective metamodel', 'the schema is data — semanticClass reduces to class_of_class / class_of_association', 'sp-meta', meta));
     modelBand.append(band('Dev-journey', 'the relation-component rooted at intentions — the platform’s own design, in itself', 'sp-journey', journey));
-    modelBand.append(band('Domain demo', 'the other relation-component — a swappable example', 'sp-domain', domain));
+    modelBand.append(band('Domain & infrastructure', 'the other relation-components — collections outside the metamodel and the dev-journey (a swappable demo domain, plus infrastructure like the auth model)', 'sp-domain', domain));
     root.append(modelBand);
 
     // HQDM CORE

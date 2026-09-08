@@ -22,7 +22,7 @@ import { mergeRows } from './reconcile.ts';
 
 export interface WorkspaceInit {
   baseUrl: string;
-  actor: string;
+  token: string; // bearer token the DO verifies to an actor; the server stamps the VERIFIED actor
   collections: CollectionDoc[];
   relations: Record<string, RelationMeta>;
   types?: TypeMap; // domain classes specializing HQDM (reducibility enforced server-side)
@@ -32,12 +32,12 @@ export interface WorkspaceInit {
 const rid = (): string => `${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
 
 export async function createWorkspaceStore(init: WorkspaceInit): Promise<WorkspaceStore> {
-  const { baseUrl, actor, collections, relations } = init;
+  const { baseUrl, token, collections, relations } = init;
   const at = (p: string): string => `${baseUrl}${p}`;
   const status = signal<ConnStatus>('connecting');
 
   async function api<T>(path: string, method: string, body: unknown): Promise<T> {
-    const res = await fetch(at(path), { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await fetch(at(path), { method, headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
     const json = (await res.json().catch(() => ({}))) as T & { error?: string };
     if (!res.ok) throw new Error(json.error ?? res.statusText);
     return json;
@@ -46,7 +46,7 @@ export async function createWorkspaceStore(init: WorkspaceInit): Promise<Workspa
   let ws: WebSocket | null = null;
   const send = (ops: RowOp[]): void => {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ k: 'ops', ops, nonce: rid() }));
-    else void api('/collections/' + ops[0].coll + '/ops', 'POST', { actor, ops }).catch(() => undefined);
+    else void api('/collections/' + ops[0].coll + '/ops', 'POST', { ops }).catch(() => undefined);
   };
 
   // per-collection sub-store
@@ -93,7 +93,7 @@ export async function createWorkspaceStore(init: WorkspaceInit): Promise<Workspa
     for (const [coll, list] of byColl) {
       const store = stores.get(coll);
       if (store && store.rows.value.length === 0) {
-        await api(`/collections/${coll}/ops`, 'POST', { actor, ops: list });
+        await api(`/collections/${coll}/ops`, 'POST', { ops: list });
         seeded = true;
       }
     }
@@ -106,7 +106,7 @@ export async function createWorkspaceStore(init: WorkspaceInit): Promise<Workspa
     ws = new WebSocket(at('/workspace/ws').replace(/^http/, 'ws'));
     ws.addEventListener('open', () => {
       status.value = 'open';
-      ws?.send(JSON.stringify({ k: 'hello', token: actor }));
+      ws?.send(JSON.stringify({ k: 'hello', token }));
       void Promise.all([...stores.values()].map((s) => s._snapshot())); // catch missed writes
     });
     ws.addEventListener('message', (e: MessageEvent) => {

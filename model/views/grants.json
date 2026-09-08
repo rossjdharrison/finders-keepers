@@ -1,0 +1,19 @@
+{
+  "id": "grants",
+  "collection": "grants",
+  "title": "Grants",
+  "renderer": "table",
+  "query": { "coll": "grants" },
+  "visibleProps": ["actor", "scope"],
+  "config": {
+    "labels": { "actor": "actor", "scope": "scope" },
+    "refs": { "actor": { "collection": "actors", "labelField": "name" } },
+    "enums": {
+      "scope": [
+        { "id": "read", "label": "read" },
+        { "id": "write", "label": "write" },
+        { "id": "admin", "label": "admin" }
+      ]
+    }
+  }
+}

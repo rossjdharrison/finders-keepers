@@ -1,0 +1,9 @@
+[
+  { "id": "d-actors", "home": "actors", "title": "Actors — who may act", "body": "A party that authors changes: a human or an AI agent. An HQDM `party`. Authentication is a token the deployment verifies to one of these actors; the actor is never a string the client declares. Recorded by decision dec-auth." },
+  { "id": "d-actors-kind", "home": "actors.kind", "title": "Actor kind", "body": "human / agent / service. The system is a collaboration between humans and AI, so who (or what) an actor is matters — but it does not by itself grant authority; a grant does." },
+  { "id": "d-actors-status", "home": "actors.status", "title": "Actor status", "body": "active / revoked. A revoked actor keeps its history (append-only) but its grants no longer authorize." },
+  { "id": "d-grants", "home": "grants", "title": "Grants — model-driven authorization", "body": "A grant is an HQDM `association` between an actor and a scope. The DO reads these rows to decide who may write — so authorization is model-first (data you can query and render), not code buried in the server. Reads stay open; every mutation needs a grant." },
+  { "id": "d-grants-actor", "home": "grants.actor", "title": "Granted actor", "body": "The actor this grant empowers — a ref into `actors`, the participant end of the association." },
+  { "id": "d-grants-scope", "home": "grants.scope", "title": "Scope", "body": "read / write / admin. write authors rows; admin also changes the schema (a design-level act). The DO's write-gate checks these; a bootstrap-admin anchor in the deployment breaks the genesis chicken-and-egg before any grant exists." },
+  { "id": "r-actor-grants", "home": "relation:actorGrants", "title": "Actor → Grants", "body": "Each grant names the actor it empowers; following this edge gives an actor's authority." }
+]

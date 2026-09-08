@@ -18,7 +18,7 @@ const docRecords = (model.docRecords ?? []) as unknown as DocRecord[];
 // The static model the projections (self-portrait, node doc-view) read from.
 const modelBundle: ModelBundle = { collections, relations, types, docRecords, seedOps };
 
-const ORDER = ['intentions', 'requirements', 'observations', 'decisions', 'options', 'initiatives', 'features', 'tasks', 'docs', 'collections', 'properties', 'types'];
+const ORDER = ['intentions', 'requirements', 'observations', 'decisions', 'options', 'initiatives', 'features', 'tasks', 'docs', 'actors', 'grants', 'collections', 'properties', 'types'];
 // The two projection views lead (System overview, then Model docs); the rest follow
 // the collection order. A view's renderer decides its rank, so no schema change.
 const rankOf = (v: ViewDoc): number =>
@@ -42,7 +42,7 @@ const conn = app.querySelector<HTMLElement>('#conn')!;
 
 const workspace = await createWorkspaceStore({
   baseUrl: location.origin, // Vite proxy forwards /collections + /workspace + ws to :8787
-  actor: `tab-${Math.random().toString(36).slice(2, 6)}`,
+  token: import.meta.env.VITE_WORKSPACE_TOKEN ?? 'dev-admin', // dev anchor → actor a-admin (bootstrap); server stamps the verified actor
   collections,
   relations,
   types,

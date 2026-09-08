@@ -7,6 +7,7 @@ export { WorkspaceDO };
 
 export interface Env {
   WORKSPACE: DurableObjectNamespace<WorkspaceDO>;
+  WORKSPACE_AUTH?: string | Record<string, unknown>; // auth anchor; the DO reads it (see workspace-do.ts)
 }
 
 export default {
