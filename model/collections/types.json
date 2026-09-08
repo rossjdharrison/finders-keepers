@@ -2,6 +2,6 @@
   "id": "types",
   "semanticClass": "class_of_class",
   "properties": [
-    { "id": "specializes", "valueType": { "k": "list", "of": { "k": "text" } }, "source": "stored" }
+    { "id": "specializes", "valueType": { "k": "list", "of": { "k": "ref", "collection": "types" } }, "source": "stored", "category": "specialization" }
   ]
 }

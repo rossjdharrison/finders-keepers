@@ -57,7 +57,8 @@ const types = {};
 for (const op of seedOps) {
   if (op.op === 'insert' && op.coll === 'types') {
     const s = op.values?.specializes;
-    types[op.row] = { specializes: s && s.t === 'list' ? s.items.map((i) => i.v) : [] };
+    // specializes items are refs into `types` (id carries the parent type); text-tolerant
+    types[op.row] = { specializes: s && s.t === 'list' ? s.items.map((i) => (i.t === 'ref' ? i.id : i.v)) : [] };
   }
 }
 const relations = existsSync(join(MODEL, 'relations.json')) ? readJson(join(MODEL, 'relations.json')) : {};

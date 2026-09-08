@@ -65,6 +65,11 @@ export const CORE: HqdmCore = {
     class_of_activity: { specializes: ['class_of_spatio_temporal_extent'] },
     class_of_class: { specializes: ['class'] },
     class_of_class_of_spatio_temporal_extent: { specializes: ['class_of_class'] },
+    // The structural (timeless) relations live under `relationship` on the abstract
+    // side — distinct in kind from the 4-D `association`/`activity` individuals.
+    relationship: { specializes: ['abstract_object'] },
+    specialization: { specializes: ['relationship'] },
+    classification: { specializes: ['relationship'] },
     requirement_specification: { specializes: ['class_of_spatio_temporal_extent'] },
     possible_world: { specializes: ['spatio_temporal_extent'] },
     plan: { specializes: ['possible_world'] },
