@@ -229,3 +229,39 @@ describe('WorkspaceDO verification seam (a transition gated by met)', () => {
     expect(await statusOf('r-bad')).toBe('accepted'); // and nothing changed
   });
 });
+
+describe('WorkspaceDO schema-as-data (reflective Stage 2b)', () => {
+  const cols: CollectionDoc[] = [
+    {
+      id: 'properties', semanticClass: 'class_of_association',
+      properties: [stored('owner', { k: 'ref', collection: 'collections' }), stored('field', { k: 'text' }), stored('kind', { k: 'text' }), stored('valueType', { k: 'text' }), stored('source', { k: 'text' })],
+    } as CollectionDoc,
+    { id: 'collections', semanticClass: 'class_of_class', properties: [stored('semanticClass', { k: 'text' })] } as CollectionDoc,
+    {
+      id: 'widgets', semanticClass: 'Widget',
+      properties: [stored('name', { k: 'text' }), stored('n', { k: 'num' }), computed('dbl', { k: 'num' }, { op: 'add', args: [field('n'), field('n')] })],
+    } as CollectionDoc,
+  ];
+
+  it('a schema round-trips through Property-rows: properties are queryable, and a computed column reassembled from a row still recomputes', async () => {
+    // PUT explodes every collection's schema into Property-rows, then re-sources the
+    // live schema FROM those rows — so this asserts the reassembly is lossless.
+    expect((await call('/workspace', { collections: cols, relations: {}, types: { Widget: { specializes: ['activity'] } } }, 'PUT')).ok).toBe(true);
+
+    // the schema is now data: the `properties` collection is queryable
+    const props = ((await (await call('/collections/properties/query', { coll: 'properties' })).json()) as {
+      rows: { id: string; doc: Record<string, { t?: string; v?: string; id?: string }> }[];
+    }).rows;
+    const dbl = props.find((r) => r.id === 'widgets.dbl')!;
+    expect(dbl).toBeTruthy();
+    expect(dbl.doc.owner.id).toBe('widgets'); // owner is a ref into `collections`
+    expect(dbl.doc.field.v).toBe('dbl');
+    expect(dbl.doc.source.v).toBe('computed');
+    expect(props.some((r) => r.id === 'widgets.n')).toBe(true);
+
+    // the reassembled schema is LIVE: the computed column recomputes correctly
+    await ops('widgets', [{ op: 'insert', coll: 'widgets', row: 'w1', values: { name: text('a'), n: num(21) } }]);
+    const w = ((await (await call('/collections/widgets/query', { coll: 'widgets' })).json()) as { rows: { doc: Record<string, { v?: number }> }[] }).rows[0];
+    expect(w.doc.dbl.v).toBe(42); // dbl = n + n, from a Property-row-sourced computed column
+  });
+});

@@ -7,6 +7,8 @@
     { "id": "kind", "valueType": { "k": "text" }, "source": "stored" },
     { "id": "valueType", "valueType": { "k": "text" }, "source": "stored" },
     { "id": "source", "valueType": { "k": "text" }, "source": "stored" },
-    { "id": "category", "valueType": { "k": "text" }, "source": "stored" }
+    { "id": "category", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "formula", "valueType": { "k": "text" }, "source": "stored" },
+    { "id": "availableWhen", "valueType": { "k": "text" }, "source": "stored" }
   ]
 }

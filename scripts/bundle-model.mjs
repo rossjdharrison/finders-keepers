@@ -43,37 +43,17 @@ const coreTypeRows = Object.entries(CORE.types).map(([id, def]) => ({
 }));
 
 const seedOps = existsSync(join(MODEL, 'seed.json')) ? readJson(join(MODEL, 'seed.json')) : [];
-const collections = dir('collections');
 
-// The STRUCTURE as data (reflective Stage 2a): project each collection and each of
-// its properties into rows of the `collections` / `properties` meta-collections.
-// Derived from the collection definitions — one source, cannot drift. Stage 2b flips
-// the engine to source a collection's schema FROM these rows.
-const text = (v) => ({ t: 'text', v });
-const collectionRows = collections.map((c) => ({
-  op: 'insert', coll: 'collections', row: c.id, values: { semanticClass: text(c.semanticClass) },
-}));
-const propertyRows = collections.flatMap((c) =>
-  (c.properties ?? []).map((p) => ({
-    op: 'insert', coll: 'properties', row: `${c.id}.${p.id}`,
-    values: {
-      owner: { t: 'ref', collection: 'collections', id: c.id },
-      field: text(p.id),
-      kind: text(p.valueType?.k ?? '?'),
-      valueType: text(JSON.stringify(p.valueType ?? {})),
-      source: text(p.source ?? 'stored'),
-      ...(p.category ? { category: text(p.category) } : {}),
-    },
-  })),
-);
-
+// The `collections` and `properties` meta-collections are populated AUTHORITATIVELY
+// by the WorkspaceDO on PUT (it explodes each collection's schema into Property-rows
+// and sources it back — reflective Stage 2b). So the bundle no longer generates them;
+// only the type lattice is still seeded here (CORE-derived + authored domain types).
 const bundle = {
-  collections,
+  collections: dir('collections'),
   views: dir('views'),
   relations: file('relations.json'),
   types: typesFromSeed(seedOps), // domain types only; CORE stays frozen under reduces()
-  // full lattice + structure as rows: CORE types (derived) + collections/properties (derived) + authored
-  seedOps: [...coreTypeRows, ...collectionRows, ...propertyRows, ...seedOps],
+  seedOps: [...coreTypeRows, ...seedOps],
 };
 
 const out = join(ROOT, 'packages', 'client', 'src', 'model.data.json');

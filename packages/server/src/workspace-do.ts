@@ -137,11 +137,55 @@ export class WorkspaceDO extends DurableObject<Env> {
     this.reload();
   }
 
+  // ---- schema as rows: a Property <-> a record doc (lossless) -----------------
+  // A collection's schema lives as Property-rows in the records table (coll='properties'),
+  // so schema is data you query — and `PUT /collection` and `POST /ops` are the same write.
+  // valueType/formula/availableWhen are carried as text-JSON so the round-trip is exact.
+  private encodeProperty(ownerId: string, p: Property): Record<string, Value> {
+    const doc: Record<string, Value> = {
+      owner: { t: 'ref', collection: 'collections', id: ownerId },
+      field: { t: 'text', v: p.id },
+      kind: { t: 'text', v: (p.valueType as { k?: string })?.k ?? '?' },
+      valueType: { t: 'text', v: JSON.stringify(p.valueType) },
+      source: { t: 'text', v: p.source ?? 'stored' },
+    };
+    if (p.category) doc.category = { t: 'text', v: p.category };
+    if (p.formula !== undefined) doc.formula = { t: 'text', v: JSON.stringify(p.formula) };
+    if (p.availableWhen !== undefined) doc.availableWhen = { t: 'text', v: JSON.stringify(p.availableWhen) };
+    return doc;
+  }
+  private decodeProperty(doc: Record<string, Value>): Property {
+    const txt = (v: Value | undefined): string | undefined => (v && v.t === 'text' ? v.v : undefined);
+    const p: Property = {
+      id: txt(doc.field) ?? '',
+      valueType: JSON.parse(txt(doc.valueType) ?? '{}') as ValueType,
+      source: (txt(doc.source) as 'stored' | 'computed') ?? 'stored',
+    };
+    const cat = txt(doc.category);
+    if (cat) p.category = cat;
+    const f = txt(doc.formula);
+    if (f !== undefined) p.formula = JSON.parse(f);
+    const aw = txt(doc.availableWhen);
+    if (aw !== undefined) p.availableWhen = JSON.parse(aw);
+    return p;
+  }
+
   // ---- schema + relations -----------------------------------------------------
   private readState(): { docs: Map<string, CollectionDoc>; relations: Map<string, RelationDef>; types: TypeMap } {
-    const docs = new Map<string, CollectionDoc>(
-      this.sql.exec(`SELECT coll, doc FROM collections`).toArray().map((r) => [r.coll as string, JSON.parse(r.doc as string)]),
-    );
+    // collection heads (without properties) live in the `collections` table…
+    const docs = new Map<string, CollectionDoc>();
+    for (const r of this.sql.exec(`SELECT coll, doc FROM collections`).toArray()) {
+      const rest = JSON.parse(r.doc as string) as Omit<CollectionDoc, 'properties'>;
+      docs.set(r.coll as string, { ...rest, properties: [] });
+    }
+    // …and each collection's properties are REASSEMBLED from its Property-rows.
+    for (const r of this.sql.exec(`SELECT doc FROM records WHERE coll = 'properties' AND deleted = 0`).toArray()) {
+      const pdoc = JSON.parse(r.doc as string) as Record<string, Value>;
+      const owner = pdoc.owner;
+      const ownerId = owner && owner.t === 'ref' ? owner.id : undefined;
+      const d = ownerId ? docs.get(ownerId) : undefined;
+      if (d) d.properties.push(this.decodeProperty(pdoc));
+    }
     const relations = new Map<string, RelationDef>();
     for (const r of this.sql.exec(`SELECT via, parent_coll, child_coll, child_field FROM relations`).toArray()) {
       relations.set(r.via as string, { via: r.via as string, parentColl: r.parent_coll as string, childColl: r.child_coll as string, childField: r.child_field as string });
@@ -438,12 +482,22 @@ export class WorkspaceDO extends DurableObject<Env> {
 
   // ---- HTTP + WebSocket -------------------------------------------------------
   private persistCollectionDoc(doc: CollectionDoc): void {
-    this.sql.exec(`INSERT INTO collections(coll, doc) VALUES(?, ?) ON CONFLICT(coll) DO UPDATE SET doc = excluded.doc`, doc.id, JSON.stringify(doc));
+    // the collection HEAD (id/semanticClass/tables/transitions) — properties are rows
+    const { properties, ...head } = doc;
+    this.sql.exec(`INSERT INTO collections(coll, doc) VALUES(?, ?) ON CONFLICT(coll) DO UPDATE SET doc = excluded.doc`, doc.id, JSON.stringify(head));
+    // the collection AS DATA (a row in the `collections` meta-collection)
+    this.persist('collections', { id: doc.id, values: { semanticClass: { t: 'text', v: doc.semanticClass } }, deleted: false, updatedSeq: 0 });
+    // explode its properties into `properties`-rows (regenerate this owner's set)
+    this.sql.exec(`DELETE FROM records WHERE coll = 'properties' AND json_extract(doc, '$.owner.id') = ?`, doc.id);
+    for (const p of properties ?? []) {
+      this.persist('properties', { id: `${doc.id}.${p.id}`, values: this.encodeProperty(doc.id, p), deleted: false, updatedSeq: 0 });
+    }
   }
   private persistWorkspace(docs: Map<string, CollectionDoc>, relations: Map<string, RelationDef>, types: TypeMap): void {
     this.sql.exec(`DELETE FROM collections`);
     this.sql.exec(`DELETE FROM relations`);
     this.sql.exec(`DELETE FROM meta WHERE k = 'types'`);
+    this.sql.exec(`DELETE FROM records WHERE coll IN ('collections', 'properties')`); // regenerate the schema-as-data rows
     for (const doc of docs.values()) this.persistCollectionDoc(doc);
     for (const def of relations.values()) {
       this.sql.exec(`INSERT INTO relations(via, parent_coll, child_coll, child_field) VALUES(?, ?, ?, ?)`, def.via, def.parentColl, def.childColl, def.childField);
@@ -460,9 +514,9 @@ export class WorkspaceDO extends DurableObject<Env> {
         const docs = new Map(body.collections.map((d) => [d.id, d] as const));
         const relations = new Map<string, RelationDef>(Object.entries(body.relations ?? {}).map(([via, m]) => [via, { via, ...m }]));
         const types = body.types ?? {};
-        const built = this.buildPrepared(docs, relations, types); // validates (incl. reducibility) BEFORE persisting
-        this.persistWorkspace(docs, relations, types);
-        this.applyBuilt(built);
+        this.buildPrepared(docs, relations, types); // validate (incl. reducibility) BEFORE persisting
+        this.persistWorkspace(docs, relations, types); // store heads + explode properties into rows
+        this.reload(); // re-source the schema FROM the Property-rows (round-trip); establishes `prepared`
         return Response.json({ ok: true, collections: [...this.prepared.keys()] });
       }
       if (req.method === 'GET' && url.pathname === '/workspace') {
@@ -476,9 +530,9 @@ export class WorkspaceDO extends DurableObject<Env> {
           const doc = (await req.json()) as CollectionDoc;
           const s = this.readState();
           s.docs.set(coll, doc);
-          const built = this.buildPrepared(s.docs, s.relations, s.types); // validate before persisting
-          this.persistCollectionDoc(doc);
-          this.applyBuilt(built);
+          this.buildPrepared(s.docs, s.relations, s.types); // validate before persisting
+          this.persistCollectionDoc(doc); // store head + explode properties into rows
+          this.reload(); // re-source from rows
           return Response.json({ ok: true });
         }
         if (req.method === 'POST' && sub === '/ops') {

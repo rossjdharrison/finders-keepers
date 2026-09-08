@@ -83,12 +83,21 @@ export async function createWorkspaceStore(init: WorkspaceInit): Promise<Workspa
   // one-time workspace schema + relations + HQDM types, then snapshot + seed-if-empty
   await api('/workspace', 'PUT', { collections, relations, types: init.types ?? {} });
   await Promise.all([...stores.values()].map((s) => s._snapshot()));
-  const total = [...stores.values()].reduce((n, s) => n + s.rows.value.length, 0);
-  if (total === 0 && init.seedOps?.length) {
+  // Seed PER COLLECTION: a collection is seeded only when it is empty. (The `collections`
+  // and `properties` meta-collections are populated by the DO on PUT and carry no seedOps,
+  // so their rows never suppress domain seeding — the reason this isn't a global empty check.)
+  if (init.seedOps?.length) {
     const byColl = new Map<string, RowOp[]>();
     for (const op of init.seedOps) (byColl.get(op.coll) ?? byColl.set(op.coll, []).get(op.coll)!).push(op);
-    for (const [coll, list] of byColl) await api(`/collections/${coll}/ops`, 'POST', { actor, ops: list });
-    await Promise.all([...stores.values()].map((s) => s._snapshot()));
+    let seeded = false;
+    for (const [coll, list] of byColl) {
+      const store = stores.get(coll);
+      if (store && store.rows.value.length === 0) {
+        await api(`/collections/${coll}/ops`, 'POST', { actor, ops: list });
+        seeded = true;
+      }
+    }
+    if (seeded) await Promise.all([...stores.values()].map((s) => s._snapshot()));
   }
 
   let closed = false;
