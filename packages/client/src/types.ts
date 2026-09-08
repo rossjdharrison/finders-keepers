@@ -4,6 +4,7 @@
 import type { Value, ValueType } from '@core/values';
 import type { ViewSpec } from '@core/query';
 import type { ReadonlySignal } from '@preact/signals-core';
+import type { RenderVocabulary, Viewer } from './resolve.ts';
 
 // --- wire --------------------------------------------------------------------
 export interface RowStateWire {
@@ -58,7 +59,7 @@ export interface ViewDoc {
   id: string;
   collection: string;
   title: string;
-  renderer: 'table' | 'board' | 'self-portrait' | 'docs';
+  renderer?: 'table' | 'board' | 'self-portrait' | 'docs'; // absent = derived from the collection's HQDM class
   query: ViewSpec;
   visibleProps: string[];
   config?: ViewConfig;
@@ -106,5 +107,7 @@ export interface RenderCtx {
   view: ViewDoc;
   workspace: WorkspaceStore; // for cross-collection ref pickers + live rows
   model: ModelBundle; // the static model (schema, relations, types, docs) — for projections
+  vocab: RenderVocabulary; // category → render pattern (the D layer, row-sourced)
+  viewer?: Viewer; // the verified actor's coarse authority (the permissions seam)
 }
 export type Renderer = (mount: HTMLElement, ctx: RenderCtx) => () => void;

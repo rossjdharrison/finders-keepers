@@ -6,6 +6,7 @@
 import { effect } from '@preact/signals-core';
 import { createWorkspaceStore } from './store.ts';
 import { RENDERERS } from './registry.ts';
+import { familyOf, vocabularyFrom } from './resolve.ts';
 import type { CollectionDoc, DocRecord, ModelBundle, RelationMeta, RowOp, TypeMap, ViewDoc } from './types.ts';
 import model from './model.data.json';
 
@@ -17,6 +18,20 @@ const docRecords = (model.docRecords ?? []) as unknown as DocRecord[];
 
 // The static model the projections (self-portrait, node doc-view) read from.
 const modelBundle: ModelBundle = { collections, relations, types, docRecords, seedOps };
+
+// The D layer, row-sourced: category → render pattern, read from the renderVocabulary rows.
+const vocab = vocabularyFrom(seedOps as unknown as { op: string; coll: string; row: string; values?: Record<string, { t?: string; v?: string }> }[]);
+// The demo connects with the admin token, so it may write; the real per-viewer scope
+// arrives from the verified session later — the permissions seam already lives in resolve().
+const viewer = { canWrite: true };
+// family → renderer. Unmapped families fall back to the universal table; family-specific
+// renderers (party card, step board, spec panel) are the R layer, added later.
+const FAMILY_RENDERER: Record<string, string> = {};
+const defaultRendererFor = (collectionId: string): string => {
+  const c = collections.find((x) => x.id === collectionId);
+  const fam = c ? familyOf(c.semanticClass, types, vocab) : 'universal';
+  return FAMILY_RENDERER[fam] ?? 'table';
+};
 
 const ORDER = ['intentions', 'requirements', 'observations', 'decisions', 'options', 'initiatives', 'features', 'tasks', 'docs', 'actors', 'grants', 'collections', 'properties', 'types', 'renderVocabulary'];
 // The two projection views lead (System overview, then Model docs); the rest follow
@@ -59,8 +74,8 @@ function show(view: ViewDoc): void {
   dispose();
   mount.replaceChildren();
   const store = workspace.collection(view.collection);
-  const renderer = RENDERERS[view.renderer];
-  dispose = store && renderer ? renderer(mount, { store, view, workspace, model: modelBundle }) : () => undefined;
+  const renderer = RENDERERS[view.renderer ?? defaultRendererFor(view.collection)]; // derived when the view names none
+  dispose = store && renderer ? renderer(mount, { store, view, workspace, model: modelBundle, vocab, viewer }) : () => undefined;
   for (const b of tabsEl.querySelectorAll('button')) b.classList.toggle('active', b.dataset.id === view.id);
 }
 

@@ -2,7 +2,6 @@
   "id": "renderVocabulary",
   "collection": "renderVocabulary",
   "title": "Render vocabulary",
-  "renderer": "table",
   "query": { "coll": "renderVocabulary" },
   "visibleProps": ["family", "glyph", "label"],
   "config": { "labels": { "family": "render family", "glyph": "glyph", "label": "default label" } }
