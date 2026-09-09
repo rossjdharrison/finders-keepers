@@ -1,0 +1,25 @@
+/* The light theme — the whole theme is a rebinding of the ~18 Tier-1 semantic tokens onto the
+ * light primitives. NOTHING else changes: the hooks layer, the legacy chrome (which reads the
+ * Tier-1 tokens through the back-compat aliases), the renderers and the RenderPlan are all
+ * untouched. That is the axis proof — a theme is a resource, not a rewrite. Selection is data
+ * (data-theme, set from a saved choice or prefers-color-scheme); these values are the residue. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --surface: var(--p-l-page);
+  --surface-raised: var(--p-white);
+  --surface-sunken: var(--p-l-sunken);
+  --border: var(--p-l-line);
+  --ink: var(--p-l-ink);
+  --ink-muted: var(--p-l-ink2);
+  --ink-faint: var(--p-l-faint);
+  --accent: var(--p-l-blue);
+  --role-measure-ink: var(--p-l-blue-soft);
+  --role-relation-ink: var(--p-l-blue);
+  --state-positive: var(--p-l-green);
+  --state-pending: var(--p-l-amber);
+  --state-muted: var(--p-l-faint);
+  --state-blocked: var(--p-l-faint);
+  --state-error: var(--p-l-red);
+  --state-neutral: var(--p-l-ink2);
+  --state-info: var(--p-l-blue);
+}

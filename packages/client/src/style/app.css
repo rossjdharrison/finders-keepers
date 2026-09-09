@@ -16,6 +16,8 @@
   .conn { margin-left: auto; font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); border: 1px solid var(--line); border-radius: 20px; padding: 3px 10px; }
   .conn[data-status="open"] { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
   .conn[data-status="closed"] { color: var(--error); }
+  .theme-toggle { background: transparent; color: var(--ink2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; font-size: 13px; line-height: 1; cursor: pointer; }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--ink); }
   .mount { padding: 22px; }
   .hint { padding: 0 22px 26px; color: var(--faint); font-size: 12.5px; }
   .hint b { color: var(--computed); }

@@ -48,6 +48,7 @@ app.innerHTML = `
     <div class="brand">Dev Journey <span class="muted">· Computable Records</span></div>
     <div class="tabs" id="tabs"></div>
     <div class="conn" id="conn" title="connection"></div>
+    <button class="theme-toggle" id="theme" title="Toggle light / dark"></button>
   </header>
   <main id="mount" class="mount"></main>
   <footer class="hint"><b>Intention → Requirement → Decision → Option.</b> One intention decomposes into requirements; each is resolved by a committed decision whose options' effort is computed down from size — grounded in HQDM (plan → requirement&#95;specification → agreement), live across every tab.</footer>
@@ -56,6 +57,21 @@ app.innerHTML = `
 const tabsEl = app.querySelector<HTMLElement>('#tabs')!;
 const mount = app.querySelector<HTMLElement>('#mount')!;
 const conn = app.querySelector<HTMLElement>('#conn')!;
+
+// Theme = a runtime primitive: selection is data (data-theme, persisted), application is the
+// CSS cascade re-resolving the Tier-1 tokens. No renderer or plan changes — the axis proof.
+const themeBtn = app.querySelector<HTMLButtonElement>('#theme')!;
+const applyTheme = (t: string): void => {
+  document.documentElement.dataset.theme = t;
+  try {
+    localStorage.setItem('fk-theme', t);
+  } catch {
+    /* private mode: selection just won't persist */
+  }
+  themeBtn.textContent = t === 'light' ? '☀' : '☾';
+};
+applyTheme(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'); // reflect the pre-paint choice
+themeBtn.addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'));
 
 const workspace = await createWorkspaceStore({
   baseUrl: location.origin, // Vite proxy forwards /collections + /workspace + ws to :8787

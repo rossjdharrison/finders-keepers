@@ -22,6 +22,19 @@
   --p-green: #37b391;
   --p-red: #f0665f;
   --p-amber: #d9a441;
+  /* light-palette primitives (the light theme rebinds Tier 1 onto these) */
+  --p-white: #ffffff;
+  --p-l-page: #f6f7f9;
+  --p-l-sunken: #eceef2;
+  --p-l-line: #d9dee6;
+  --p-l-ink: #1b2230;
+  --p-l-ink2: #5b6472;
+  --p-l-faint: #8b93a1;
+  --p-l-blue: #3457b2;
+  --p-l-blue-soft: #3a6ea5;
+  --p-l-green: #1a7f5a;
+  --p-l-red: #c0392b;
+  --p-l-amber: #8a5a12;
 
   /* Tier 1 — semantic tokens (the join surface; a theme rebinds only this block) */
   --surface: var(--p-bg);

@@ -4,5 +4,6 @@
 @layer legacy, hooks;
 
 @import "./tokens.css";
+@import "./theme.light.css";
 @import "./app.css";
 @import "./hooks.css";
