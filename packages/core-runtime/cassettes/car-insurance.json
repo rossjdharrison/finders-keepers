@@ -17,17 +17,17 @@
       "properties": [
         { "id": "step", "valueType": { "k": "enum", "set": "step" }, "source": "stored", "category": "class_of_state" },
 
-        { "id": "plate", "valueType": { "k": "text" }, "source": "stored" },
+        { "id": "plate", "valueType": { "k": "text" }, "source": "stored", "constraint": { "format": "kenteken" } },
         { "id": "vehicleConfirmed", "valueType": { "k": "bool" }, "source": "stored" },
         { "id": "vehicleDesc", "valueType": { "k": "text" }, "source": "extern", "api": "rdwDesc", "params": { "plate": "plate" } },
         { "id": "vehicleValue", "valueType": { "k": "money" }, "source": "extern", "api": "rdwValue", "params": { "plate": "plate" }, "category": "amount_of_money" },
 
-        { "id": "postcode", "valueType": { "k": "text" }, "source": "stored" },
+        { "id": "postcode", "valueType": { "k": "text" }, "source": "stored", "constraint": { "format": "postcode" } },
         { "id": "city", "valueType": { "k": "text" }, "source": "extern", "api": "regionCity", "params": { "postcode": "postcode" } },
         { "id": "regionBand", "valueType": { "k": "enum", "set": "regionBand" }, "source": "extern", "api": "regionBand", "params": { "postcode": "postcode" } },
-        { "id": "age", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity" },
-        { "id": "schadevrijeJaren", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity" },
-        { "id": "annualKm", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity" },
+        { "id": "age", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity", "constraint": { "min": 16, "max": 100 } },
+        { "id": "schadevrijeJaren", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity", "constraint": { "min": 0, "max": 99 } },
+        { "id": "annualKm", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity", "constraint": { "min": 0, "max": 200000 } },
         { "id": "usage", "valueType": { "k": "enum", "set": "usage" }, "source": "stored" },
         { "id": "driverConfirmed", "valueType": { "k": "bool" }, "source": "stored" },
 
@@ -118,7 +118,8 @@
         { "id": "premium", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "field", "id": "netPremium" }, { "op": "field", "id": "paymentSurcharge" }] } },
 
         { "id": "vehicleReady", "valueType": { "k": "bool" }, "source": "computed", "formula": { "op": "eq", "args": [{ "op": "field", "id": "vehicleConfirmed" }, { "op": "lit", "value": { "t": "bool", "v": true } }] } },
-        { "id": "driverReady", "valueType": { "k": "bool" }, "source": "computed", "formula": { "op": "eq", "args": [{ "op": "field", "id": "driverConfirmed" }, { "op": "lit", "value": { "t": "bool", "v": true } }] } }
+        { "id": "driverReady", "valueType": { "k": "bool" }, "source": "computed", "formula": { "op": "eq", "args": [{ "op": "field", "id": "driverConfirmed" }, { "op": "lit", "value": { "t": "bool", "v": true } }] } },
+        { "id": "coverReady", "valueType": { "k": "bool" }, "source": "computed", "formula": { "op": "eq", "args": [{ "op": "field", "id": "coverConfirmed" }, { "op": "lit", "value": { "t": "bool", "v": true } }] } }
       ],
       "tables": {
         "coverRate": { "kind": "1d", "of": { "k": "money" }, "map": { "wa": { "t": "money", "minor": 400, "ccy": "EUR", "scale": 2 }, "waplus": { "t": "money", "minor": 700, "ccy": "EUR", "scale": 2 }, "allrisk": { "t": "money", "minor": 1100, "ccy": "EUR", "scale": 2 } } },
@@ -194,10 +195,10 @@
     "field": "step",
     "steps": [
       { "id": "vehicle", "label": "Voertuig", "fields": ["plate", "vehicleDesc", "vehicleValue", "vehicleConfirmed"] },
-      { "id": "driver", "label": "Bestuurder", "fields": ["postcode", "city", "age", "schadevrijeJaren", "annualKm", "usage", "driverConfirmed"] },
-      { "id": "coverage", "label": "Dekking", "fields": ["cover", "optLegalAid", "optPassenger", "optRoadside", "optNoClaimProtect", "coverConfirmed"] },
+      { "id": "driver", "label": "Bestuurder", "gate": "vehicleReady", "fields": ["postcode", "city", "age", "schadevrijeJaren", "annualKm", "usage", "driverConfirmed"] },
+      { "id": "coverage", "label": "Dekking", "gate": "driverReady", "fields": ["cover", "optLegalAid", "optPassenger", "optRoadside", "optNoClaimProtect", "coverConfirmed"] },
       { "id": "quote", "label": "Premie", "fields": ["subVehicle", "subDriver", "subContext", "optionsTotal", "noClaimDiscount", "paymentSurcharge", "premium"] },
-      { "id": "review", "label": "Overzicht", "fields": ["startDate", "paymentTerm", "termsAccepted"] },
+      { "id": "review", "label": "Overzicht", "gate": "coverReady", "fields": ["startDate", "paymentTerm", "termsAccepted"] },
       { "id": "done", "label": "Afgerond", "fields": ["premium"] }
     ]
   },
@@ -265,21 +266,23 @@
   },
   "seed": [
     {
-      "coll": "applications", "row": "app-demo", "values": {
-        "step": { "t": "enum", "set": "step", "v": "quote" },
-        "plate": { "t": "text", "v": "99-XYZ-1" },
-        "vehicleConfirmed": { "t": "bool", "v": true },
-        "postcode": { "t": "text", "v": "1011 AB" },
-        "age": { "t": "num", "v": 40 },
-        "schadevrijeJaren": { "t": "num", "v": 6 },
-        "annualKm": { "t": "num", "v": 15000 },
-        "usage": { "t": "enum", "set": "usage", "v": "commute" },
-        "driverConfirmed": { "t": "bool", "v": true },
-        "cover": { "t": "enum", "set": "coverLevel", "v": "allrisk" },
-        "coverConfirmed": { "t": "bool", "v": true },
-        "optLegalAid": { "t": "bool", "v": true },
-        "paymentTerm": { "t": "enum", "set": "paymentTerm", "v": "monthly" }
+      "coll": "applications", "row": "app-1", "values": {
+        "step": { "t": "enum", "set": "step", "v": "vehicle" }
       }
     }
-  ]
+  ],
+  "example": {
+    "plate": { "t": "text", "v": "99-XYZ-1" },
+    "vehicleConfirmed": { "t": "bool", "v": true },
+    "postcode": { "t": "text", "v": "1011 AB" },
+    "age": { "t": "num", "v": 40 },
+    "schadevrijeJaren": { "t": "num", "v": 6 },
+    "annualKm": { "t": "num", "v": 15000 },
+    "usage": { "t": "enum", "set": "usage", "v": "commute" },
+    "driverConfirmed": { "t": "bool", "v": true },
+    "cover": { "t": "enum", "set": "coverLevel", "v": "allrisk" },
+    "coverConfirmed": { "t": "bool", "v": true },
+    "optLegalAid": { "t": "bool", "v": true },
+    "paymentTerm": { "t": "enum", "set": "paymentTerm", "v": "monthly" }
+  }
 }

@@ -6,6 +6,7 @@
 import type { Value } from '@core/values';
 import { moneyDec, enumV, ref, BLANK } from '@core/values';
 import { format } from './format.ts';
+import { checkInput, canonicalize } from './validate.ts';
 import type { EnumOption, Property } from './types.ts';
 
 export interface CellArgs {
@@ -17,6 +18,8 @@ export interface CellArgs {
   onEdit: (v: Value) => void;
   id?: string; // a11y: the form control's id, so a <label for> can associate with it
   describedBy?: string; // a11y: id(s) of help text describing this control (aria-describedby)
+  pending?: { raw: string; msg: string }; // restore an uncommitted invalid edit across re-renders
+  onValidity?: (state: { raw: string; msg: string } | null) => void; // report validity so the caller can persist it
 }
 
 const EDITABLE = new Set(['text', 'num', 'money', 'enum', 'bool']);
@@ -107,22 +110,57 @@ export function mountCell(host: HTMLElement, a: CellArgs): void {
 
   const input = document.createElement('input');
   input.className = 'cell-input';
+  const constraint = a.prop.constraint;
+  const ccy = a.prop.valueType.k === 'money' ? a.prop.valueType.ccy ?? 'EUR' : v?.t === 'money' ? v.ccy : 'EUR';
+  const scale = v?.t === 'money' ? v.scale : 2;
   if (k === 'num') {
     input.type = 'number';
     input.value = v?.t === 'num' ? String(v.v) : '';
-    input.addEventListener('change', () => a.onEdit({ t: 'num', v: Number(input.value) }));
+    if (constraint?.min !== undefined) input.min = String(constraint.min);
+    if (constraint?.max !== undefined) input.max = String(constraint.max);
   } else if (k === 'money') {
-    const ccy = a.prop.valueType.k === 'money' ? a.prop.valueType.ccy ?? 'EUR' : v?.t === 'money' ? v.ccy : 'EUR';
-    const scale = v?.t === 'money' ? v.scale : 2;
     input.type = 'number';
     input.step = '0.01';
     input.value = v?.t === 'money' ? (Number(v.minor) / 10 ** v.scale).toFixed(v.scale) : '';
-    input.addEventListener('change', () => a.onEdit(moneyDec(Number(input.value), ccy, scale)));
   } else {
     input.type = 'text';
     input.value = v?.t === 'text' ? v.v : '';
-    input.addEventListener('change', () => a.onEdit({ t: 'text', v: input.value }));
   }
-  a11y(input, a);
-  host.append(input);
+
+  // validation derived from the type (+ constraint): show an inline error, never commit invalid.
+  const err = document.createElement('p');
+  err.className = 'cell-error';
+  err.hidden = true;
+  const errId = `${a.id ?? 'cell'}-err`;
+  err.id = errId;
+  const showError = (msg: string | null): void => {
+    err.textContent = msg ?? '';
+    err.hidden = !msg;
+    input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    const ids = [a.describedBy, msg ? errId : undefined].filter(Boolean).join(' ');
+    if (ids) input.setAttribute('aria-describedby', ids);
+    else input.removeAttribute('aria-describedby');
+  };
+  input.addEventListener('change', () => {
+    const raw = input.value;
+    const msg = checkInput(raw, k, constraint);
+    showError(msg);
+    if (msg) {
+      a.onValidity?.({ raw, msg }); // persist the invalid edit so it survives the next re-render
+      return; // keep the invalid text visible for the user to fix, but don't commit it
+    }
+    a.onValidity?.(null); // cleared — the committed value below is the source of truth again
+    if (raw.trim() === '') a.onEdit(BLANK);
+    else if (k === 'num') a.onEdit({ t: 'num', v: Number(raw) });
+    else if (k === 'money') a.onEdit(moneyDec(Number(raw), ccy, scale));
+    else a.onEdit({ t: 'text', v: canonicalize(raw, 'text', constraint) });
+  });
+  a11y(input, a); // base id + describedBy; showError overrides describedBy when an error is present
+  // restore an uncommitted invalid edit (the model still holds the last valid value; this keeps the
+  // user's in-progress text + its error visible across the journey's full re-render)
+  if (a.pending) {
+    input.value = a.pending.raw;
+    showError(a.pending.msg);
+  }
+  host.append(input, err);
 }

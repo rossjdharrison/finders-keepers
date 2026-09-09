@@ -72,8 +72,9 @@ export interface Cassette {
   l10n?: Record<string, Record<string, string>>; // locale → (labelToken → string)
   docs?: Record<string, Record<string, string>>; // locale → (fieldToken → help prose) — self-documentation, shown to the user
   enums?: Record<string, { id: string; label: string }[]>; // picklist option labels per enum set (i18n)
-  journey?: { field: string; steps: { id: string; label?: string; fields?: string[] }[] }; // the wizard: each step's fields
+  journey?: { field: string; steps: { id: string; label?: string; fields?: string[]; gate?: string }[] }; // the wizard: each step's fields; gate = a computed-bool field unlocking the section
   seed?: { coll: string; row: string; values: Record<string, Value> }[]; // example rows to apply when empty
+  example?: Record<string, Value>; // demo values the client's "fill example" affordance applies to the active record
 }
 
 /** The host-supplied imports — the ONLY egress from the sealed core. */

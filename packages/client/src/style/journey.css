@@ -24,6 +24,23 @@
   .stepper .step[data-current="true"]::before { background: var(--accent); color: var(--on-accent); }
   .stepper .step[data-state="muted"] { color: var(--ink-muted); }
 
+  /* the layout toggle (stepped ↔ single page) */
+  .journey-toggle { display: inline-flex; align-self: flex-start; gap: 2px; padding: 3px; background: var(--surface-sunken); border: 1px solid var(--border); border-radius: var(--radius-pill); }
+  .jt-opt { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 15px; border: none; background: transparent; color: var(--ink-muted); border-radius: var(--radius-pill); cursor: pointer; }
+  .jt-opt[data-active="true"] { background: var(--surface-raised); color: var(--ink); box-shadow: 0 1px 2px color-mix(in srgb, var(--brand) 14%, transparent); }
+
+  /* single-page sections — the whole form at once, each section a subtle card, gated ones dashed */
+  .jc-page-title { font-family: var(--font-brand); font-size: 22px; font-weight: 600; letter-spacing: -.01em; color: var(--ink); margin: 0 0 2px; }
+  .jc-section { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-sunken) 35%, transparent); }
+  .jc-section[data-locked="true"] { background: transparent; border-style: dashed; }
+  .jc-section-title { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); margin: 0; }
+  .jc-locked { font-size: 12.5px; color: var(--ink-muted); margin: 0; }
+
+  /* single-page completion confirmation (the stepped 'Afgerond' step covers the other layout) */
+  .jc-complete { display: flex; align-items: center; gap: 12px; padding: 15px 18px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--state-positive) 12%, var(--surface-sunken)); border: 1px solid color-mix(in srgb, var(--state-positive) 40%, transparent); }
+  .jc-complete-mark { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--state-positive); color: var(--on-accent); font-weight: 700; font-size: 14px; }
+  .jc-complete-text { font-size: 14px; font-weight: 600; color: var(--ink); }
+
   /* step heading */
   .jc-step-head { display: flex; flex-direction: column; gap: 3px; }
   .jc-step-eyebrow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; }

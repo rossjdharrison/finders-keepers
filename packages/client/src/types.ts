@@ -31,6 +31,7 @@ export interface Property {
   category?: string; // optional HQDM class for this field's values (must reduce)
   availableWhen?: unknown; // a boolean formula gating this field (evaluated server-side)
   doc?: string; // self-documentation carried on the field (rendered as help text; assists the user)
+  constraint?: { min?: number; max?: number; format?: 'kenteken' | 'postcode' }; // client input validation, derived with the type
 }
 export interface CollectionDoc {
   id: string;
@@ -64,7 +65,7 @@ export interface ViewConfig {
   refs?: Record<string, { collection: string; labelField: string }>; // ref field -> parent collection + its label field
   groupField?: string;
   columns?: string[];
-  journey?: { field: string; steps: { id: string; label?: string; fields?: string[] }[] }; // the wizard: each step's fields
+  journey?: { field: string; steps: { id: string; label?: string; fields?: string[]; gate?: string }[] }; // the wizard: each step's fields; gate = a computed-bool field that unlocks the section (progressive disclosure)
 }
 export interface ViewDoc {
   id: string;
