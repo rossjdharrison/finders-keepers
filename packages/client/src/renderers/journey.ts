@@ -401,7 +401,9 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
         const target = wrap.querySelector<HTMLElement>(`[data-section="${appeared}"]`);
         const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
         target?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
-        live.textContent = `${labelOfStep(appeared)} — nu beschikbaar.`; // announce the reveal (SRs don't see the scroll)
+        // announce "now available" ONLY for a single-page progressive reveal. In stepped mode a step
+        // change (incl. Back) is navigation, not a reveal — the step title + aria-current convey it.
+        if (mode === 'single') live.textContent = `${labelOfStep(appeared)} — nu beschikbaar.`;
       }
     }
     prevVisible = nowVisible;
