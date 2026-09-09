@@ -8,7 +8,7 @@
 // data source moves from a socket to this in-process core.
 
 import { createCore } from './core.ts';
-import type { Cassette, Externs, RowOp, RowState, Snapshot } from './types.ts';
+import type { Cassette, Core, Externs, RowOp, RowState, Snapshot } from './types.ts';
 
 export interface Persistence {
   loadSnapshot(): Promise<Snapshot | null>;
@@ -24,12 +24,18 @@ export interface BrowserHost {
   subscribe(cb: () => void): () => void;
 }
 
-export async function createBrowserHost(
+/**
+ * Run a browser host over an ALREADY-CONSTRUCTED core. The core may be the in-process @core
+ * (createCore) or the same core SEALED IN WASM (SealedCore from @app/core-wasm) — both satisfy the
+ * Core contract, so the persistence + broadcaster + subscribe plumbing here, and every renderer
+ * downstream, is byte-identical regardless of WHERE the core actually runs. That is the whole point
+ * of the seam: presentation never learns whether the engine is in this JS context or inside wasm.
+ */
+export async function createBrowserHostOver(
+  core: Core,
   cassette: Cassette,
-  externs: Externs,
   opts: { persistence?: Persistence; broadcaster?: Broadcaster } = {},
 ): Promise<BrowserHost> {
-  const core = createCore(externs);
   core.load(cassette);
   const subs = new Set<() => void>();
   const notify = (): void => { for (const cb of subs) cb(); };
@@ -55,4 +61,13 @@ export async function createBrowserHost(
     },
     subscribe: (cb) => { subs.add(cb); return () => { subs.delete(cb); }; },
   };
+}
+
+/** The in-process convenience: build a @core in THIS JS context and run a host over it. */
+export function createBrowserHost(
+  cassette: Cassette,
+  externs: Externs,
+  opts: { persistence?: Persistence; broadcaster?: Broadcaster } = {},
+): Promise<BrowserHost> {
+  return createBrowserHostOver(createCore(externs), cassette, opts);
 }

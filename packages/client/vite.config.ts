@@ -13,6 +13,14 @@ export default defineConfig({
       },
     },
   },
+  // Keep esbuild's dep pre-bundler away from the QuickJS emscripten glue: it uses
+  // `new URL('emscripten-module.wasm', import.meta.url)` + a dynamic import of the variant loader,
+  // which pre-bundling rewrites and breaks. Excluded, they load as native ESM and the ?url'd .wasm
+  // resolves to a real, separate fetch. (server.fs.allow is unneeded — Vite 7 already serves from the
+  // workspace root, where the hoisted wasm lives.)
+  optimizeDeps: {
+    exclude: ['quickjs-emscripten-core', '@jitl/quickjs-wasmfile-release-sync'],
+  },
   server: {
     proxy: {
       '/collections': { target: 'http://localhost:8787', changeOrigin: true, ws: true },

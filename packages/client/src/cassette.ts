@@ -1,13 +1,18 @@
-// The cassette player — the client-only path. It boots a cassette into the in-browser sealed
-// core (no server after the initial GET), adapts the engine to the WorkspaceStore the renderers
-// already consume, and renders it through the SAME resolve → RenderPlan → hooks → CSS pipeline.
-// The seam is clean: the engine gives data (host-store), resolve() turns data into a neutral
-// plan (fed the cassette's presentation + l10n), the renderer paints hooks. Nothing else moves.
+// The cassette player — the client-only path. It boots a cassette into the sealed core running
+// INSIDE a QuickJS WASM sandbox in this tab (the vendored artifact + the prebuilt QuickJS wasm are
+// fetched once, then no server), adapts the engine to the WorkspaceStore the renderers already
+// consume, and renders it through the SAME resolve → RenderPlan → hooks → CSS pipeline.
+// The seam is clean AND real now: createBrowserHostOver runs over whatever satisfies the Core
+// contract — here a SealedCore living in wasm — so the host, store, resolve() and renderers are
+// byte-identical to the in-process path. Presentation never learns the engine is inside wasm.
 
 import './style/index.css';
-import { createBrowserHost, mockExterns } from '@app/core-runtime';
+import { createBrowserHostOver, mockExterns } from '@app/core-runtime';
 import type { Cassette } from '@app/core-runtime';
+import { createSealedCore } from '@app/core-wasm';
+import coreBundleUrl from '@app/core-wasm/vendor/core.bundle.js?url';
 import carInsurance from './cassettes/car-insurance.json';
+import { createBrowserQuickJS } from './quickjs.ts';
 import { createHostStore } from './host-store.ts';
 import { localStoragePersistence, broadcastChannelBroadcaster } from './adapters.ts';
 import { RENDERERS } from './registry.ts';
@@ -20,11 +25,11 @@ const app = document.querySelector<HTMLElement>('#app')!;
 app.innerHTML = `
   <header class="topbar">
     <div class="brand">Autoverzekering <span class="muted">· aanvragen · cassette</span></div>
-    <div class="conn" id="conn" title="in-browser engine" data-status="open">local · no server</div>
+    <div class="conn" id="conn" title="sealed core in a QuickJS WASM sandbox" data-status="open">wasm · no server</div>
     <button class="theme-toggle" id="theme" title="Toggle light / dark"></button>
   </header>
   <main id="mount" class="mount"></main>
-  <footer class="hint">A <b>cassette</b> played by the in-browser sealed core: validate, recompute and the guarded steps run in this tab; RDW + region are mock externs; nothing hits a server after the initial GET.</footer>
+  <footer class="hint">A <b>cassette</b> played by the sealed <code>@core</code> running in a <b>QuickJS WASM</b> sandbox in this tab: validate, recompute and the guarded steps all run inside wasm; RDW + region are mock externs injected across the seam; nothing hits a server after the initial GET.</footer>
 `;
 
 const themeBtn = app.querySelector<HTMLButtonElement>('#theme')!;
@@ -40,9 +45,15 @@ const applyTheme = (t: string): void => {
 applyTheme(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
 themeBtn.addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'));
 
-// boot the sealed core in this tab, with real browser persistence + cross-tab liveness
+// boot the sealed core INSIDE wasm: load the QuickJS runtime + the vendored @core bundle (both
+// fetched once — watch the Network tab), inject the mock externs as the sole egress, then run the
+// same browser host over it. mockExterns is synchronous, which the sealed core requires.
+const quickjs = await createBrowserQuickJS();
+const bundleSource = await fetch(coreBundleUrl).then((r) => r.text());
+const sealed = await createSealedCore(quickjs, bundleSource, mockExterns());
+
 const chan = `fk-cassette-${cass.id}`;
-const host = await createBrowserHost(cass, mockExterns(), {
+const host = await createBrowserHostOver(sealed, cass, {
   persistence: localStoragePersistence(chan),
   broadcaster: broadcastChannelBroadcaster(chan),
 });
