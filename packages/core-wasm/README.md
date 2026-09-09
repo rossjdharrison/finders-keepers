@@ -1,8 +1,10 @@
 # @app/core-wasm — the sealed core, vendored
 
 The `@core` engine, sealed into a portable artifact that runs inside a **prebuilt QuickJS wasm**.
-There is **no wasm toolchain at the run site**: the target environment only needs `quickjs-emscripten`
-(which it already has, via its package registry) and the committed bundle in [`vendor/`](./vendor/).
+There is **no wasm toolchain at the run site**: the target environment supplies a QuickJS wasm
+runtime (e.g. `quickjs-emscripten`, which it already has via its package registry) *to the host as a
+parameter*, plus the committed bundle in [`vendor/`](./vendor/). The host package itself has **no
+runtime dependencies** — it is pure glue.
 
 ## The vendor model
 
@@ -69,7 +71,7 @@ were validated on two other runtimes the target environment can provide:
 
 ```
 src/seal-entry.ts   the sealed ABI — bundled INTO the artifact (the core's whole surface)
-src/host.ts         the loader — imports NOTHING from @core at runtime; only quickjs-emscripten
+src/host.ts         the loader — imports NOTHING at runtime (type-only); takes the QuickJS module as a param
 scripts/build.mjs   the one build step (esbuild → vendor/core.bundle.js)
 vendor/             the committed artifact (built upstream, run downstream)
 test/               the vendor-model proof (premium, guards, hidden, snapshot — all through wasm)

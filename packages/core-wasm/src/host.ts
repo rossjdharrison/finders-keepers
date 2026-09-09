@@ -1,50 +1,40 @@
 // The HOST — the thin loader that runs the vendored core. This is the reference JS host (Node +
 // browser); the .NET (Wasmtime) and Python (wasmtime) hosts implement the same three moves against
-// the same seam (see README). It imports NOTHING from @core at runtime — the core is the committed
-// bundle, not a source dependency. Its only runtime dependency is quickjs-emscripten (the prebuilt
-// QuickJS wasm), which the target environment already has.
+// the same seam (see README). It imports NOTHING at runtime — every import below is type-only and
+// erased — so the core is the committed bundle, not a source dependency, and this file never pulls a
+// wasm loader into anyone's bundle. The QuickJS runtime is INJECTED by the caller: Node/tests pass
+// getQuickJS() from quickjs-emscripten; the browser passes a Vite-loaded variant. Exactly like the
+// .NET/Python hosts supplying their own Wasmtime, the JS host takes the runtime as a parameter.
 //
 // Three moves:
 //   1. inject the egress  — __fk_extern + __fk_clock, the core's only reach outward;
 //   2. evaluate the bundle — which defines globalThis.fk inside the sandbox;
 //   3. call fk.* over JSON — entry in, verdicts out, the value domain intact.
 
-import { getQuickJS } from 'quickjs-emscripten';
-import type { QuickJSContext, QuickJSHandle } from 'quickjs-emscripten';
-import type { Value } from '@core/values';
+import type { QuickJSContext, QuickJSHandle, QuickJSWASMModule } from 'quickjs-emscripten';
+// Type-only (erased at runtime): this makes the sealed core a provable drop-in for the in-process
+// Core — same load/apply/read/snapshot/restore contract, so createBrowserHostOver accepts either.
+import type { Cassette, Core, Externs, RowOp, RowState, Snapshot } from '@app/core-runtime';
 
 /** The two functions the sealed core reaches the world through — the whole egress surface. */
-export interface SealedExterns {
-  clock(): { today: number; nowMs: number };
-  api(name: string, params: Record<string, Value>): Value;
-}
+export type SealedExterns = Externs;
 
-/** A row as the core returns it — the doc plus the engine's verdicts (hidden / actions). */
-export interface SealedRow {
-  id: string;
-  doc: Record<string, Value>;
-  hidden?: string[];
-  actions?: { id: string; field: string; to: string; enabled: boolean }[];
-}
-
-/** The running sealed core. Same shape as an in-process Core, minus that it lives inside wasm. */
-export interface SealedCore {
-  load(cassette: unknown): void;
-  apply(coll: string, ops: unknown[]): SealedRow[];
-  read(coll: string): SealedRow[];
-  snapshot(): unknown;
-  restore(snap: unknown): void;
-  dispose(): void;
-}
+/** The running sealed core: the exact Core contract, plus dispose() to free the wasm context. */
+export type SealedCore = Core & { dispose(): void };
 
 /**
  * Load the vendored core into a fresh QuickJS wasm context and wire the extern seam.
+ * @param quickjs      a resolved QuickJS module — the caller owns wasm-loading (Node: getQuickJS();
+ *                     browser: a Vite-loaded variant). The host itself never imports a wasm loader.
  * @param bundleSource the committed vendor/core.bundle.js, read as text by the caller
  * @param externs      the host's implementation of the egress (mocks in test; real API calls live)
  */
-export async function createSealedCore(bundleSource: string, externs: SealedExterns): Promise<SealedCore> {
-  const QuickJS = await getQuickJS();
-  const vm: QuickJSContext = QuickJS.newContext();
+export async function createSealedCore(
+  quickjs: QuickJSWASMModule,
+  bundleSource: string,
+  externs: SealedExterns,
+): Promise<SealedCore> {
+  const vm: QuickJSContext = quickjs.newContext();
 
   // QuickJS ships no console; the bundle may reference it. A no-op keeps the sandbox mute.
   vm.unwrapResult(vm.evalCode('globalThis.console={log(){},info(){},warn(){},error(){},debug(){}};')).dispose();
@@ -53,8 +43,8 @@ export async function createSealedCore(bundleSource: string, externs: SealedExte
   // object ever enters the sandbox: the core gets data back, never a reference it could reach through.
   const externFn = vm.newFunction('__fk_extern', (nameH, paramsH) => {
     const name = vm.getString(nameH);
-    const params = JSON.parse(vm.getString(paramsH)) as Record<string, Value>;
-    return vm.newString(JSON.stringify(externs.api(name, params)));
+    const params = JSON.parse(vm.getString(paramsH)) as Record<string, unknown>;
+    return vm.newString(JSON.stringify(externs.api(name, params as Parameters<Externs['api']>[1])));
   });
   vm.setProp(vm.global, '__fk_extern', externFn);
   externFn.dispose();
@@ -93,11 +83,11 @@ export async function createSealedCore(bundleSource: string, externs: SealedExte
   call('init');
 
   return {
-    load: (cassette) => void call('load', JSON.stringify(cassette)),
-    apply: (coll, ops) => JSON.parse(call('apply', coll, JSON.stringify(ops))) as SealedRow[],
-    read: (coll) => JSON.parse(call('read', coll)) as SealedRow[],
-    snapshot: () => JSON.parse(call('snapshot')) as unknown,
-    restore: (snap) => void call('restore', JSON.stringify(snap)),
+    load: (cassette: Cassette) => void call('load', JSON.stringify(cassette)),
+    apply: (coll: string, ops: RowOp[]) => JSON.parse(call('apply', coll, JSON.stringify(ops))) as RowState[],
+    read: (coll: string) => JSON.parse(call('read', coll)) as RowState[],
+    snapshot: () => JSON.parse(call('snapshot')) as Snapshot,
+    restore: (snap: Snapshot) => void call('restore', JSON.stringify(snap)),
     dispose: () => {
       fkH.dispose();
       vm.dispose();

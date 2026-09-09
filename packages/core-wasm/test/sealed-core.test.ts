@@ -7,10 +7,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { getQuickJS } from 'quickjs-emscripten';
 import { createSealedCore } from '../src/host.ts';
 import { mockExterns } from '@app/core-runtime';
 import type { Value } from '@core/values';
 
+// The host takes the QuickJS runtime as a parameter (the browser injects a Vite-loaded variant; here
+// Node loads the default). Resolved once — getQuickJS() caches the module internally regardless.
+const QuickJS = await getQuickJS();
 const bundle = readFileSync(new URL('../vendor/core.bundle.js', import.meta.url), 'utf8');
 const cassette = JSON.parse(readFileSync(new URL('../../core-runtime/cassettes/car-insurance.json', import.meta.url), 'utf8'));
 
@@ -29,7 +33,7 @@ const full: Record<string, Value> = {
 
 test('vendored core: the aanvragen premium round-trips through the wasm seam, externs injected', async () => {
   const ext = mockExterns();
-  const core = await createSealedCore(bundle, ext);
+  const core = await createSealedCore(QuickJS, bundle, ext);
   core.load(cassette);
   const rows = core.apply('applications', [{ op: 'insert', row: 'a1', values: full }]);
   const a = rows.find((r) => r.id === 'a1')!;
@@ -46,7 +50,7 @@ test('vendored core: the aanvragen premium round-trips through the wasm seam, ex
 });
 
 test('vendored core: guarded step transitions still throw across the wasm seam', async () => {
-  const core = await createSealedCore(bundle, mockExterns());
+  const core = await createSealedCore(QuickJS, bundle, mockExterns());
   core.load(cassette);
   core.apply('applications', [{ op: 'insert', row: 'a1', values: { step: en('step', 'vehicle'), plate: text('99-XYZ-1') } }]);
   // vehicle→driver is blocked until vehicleConfirmed — the guard rejection propagates out of wasm.
@@ -55,7 +59,7 @@ test('vendored core: guarded step transitions still throw across the wasm seam',
 });
 
 test('vendored core: availableWhen verdicts (hidden) survive the seam as data', async () => {
-  const core = await createSealedCore(bundle, mockExterns());
+  const core = await createSealedCore(QuickJS, bundle, mockExterns());
   core.load(cassette);
   const [lo] = core.apply('applications', [{ op: 'insert', row: 'lo', values: { schadevrijeJaren: num(2) } }]);
   const [hi] = core.apply('applications', [{ op: 'insert', row: 'hi', values: { schadevrijeJaren: num(8) } }]);
@@ -65,13 +69,13 @@ test('vendored core: availableWhen verdicts (hidden) survive the seam as data', 
 });
 
 test('vendored core: snapshot / restore round-trips the workspace through the seam', async () => {
-  const a = await createSealedCore(bundle, mockExterns());
+  const a = await createSealedCore(QuickJS, bundle, mockExterns());
   a.load(cassette);
   a.apply('applications', [{ op: 'insert', row: 'a1', values: full }]);
   const snap = a.snapshot();
   a.dispose();
 
-  const b = await createSealedCore(bundle, mockExterns());
+  const b = await createSealedCore(QuickJS, bundle, mockExterns());
   b.load(cassette);
   b.restore(snap);
   const a1 = b.read('applications').find((r) => r.id === 'a1')!;
