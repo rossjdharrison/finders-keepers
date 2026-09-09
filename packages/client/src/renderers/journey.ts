@@ -86,6 +86,8 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
   mount.append(wrap, live);
   let lastAnnounce: string | null = null;
   let focusToggle = false; // set when the user flips the layout, so we restore focus after the rebuild
+  let prevVisible = new Set<string>(); // section/step ids visible last render — to detect a NEW one
+  let firstRender = true; // don't auto-scroll on the initial paint
   // uncommitted invalid edits, keyed "rowId::field" — kept across the full re-render so a user's
   // in-progress invalid value + its error survive an unrelated commit elsewhere on the form.
   const pending = new Map<string, { raw: string; msg: string }>();
@@ -222,6 +224,7 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
     const keepEnd = keepId ? ae!.selectionEnd : null;
     wrap.replaceChildren();
     const announceParts: string[] = [];
+    const nowVisible = new Set<string>(); // section/step ids on screen this render (for reveal-scroll)
     let modeAnnounced = false;
     if (steps.length > 1) wrap.append(buildToggle(mode));
     if (focusToggle) {
@@ -279,6 +282,10 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
           main.append(nav);
         }
         const head = el('div', 'jc-step-head');
+        if (stepVal) {
+          head.dataset.section = stepVal; // scroll anchor when the step changes
+          nowVisible.add(stepVal);
+        }
         head.append(el('span', 'jc-step-eyebrow', `Stap ${idx + 1} van ${steps.length}`));
         head.append(el('h2', 'jc-step-title', labelOfStep(stepVal ?? '')));
         main.append(head);
@@ -322,21 +329,20 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
           // skip informational sections (the all-computed premie-opbouw + the terminal step) — the
           // rail carries the premium, so on one page we show only the sections the user fills in.
           if (!inputs.some((f) => byField.get(f)?.editable)) continue;
-          const unlocked = sectionUnlocked(row, step.gate);
+          // a section only BECOMES VISIBLE once its gate (a wasm-computed bool) is satisfied — the
+          // previous step is complete. Locked sections are hidden entirely (progressive reveal).
+          if (!sectionUnlocked(row, step.gate)) continue;
           const section = el('section', 'jc-section');
+          section.dataset.section = step.id; // scroll anchor when newly revealed
+          nowVisible.add(step.id);
           section.setAttribute('aria-label', step.label ?? step.id);
-          if (!unlocked) section.dataset.locked = 'true';
           section.append(el('h3', 'jc-section-title', step.label ?? step.id));
-          if (!unlocked) {
-            section.append(el('p', 'jc-locked', 'Beschikbaar zodra u de vorige stap heeft afgerond.'));
-          } else {
-            const grid = el('div', 'journey-fields');
-            for (const field of inputs) {
-              const cell = fieldCell(row, byField, field, false);
-              if (cell) grid.append(cell);
-            }
-            section.append(grid);
+          const grid = el('div', 'journey-fields');
+          for (const field of inputs) {
+            const cell = fieldCell(row, byField, field, false);
+            if (cell) grid.append(cell);
           }
+          section.append(grid);
           main.append(section);
         }
         const lastStepId = steps[steps.length - 1]?.id;
@@ -372,12 +378,13 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
     if (!modeAnnounced && lastAnnounce !== null && announce !== lastAnnounce) live.textContent = announce;
     lastAnnounce = announce;
 
-    // restore focus/caret/uncommitted text (skip when a layout switch already claimed focus)
+    // restore focus/caret/uncommitted text (skip when a layout switch already claimed focus).
+    // preventScroll so it doesn't fight the reveal-scroll below.
     if (keepId && !modeAnnounced) {
       const back = wrap.querySelector<HTMLInputElement>('#' + CSS.escape(keepId));
       if (back) {
         if (keepVal != null && back.value !== keepVal) back.value = keepVal; // keep the in-progress text
-        back.focus();
+        back.focus({ preventScroll: true });
         try {
           if (keepStart != null) back.setSelectionRange(keepStart, keepEnd ?? keepStart);
         } catch {
@@ -385,5 +392,21 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
         }
       }
     }
+
+    // vertically center a section/step that JUST became visible (a progressive reveal in single-page,
+    // or a step change in stepped) — driven by the wasm-computed gates. Not on first paint or a toggle.
+    if (!firstRender && !modeAnnounced) {
+      const appeared = [...nowVisible].find((id) => !prevVisible.has(id));
+      if (appeared) {
+        const target = wrap.querySelector<HTMLElement>(`[data-section="${appeared}"]`);
+        const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        target?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+        // announce "now available" ONLY for a single-page progressive reveal. In stepped mode a step
+        // change (incl. Back) is navigation, not a reveal — the step title + aria-current convey it.
+        if (mode === 'single') live.textContent = `${labelOfStep(appeared)} — nu beschikbaar.`;
+      }
+    }
+    prevVisible = nowVisible;
+    firstRender = false;
   });
 };

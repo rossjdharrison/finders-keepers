@@ -18,7 +18,7 @@
         { "id": "step", "valueType": { "k": "enum", "set": "step" }, "source": "stored", "category": "class_of_state" },
 
         { "id": "plate", "valueType": { "k": "text" }, "source": "stored", "constraint": { "format": "kenteken" } },
-        { "id": "vehicleConfirmed", "valueType": { "k": "bool" }, "source": "stored" },
+        { "id": "vehicleConfirmed", "valueType": { "k": "bool" }, "source": "stored", "availableWhen": { "op": "ne", "args": [{ "op": "field", "id": "vehicleDesc" }, { "op": "lit", "value": { "t": "blank" } }] } },
         { "id": "vehicleDesc", "valueType": { "k": "text" }, "source": "extern", "api": "rdwDesc", "params": { "plate": "plate" } },
         { "id": "vehicleValue", "valueType": { "k": "money" }, "source": "extern", "api": "rdwValue", "params": { "plate": "plate" }, "category": "amount_of_money" },
 
