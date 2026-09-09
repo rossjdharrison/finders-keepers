@@ -28,7 +28,7 @@ type Row = CollectionStore['rows']['value'][number];
 type Layout = 'stepped' | 'single';
 const LAYOUT_KEY = 'fk-journey-layout';
 
-export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, viewer }) => {
+export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, viewer, suggestions }) => {
   const collDoc = model.collections.find((c) => c.id === store.id);
   const overrides = overridesFrom(model.presentation ?? []);
   const l10n = new Map(Object.entries(view.config?.labels ?? {}));
@@ -143,6 +143,7 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
         onEdit: (v) => store.setField(row.id, field, v), id: inputId, describedBy: fp.doc ? helpId : undefined,
         pending: pending.get(pkey),
         onValidity: (st) => (st ? pending.set(pkey, st) : pending.delete(pkey)),
+        suggestions: suggestions?.value?.[field], // reactive: read here so the effect re-renders when they arrive
       });
       cell.append(lab, host);
       const h = helpNode();

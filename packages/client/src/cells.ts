@@ -20,6 +20,7 @@ export interface CellArgs {
   describedBy?: string; // a11y: id(s) of help text describing this control (aria-describedby)
   pending?: { raw: string; msg: string }; // restore an uncommitted invalid edit across re-renders
   onValidity?: (state: { raw: string; msg: string } | null) => void; // report validity so the caller can persist it
+  suggestions?: string[]; // datalist options for a text/number input (e.g. house numbers on a postcode)
 }
 
 const EDITABLE = new Set(['text', 'num', 'money', 'enum', 'bool']);
@@ -156,6 +157,20 @@ export function mountCell(host: HTMLElement, a: CellArgs): void {
     else a.onEdit({ t: 'text', v: canonicalize(raw, 'text', constraint) });
   });
   a11y(input, a); // base id + describedBy; showError overrides describedBy when an error is present
+  // a datalist of real options (e.g. the house/flat numbers on the entered postcode) — the user can
+  // pick from the list or keep typing
+  if (a.suggestions?.length) {
+    const listId = `${a.id ?? 'cell'}-list`;
+    const dl = document.createElement('datalist');
+    dl.id = listId;
+    for (const s of a.suggestions) {
+      const o = document.createElement('option');
+      o.value = s;
+      dl.append(o);
+    }
+    input.setAttribute('list', listId);
+    host.append(dl);
+  }
   // restore an uncommitted invalid edit (the model still holds the last valid value; this keeps the
   // user's in-progress text + its error visible across the journey's full re-render)
   if (a.pending) {

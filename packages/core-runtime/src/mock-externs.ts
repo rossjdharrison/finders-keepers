@@ -18,13 +18,13 @@ const RDW: Record<string, { desc: Value; value: Value }> = {
   _default: { desc: text('Onbekend voertuig'), value: money(12000) },
 };
 
-// A stand-in postcode → region service: the leading digit picks a risk band + a city name.
-// (Real deployment: a rating/geo API; here a deterministic mock so premiums are reproducible.)
-function regionOf(postcode: string): { band: Value; city: Value } {
+// A stand-in postcode → region service: the leading digit picks a risk band, a city + a street.
+// (Real deployment: PDOK for city/street, a rating API for the band; here a deterministic mock.)
+function regionOf(postcode: string): { band: Value; city: Value; street: Value } {
   const d = postcode.trim()[0];
-  if (d === '1') return { band: en('regionBand', 'high'), city: text('Amsterdam') };
-  if (d === '3') return { band: en('regionBand', 'mid'), city: text('Utrecht') };
-  return { band: en('regionBand', 'low'), city: text('Overig Nederland') };
+  if (d === '1') return { band: en('regionBand', 'high'), city: text('Amsterdam'), street: text('De Ruijterkade') };
+  if (d === '3') return { band: en('regionBand', 'mid'), city: text('Utrecht'), street: text('Oudegracht') };
+  return { band: en('regionBand', 'low'), city: text('Overig Nederland'), street: text('Dorpsstraat') };
 }
 
 export interface MockExterns extends Externs {
@@ -43,10 +43,10 @@ export function mockExterns(): MockExterns {
         const rec = RDW[plate] ?? RDW._default;
         return name === 'rdwValue' ? rec.value : rec.desc;
       }
-      if (name === 'regionBand' || name === 'regionCity') {
+      if (name === 'regionBand' || name === 'regionCity' || name === 'addrStreet') {
         const pc = params.postcode && params.postcode.t === 'text' ? params.postcode.v : '';
         const r = regionOf(pc);
-        return name === 'regionBand' ? r.band : r.city;
+        return name === 'regionBand' ? r.band : name === 'regionCity' ? r.city : r.street;
       }
       return { t: 'error', code: '#NA', detail: `no such extern: ${name}` };
     },

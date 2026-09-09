@@ -122,5 +122,6 @@ export interface RenderCtx {
   model: ModelBundle; // the static model (schema, relations, types, docs) — for projections
   vocab: RenderVocabulary; // category → render pattern (the D layer, row-sourced)
   viewer?: Viewer; // the verified actor's coarse authority (the permissions seam)
+  suggestions?: ReadonlySignal<Record<string, string[]>>; // reactive per-field datalist options (e.g. house numbers)
 }
 export type Renderer = (mount: HTMLElement, ctx: RenderCtx) => () => void;
