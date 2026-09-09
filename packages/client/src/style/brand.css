@@ -57,37 +57,9 @@
   }
   .bank-secure svg { width: 13px; height: 13px; fill: currentColor; }
 
-  /* --- premium figure: the hero of the page, and the ONE place the reserved gold appears.
-   * A stacked label-over-value hero reads far stronger than a value marooned at the right of a
-   * wide bar. --- */
-  .journey-premium[data-emphasis="strong"] {
-    flex-direction: column; align-items: flex-start; gap: 3px; padding: 15px 18px 16px;
-    background: color-mix(in srgb, var(--emphasis) 9%, var(--surface-sunken));
-    border-color: color-mix(in srgb, var(--emphasis) 34%, transparent);
-  }
-  .journey-premium[data-emphasis="strong"] .jp-label {
-    text-transform: uppercase; letter-spacing: .05em; font-size: 11px; font-weight: 600; color: var(--ink-muted);
-  }
-  .journey-premium[data-emphasis="strong"] .jp-value {
-    color: var(--emphasis); font-size: 30px; line-height: 1.1;
-  }
-
-  /* --- self-documentation: the model's field help, rendered under each field --- */
-  .jf-help {
-    font-size: 11.5px; line-height: 1.45; color: var(--ink-muted);
-    margin-top: 1px; max-width: 60ch;
-  }
-  .step-doc {
-    font-size: 12.5px; line-height: 1.5; color: var(--ink-muted);
-    max-width: 68ch; margin: -4px 0 2px;
-  }
-
-  /* --- premium-bank refinements to the journey family --- */
-  .journey-card {
-    border-radius: var(--radius-lg);
-    box-shadow: 0 1px 2px color-mix(in srgb, var(--brand) 8%, transparent),
-                0 6px 20px color-mix(in srgb, var(--brand) 6%, transparent);
-  }
+  /* The premium figure (quote rail) and the field styles live in the journey layer now; the reserved
+   * gold is applied there via var(--emphasis). Here we only keep the primary CTA's on-fill text +
+   * hover, which must sit in the brand layer to win over the journey base. */
   .j-next[data-state="ready"] {
     background: var(--accent); border-color: var(--accent); color: var(--on-accent);
   }

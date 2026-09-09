@@ -26,7 +26,7 @@ export interface RowStateWire {
 export interface Property {
   id: string;
   valueType: ValueType;
-  source?: 'stored' | 'computed';
+  source?: 'stored' | 'computed' | 'extern'; // extern: engine-filled from a host call — read-only, like computed
   formula?: unknown;
   category?: string; // optional HQDM class for this field's values (must reduce)
   availableWhen?: unknown; // a boolean formula gating this field (evaluated server-side)

@@ -138,7 +138,7 @@ export function resolvePlan(input: ResolveInput): RenderPlan {
       doc: audience?.docs?.get(p.id) ?? (p as { doc?: string }).doc, // self-documentation (localized help wins; else the field's own doc)
       state,
       emphasis: ov?.emphasis,
-      editable: p.source !== 'computed' && canWrite,
+      editable: (p.source ?? 'stored') === 'stored' && canWrite, // only stored fields edit; computed + extern are engine-filled readouts
       hidden,
     };
   });

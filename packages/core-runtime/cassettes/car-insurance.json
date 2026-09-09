@@ -171,7 +171,8 @@
     { "subject": "applications", "variant": "journey" },
     { "subject": "applications.step", "stateRules": { "vehicle": "pending", "driver": "pending", "coverage": "pending", "quote": "info", "review": "info", "done": "positive" } },
     { "subject": "applications.cover", "stateRules": { "wa": "muted", "waplus": "info", "allrisk": "positive" } },
-    { "subject": "applications.premium", "emphasis": "strong" }
+    { "subject": "applications.premium", "emphasis": "strong" },
+    { "subject": "applications.noClaimDiscount", "role": "deduction" }
   ],
   "enums": {
     "coverLevel": [
@@ -195,7 +196,7 @@
       { "id": "vehicle", "label": "Voertuig", "fields": ["plate", "vehicleDesc", "vehicleValue", "vehicleConfirmed"] },
       { "id": "driver", "label": "Bestuurder", "fields": ["postcode", "city", "age", "schadevrijeJaren", "annualKm", "usage", "driverConfirmed"] },
       { "id": "coverage", "label": "Dekking", "fields": ["cover", "optLegalAid", "optPassenger", "optRoadside", "optNoClaimProtect", "coverConfirmed"] },
-      { "id": "quote", "label": "Premie", "fields": ["premium", "gross", "noClaimDiscount"] },
+      { "id": "quote", "label": "Premie", "fields": ["subVehicle", "subDriver", "subContext", "optionsTotal", "noClaimDiscount", "paymentSurcharge", "premium"] },
       { "id": "review", "label": "Overzicht", "fields": ["startDate", "paymentTerm", "termsAccepted"] },
       { "id": "done", "label": "Afgerond", "fields": ["premium"] }
     ]
@@ -226,7 +227,12 @@
       "termsAccepted": "Voorwaarden geaccepteerd",
       "gross": "Bruto premie",
       "noClaimDiscount": "No-claimkorting",
-      "premium": "Maandpremie"
+      "premium": "Maandpremie",
+      "subVehicle": "Voertuig & dekking",
+      "subDriver": "Bestuurder",
+      "subContext": "Regio & gebruik",
+      "optionsTotal": "Aanvullende dekkingen",
+      "paymentSurcharge": "Termijntoeslag"
     }
   },
   "docs": {
@@ -273,12 +279,6 @@
         "coverConfirmed": { "t": "bool", "v": true },
         "optLegalAid": { "t": "bool", "v": true },
         "paymentTerm": { "t": "enum", "set": "paymentTerm", "v": "monthly" }
-      }
-    },
-    {
-      "coll": "applications", "row": "app-new", "values": {
-        "step": { "t": "enum", "set": "step", "v": "vehicle" },
-        "plate": { "t": "text", "v": "AB-123-C" }
       }
     }
   ]

@@ -18,11 +18,13 @@ import { createHostStore } from './host-store.ts';
 import { localStoragePersistence, broadcastChannelBroadcaster } from './adapters.ts';
 import { applyTheme, initialMode, type ThemeMode } from './theme.ts';
 import { initConsent } from './consent.ts';
+import { setLocale } from './format.ts';
 import { RENDERERS } from './registry.ts';
 import { coreVocabulary } from './resolve.ts';
 import type { CollectionDoc, ModelBundle, ViewDoc } from './types.ts';
 
 const cass = carInsurance as unknown as Cassette;
+setLocale(cass.locale ?? 'nl'); // money reads "€ 6.800,00" and numbers group per the cassette's locale
 const brand = cass.theme?.brand ?? {};
 const mark = (brand.name ?? 'Rowblaa Bank').trim().charAt(0) || 'R';
 if (cass.title) document.title = `${brand.name ?? 'Rowblaa Bank'} — ${brand.product ?? ''}`.trim();
