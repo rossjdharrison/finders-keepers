@@ -18,6 +18,8 @@ export interface CellArgs {
   onEdit: (v: Value) => void;
   id?: string; // a11y: the form control's id, so a <label for> can associate with it
   describedBy?: string; // a11y: id(s) of help text describing this control (aria-describedby)
+  pending?: { raw: string; msg: string }; // restore an uncommitted invalid edit across re-renders
+  onValidity?: (state: { raw: string; msg: string } | null) => void; // report validity so the caller can persist it
 }
 
 const EDITABLE = new Set(['text', 'num', 'money', 'enum', 'bool']);
@@ -143,12 +145,22 @@ export function mountCell(host: HTMLElement, a: CellArgs): void {
     const raw = input.value;
     const msg = checkInput(raw, k, constraint);
     showError(msg);
-    if (msg) return; // keep the invalid text visible for the user to fix, but don't commit it
+    if (msg) {
+      a.onValidity?.({ raw, msg }); // persist the invalid edit so it survives the next re-render
+      return; // keep the invalid text visible for the user to fix, but don't commit it
+    }
+    a.onValidity?.(null); // cleared — the committed value below is the source of truth again
     if (raw.trim() === '') a.onEdit(BLANK);
     else if (k === 'num') a.onEdit({ t: 'num', v: Number(raw) });
     else if (k === 'money') a.onEdit(moneyDec(Number(raw), ccy, scale));
     else a.onEdit({ t: 'text', v: canonicalize(raw, 'text', constraint) });
   });
   a11y(input, a); // base id + describedBy; showError overrides describedBy when an error is present
+  // restore an uncommitted invalid edit (the model still holds the last valid value; this keeps the
+  // user's in-progress text + its error visible across the journey's full re-render)
+  if (a.pending) {
+    input.value = a.pending.raw;
+    showError(a.pending.msg);
+  }
   host.append(input, err);
 }

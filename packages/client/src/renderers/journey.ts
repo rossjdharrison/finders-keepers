@@ -68,6 +68,8 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
   };
   const layout = signal<Layout>(loadLayout());
   const setLayout = (l: Layout): void => {
+    if (l === layout.value) return;
+    focusToggle = true; // the rebuild will drop focus; restore it to the active option + announce
     layout.value = l;
     try {
       localStorage.setItem(LAYOUT_KEY, l);
@@ -83,6 +85,10 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
   live.setAttribute('aria-live', 'polite');
   mount.append(wrap, live);
   let lastAnnounce: string | null = null;
+  let focusToggle = false; // set when the user flips the layout, so we restore focus after the rebuild
+  // uncommitted invalid edits, keyed "rowId::field" — kept across the full re-render so a user's
+  // in-progress invalid value + its error survive an unrelated commit elsewhere on the form.
+  const pending = new Map<string, { raw: string; msg: string }>();
 
   // --- one field cell (used by both layouts). Returns null for a hidden field. ---
   const fieldCell = (row: Row, byField: Map<string, ReturnType<typeof resolvePlan>['fields'][number]>, field: string, isLedger: boolean): HTMLElement | null => {
@@ -131,7 +137,13 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
       lab.htmlFor = inputId;
       lab.textContent = fp.label;
       const host = el('div', 'jf-input');
-      mountCell(host, { value: row.doc[field], prop: prop!, options, refOptions: undefined, readOnly: false, onEdit: (v) => store.setField(row.id, field, v), id: inputId, describedBy: fp.doc ? helpId : undefined });
+      const pkey = `${row.id}::${field}`;
+      mountCell(host, {
+        value: row.doc[field], prop: prop!, options, refOptions: undefined, readOnly: false,
+        onEdit: (v) => store.setField(row.id, field, v), id: inputId, describedBy: fp.doc ? helpId : undefined,
+        pending: pending.get(pkey),
+        onValidity: (st) => (st ? pending.set(pkey, st) : pending.delete(pkey)),
+      });
       cell.append(lab, host);
       const h = helpNode();
       if (h) cell.append(h);
@@ -201,7 +213,16 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
     const mode = layout.value;
     wrap.replaceChildren();
     const announceParts: string[] = [];
+    let modeAnnounced = false;
     if (steps.length > 1) wrap.append(buildToggle(mode));
+    if (focusToggle) {
+      // the rebuild removed the button the user activated — restore focus to the active option and
+      // announce the change, so the switch is operable and heard (a11y). This announce wins this tick.
+      focusToggle = false;
+      modeAnnounced = true;
+      wrap.querySelector<HTMLElement>('.jt-opt[data-active="true"]')?.focus();
+      live.textContent = mode === 'single' ? 'Weergave: alles op één pagina.' : 'Weergave: stapsgewijs.';
+    }
     if (!rows.length) {
       wrap.append(el('div', 'empty', 'Geen aanvragen.'));
       return;
@@ -309,19 +330,29 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
           }
           main.append(section);
         }
-        const navBar = el('div', 'journey-nav');
-        navBar.setAttribute('role', 'group');
-        navBar.setAttribute('aria-label', 'Aanvraag afronden');
-        const submit = el('button', 'j-btn j-next', 'Aanvraag afronden →') as HTMLButtonElement;
-        submit.type = 'button';
-        const ok = readyToSubmit(row);
-        submit.dataset.state = ok ? 'ready' : 'blocked';
-        submit.disabled = !ok;
-        submit.setAttribute('aria-disabled', String(!ok));
-        if (!ok) submit.title = 'Vul alle stappen in en accepteer de voorwaarden';
-        submit.addEventListener('click', () => ok && walkToEnd(row.id, stepVal ?? steps[0]?.id ?? ''));
-        navBar.append(submit);
-        main.append(navBar);
+        const lastStepId = steps[steps.length - 1]?.id;
+        if (stepVal === lastStepId) {
+          // the walk reached the terminal step — single-page has no 'done' section, so show an
+          // explicit confirmation (and announce it, since no premium changed to trigger the live region)
+          const done = el('div', 'jc-complete');
+          done.append(el('span', 'jc-complete-mark', '✓'), el('span', 'jc-complete-text', 'Uw aanvraag is afgerond.'));
+          main.append(done);
+          announceParts.push('Uw aanvraag is afgerond');
+        } else {
+          const navBar = el('div', 'journey-nav');
+          navBar.setAttribute('role', 'group');
+          navBar.setAttribute('aria-label', 'Aanvraag afronden');
+          const submit = el('button', 'j-btn j-next', 'Aanvraag afronden →') as HTMLButtonElement;
+          submit.type = 'button';
+          const ok = readyToSubmit(row);
+          submit.dataset.state = ok ? 'ready' : 'blocked';
+          submit.disabled = !ok;
+          submit.setAttribute('aria-disabled', String(!ok));
+          if (!ok) submit.title = 'Vul alle stappen in en accepteer de voorwaarden';
+          submit.addEventListener('click', () => ok && walkToEnd(row.id, stepVal ?? steps[0]?.id ?? ''));
+          navBar.append(submit);
+          main.append(navBar);
+        }
       }
 
       card.append(buildRail(row, byField, announceParts));
@@ -329,7 +360,7 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
     }
 
     const announce = announceParts.join('; ');
-    if (lastAnnounce !== null && announce !== lastAnnounce) live.textContent = announce;
+    if (!modeAnnounced && lastAnnounce !== null && announce !== lastAnnounce) live.textContent = announce;
     lastAnnounce = announce;
   });
 };

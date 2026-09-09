@@ -165,7 +165,10 @@ effect(() => {
     if (!externs.has(norm) && !seenPlate.has(norm)) {
       seenPlate.add(norm);
       void externs.prefetch(norm).then((ok) => {
-        if (ok) collStore.setField(row.id, 'plate', { t: 'text', v: canonical }); // recompute reads the now-filled cache
+        // guard the async write: drop a stale resolution if the user has since changed the plate,
+        // so a slow lookup can't clobber a newer plate (last-typed stays authoritative)
+        const live = collStore.rows.value.find((r) => r.id === row.id)?.doc.plate;
+        if (ok && live?.t === 'text' && normalizeKenteken(live.v) === norm) collStore.setField(row.id, 'plate', { t: 'text', v: canonical });
       });
     } else if (externs.has(norm) && pv.v !== canonical) {
       collStore.setField(row.id, 'plate', { t: 'text', v: canonical }); // just normalize the display form
