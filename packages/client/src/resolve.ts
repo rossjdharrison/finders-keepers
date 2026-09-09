@@ -28,6 +28,7 @@ export type RenderVocabulary = Map<string, RenderPattern>;
 export interface Audience {
   locale?: string;
   l10n?: Map<string, string>; // labelToken → localized string (a `sign` for this community)
+  docs?: Map<string, string>; // fieldToken → localized help prose (self-documentation for this community)
 }
 /** The viewer axis (permissions): the verified actor's coarse authority. */
 export interface Viewer {
@@ -52,6 +53,7 @@ export interface FieldPlan {
   role: string; // neutral role: status / relation / measure / spec / text
   labelToken: string; // the stable, traceable token (default: the field id)
   label: string; // the resolved, localized label (i18n seam)
+  doc?: string; // self-documentation carried from the model (help text; assists the user)
   state?: string; // a neutral state token for value-conditional style (e.g. an enum value; "blocked" when gated)
   emphasis?: string; // a neutral emphasis token (a presentation override)
   editable: boolean; // affordance (viewer seam): stored AND the viewer may write
@@ -133,9 +135,10 @@ export function resolvePlan(input: ResolveInput): RenderPlan {
       role: ov?.role ?? deriveRole(p, types),
       labelToken: token,
       label: localize(token, p.id, audience),
+      doc: audience?.docs?.get(p.id) ?? (p as { doc?: string }).doc, // self-documentation (localized help wins; else the field's own doc)
       state,
       emphasis: ov?.emphasis,
-      editable: p.source !== 'computed' && canWrite,
+      editable: (p.source ?? 'stored') === 'stored' && canWrite, // only stored fields edit; computed + extern are engine-filled readouts
       hidden,
     };
   });

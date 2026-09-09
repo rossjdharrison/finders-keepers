@@ -7,7 +7,15 @@
  * legacy chrome/table/board/self-portrait/doc CSS keeps working byte-for-byte. */
 :root {
   color-scheme: dark;
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  /* type + shape tokens — the model's theme.fonts / theme.radius rebind these (fallback residue here) */
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-brand: Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  font-family: var(--font-ui);
 
   /* Tier 0 — primitives (residue: the current palette, verbatim, + one amber for `pending`) */
   --p-bg: #0f1116;
@@ -45,6 +53,12 @@
   --ink-muted: var(--p-ink2);
   --ink-faint: var(--p-faint);
   --accent: var(--p-blue);
+  --brand: var(--p-blue); /* the deep brand ink (wordmark/header); model rebinds it */
+  --emphasis: var(--p-amber); /* the reserved emphasis accent (the premium figure); model rebinds it */
+  /* on-fill inks: the legible text/glyph color to place ON a brand/accent FILL. Theme-sourced so a
+   * light-on-dark accent (light theme) and a dark-on-light accent (dark theme) both stay ≥4.5:1. */
+  --on-accent: var(--p-white);
+  --on-brand: var(--p-white);
   --role-measure-ink: var(--p-blue-soft);
   --role-relation-ink: var(--p-blue);
   /* the CLOSED state ramp — the only values data-state may carry */

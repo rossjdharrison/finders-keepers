@@ -26,10 +26,11 @@ export interface RowStateWire {
 export interface Property {
   id: string;
   valueType: ValueType;
-  source?: 'stored' | 'computed';
+  source?: 'stored' | 'computed' | 'extern'; // extern: engine-filled from a host call — read-only, like computed
   formula?: unknown;
   category?: string; // optional HQDM class for this field's values (must reduce)
   availableWhen?: unknown; // a boolean formula gating this field (evaluated server-side)
+  doc?: string; // self-documentation carried on the field (rendered as help text; assists the user)
 }
 export interface CollectionDoc {
   id: string;
@@ -58,6 +59,7 @@ export interface EnumOption {
 }
 export interface ViewConfig {
   labels?: Record<string, string>;
+  docs?: Record<string, string>; // fieldToken → help prose (self-documentation, shown to the user)
   enums?: Record<string, EnumOption[]>;
   refs?: Record<string, { collection: string; labelField: string }>; // ref field -> parent collection + its label field
   groupField?: string;

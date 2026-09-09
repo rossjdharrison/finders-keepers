@@ -15,9 +15,20 @@ export interface CellArgs {
   refOptions?: EnumOption[]; // candidate parent rows for a ref field {id,label}
   readOnly: boolean;
   onEdit: (v: Value) => void;
+  id?: string; // a11y: the form control's id, so a <label for> can associate with it
+  describedBy?: string; // a11y: id(s) of help text describing this control (aria-describedby)
 }
 
 const EDITABLE = new Set(['text', 'num', 'money', 'enum', 'bool']);
+
+/** Whether a value kind renders an editable control (so a caller can pick <label> vs <div>). */
+export const isEditableKind = (k: string): boolean => EDITABLE.has(k);
+
+/** Tag a freshly-made control with the a11y hooks the caller supplied. */
+function a11y(control: HTMLElement, a: CellArgs): void {
+  if (a.id) control.id = a.id;
+  if (a.describedBy) control.setAttribute('aria-describedby', a.describedBy);
+}
 
 export function mountCell(host: HTMLElement, a: CellArgs): void {
   host.replaceChildren();
@@ -50,6 +61,7 @@ export function mountCell(host: HTMLElement, a: CellArgs): void {
     }
     sel.value = curId;
     sel.addEventListener('change', () => a.onEdit(sel.value ? ref(target, sel.value) : BLANK));
+    a11y(sel, a);
     host.append(sel);
     return;
   }
@@ -60,6 +72,7 @@ export function mountCell(host: HTMLElement, a: CellArgs): void {
     // the "derived" look is painted by the S hooks layer via td[data-provenance="derived"]
     // (a logic fact), NOT by a class here — so read-only-by-permission no longer looks computed
     span.className = v?.t === 'error' ? 'cell error' : 'cell';
+    if (v?.t === 'error') span.setAttribute('aria-invalid', 'true');
     host.append(span);
     return;
   }
@@ -76,6 +89,7 @@ export function mountCell(host: HTMLElement, a: CellArgs): void {
     }
     if (v?.t === 'enum') sel.value = v.v;
     sel.addEventListener('change', () => a.onEdit(enumV(set, sel.value)));
+    a11y(sel, a);
     host.append(sel);
     return;
   }
@@ -86,6 +100,7 @@ export function mountCell(host: HTMLElement, a: CellArgs): void {
     box.className = 'cell-check';
     box.checked = v?.t === 'bool' ? v.v : false;
     box.addEventListener('change', () => a.onEdit({ t: 'bool', v: box.checked }));
+    a11y(box, a);
     host.append(box);
     return;
   }
@@ -108,5 +123,6 @@ export function mountCell(host: HTMLElement, a: CellArgs): void {
     input.value = v?.t === 'text' ? v.v : '';
     input.addEventListener('change', () => a.onEdit({ t: 'text', v: input.value }));
   }
+  a11y(input, a);
   host.append(input);
 }
