@@ -118,7 +118,8 @@
         { "id": "premium", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "field", "id": "netPremium" }, { "op": "field", "id": "paymentSurcharge" }] } },
 
         { "id": "vehicleReady", "valueType": { "k": "bool" }, "source": "computed", "formula": { "op": "eq", "args": [{ "op": "field", "id": "vehicleConfirmed" }, { "op": "lit", "value": { "t": "bool", "v": true } }] } },
-        { "id": "driverReady", "valueType": { "k": "bool" }, "source": "computed", "formula": { "op": "eq", "args": [{ "op": "field", "id": "driverConfirmed" }, { "op": "lit", "value": { "t": "bool", "v": true } }] } }
+        { "id": "driverReady", "valueType": { "k": "bool" }, "source": "computed", "formula": { "op": "eq", "args": [{ "op": "field", "id": "driverConfirmed" }, { "op": "lit", "value": { "t": "bool", "v": true } }] } },
+        { "id": "coverReady", "valueType": { "k": "bool" }, "source": "computed", "formula": { "op": "eq", "args": [{ "op": "field", "id": "coverConfirmed" }, { "op": "lit", "value": { "t": "bool", "v": true } }] } }
       ],
       "tables": {
         "coverRate": { "kind": "1d", "of": { "k": "money" }, "map": { "wa": { "t": "money", "minor": 400, "ccy": "EUR", "scale": 2 }, "waplus": { "t": "money", "minor": 700, "ccy": "EUR", "scale": 2 }, "allrisk": { "t": "money", "minor": 1100, "ccy": "EUR", "scale": 2 } } },
@@ -194,10 +195,10 @@
     "field": "step",
     "steps": [
       { "id": "vehicle", "label": "Voertuig", "fields": ["plate", "vehicleDesc", "vehicleValue", "vehicleConfirmed"] },
-      { "id": "driver", "label": "Bestuurder", "fields": ["postcode", "city", "age", "schadevrijeJaren", "annualKm", "usage", "driverConfirmed"] },
-      { "id": "coverage", "label": "Dekking", "fields": ["cover", "optLegalAid", "optPassenger", "optRoadside", "optNoClaimProtect", "coverConfirmed"] },
+      { "id": "driver", "label": "Bestuurder", "gate": "vehicleReady", "fields": ["postcode", "city", "age", "schadevrijeJaren", "annualKm", "usage", "driverConfirmed"] },
+      { "id": "coverage", "label": "Dekking", "gate": "driverReady", "fields": ["cover", "optLegalAid", "optPassenger", "optRoadside", "optNoClaimProtect", "coverConfirmed"] },
       { "id": "quote", "label": "Premie", "fields": ["subVehicle", "subDriver", "subContext", "optionsTotal", "noClaimDiscount", "paymentSurcharge", "premium"] },
-      { "id": "review", "label": "Overzicht", "fields": ["startDate", "paymentTerm", "termsAccepted"] },
+      { "id": "review", "label": "Overzicht", "gate": "coverReady", "fields": ["startDate", "paymentTerm", "termsAccepted"] },
       { "id": "done", "label": "Afgerond", "fields": ["premium"] }
     ]
   },

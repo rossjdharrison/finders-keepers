@@ -65,7 +65,7 @@ export interface ViewConfig {
   refs?: Record<string, { collection: string; labelField: string }>; // ref field -> parent collection + its label field
   groupField?: string;
   columns?: string[];
-  journey?: { field: string; steps: { id: string; label?: string; fields?: string[] }[] }; // the wizard: each step's fields
+  journey?: { field: string; steps: { id: string; label?: string; fields?: string[]; gate?: string }[] }; // the wizard: each step's fields; gate = a computed-bool field that unlocks the section (progressive disclosure)
 }
 export interface ViewDoc {
   id: string;
