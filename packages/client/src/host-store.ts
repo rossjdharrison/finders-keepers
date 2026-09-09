@@ -14,8 +14,8 @@ export function createHostStore(host: BrowserHost, collections: CollectionDoc[])
   const rowsById = new Map<string, Signal<RowStateWire[]>>();
   const stores = new Map<string, ReturnType<typeof makeStore>>();
 
-  const toWire = (coll: string, r: { id: string; doc: RowStateWire['doc']; hidden?: string[] }): RowStateWire => ({
-    coll, id: r.id, doc: r.doc, deleted: false, seq: 0, ...(r.hidden ? { hidden: r.hidden } : {}),
+  const toWire = (coll: string, r: { id: string; doc: RowStateWire['doc']; hidden?: string[]; actions?: RowStateWire['actions'] }): RowStateWire => ({
+    coll, id: r.id, doc: r.doc, deleted: false, seq: 0, ...(r.hidden ? { hidden: r.hidden } : {}), ...(r.actions ? { actions: r.actions } : {}),
   });
 
   function makeStore(doc: CollectionDoc) {

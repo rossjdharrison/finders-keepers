@@ -77,6 +77,16 @@ test('availableWhen: the no-claim protector is in play only with ≥5 claim-free
   assert.ok(!(high[0].hidden ?? []).includes('optNoClaimProtect')); // ≥ 5 → in play
 });
 
+test('the engine surfaces step actions with the guard verdict — one conditional function, as data', () => {
+  const core = createCore(mockExterns());
+  core.load(cassette);
+  core.apply('applications', [{ op: 'insert', row: 'a1', values: { step: en('step', 'vehicle'), plate: text('99-XYZ-1') } }]);
+  const toDriver = (): { enabled: boolean } | undefined => (core.read('applications').find((r) => r.id === 'a1')!.actions ?? []).find((a) => a.to === 'driver');
+  assert.equal(toDriver()?.enabled, false); // the advance guard (vehicleReady) is not satisfied yet
+  core.apply('applications', [{ op: 'setField', row: 'a1', field: 'vehicleConfirmed', value: bool(true) }]);
+  assert.equal(toDriver()?.enabled, true); // same applicable() verdict, now true — surfaced for the button
+});
+
 test('the core validates any cassette: a dangling type is refused at load', () => {
   const core = createCore(mockExterns());
   const bad = { ...cassette, types: { ...cassette.types, Application: { specializes: ['nowhere'] } } } as Cassette;

@@ -75,10 +75,13 @@ export function moneyDec(amount: number, ccy: string, scale = 2): VMoney {
   return money(Math.round(amount * 10 ** scale), scale, ccy) as VMoney;
 }
 
-/** Human-readable, for debugging/snapshots (not locale-aware). */
+/** Human-readable, for debugging/snapshots (not locale-aware). Defensive on `minor`: the type
+ * is string (arbitrary precision), but a value straight from JSON data (a lookup table / lit)
+ * may carry a numeric minor — coerce so display never throws on well-formed money data. */
 export function moneyFormat(m: VMoney): string {
-  const neg = m.minor.startsWith('-');
-  const digits = (neg ? m.minor.slice(1) : m.minor).padStart(m.scale + 1, '0');
+  const minor = String(m.minor);
+  const neg = minor.startsWith('-');
+  const digits = (neg ? minor.slice(1) : minor).padStart(m.scale + 1, '0');
   const whole = digits.slice(0, digits.length - m.scale) || '0';
   const frac = m.scale > 0 ? '.' + digits.slice(digits.length - m.scale) : '';
   return `${neg ? '-' : ''}${whole}${frac} ${m.ccy}`;

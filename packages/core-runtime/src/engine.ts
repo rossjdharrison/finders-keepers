@@ -13,6 +13,7 @@ import { applyOp } from '@core/events';
 import type { Committed, RowOp, RowState } from '@core/events';
 import { equals } from '@core/values';
 import type { Value, VRef } from '@core/values';
+import type { RowAction } from './types.ts';
 
 export interface Property {
   id: string;
@@ -31,7 +32,7 @@ export interface CollectionDoc {
   transitions?: Transition[];
 }
 export interface RelationDef extends RelationMeta { via: string }
-export interface RowWire { coll: string; id: string; doc: Record<string, Value>; deleted: boolean; seq: number; hidden?: string[] }
+export interface RowWire { coll: string; id: string; doc: Record<string, Value>; deleted: boolean; seq: number; hidden?: string[]; actions?: RowAction[] }
 
 /** The storage the engine runs over — SQLite in the DO, in-memory/IndexedDB in the browser. */
 export interface Store {
@@ -209,6 +210,26 @@ export function createEngine(store: Store, built: Built, opts: EngineOpts): Engi
     const ctx = { clock: opts.clock(), resolver, self, tables: p.tables };
     return p.gated.filter((g) => !applicable(g.ast, vals, ctx)).map((g) => g.id);
   };
+  const enumOfV = (v: Value | undefined): string | undefined => (v && v.t === 'enum' ? v.v : undefined);
+  // The generic conditional capability: the step transitions available from this row's current
+  // state, each with the SAME applicable() verdict that decides `hidden`. Presentation reads
+  // `enabled`; it never re-evaluates a condition. One function, every condition, surfaced as data.
+  const actionsFor = (coll: string, vals: Record<string, Value>, p: Prepared, self: VRef): RowAction[] => {
+    if (!p.transitions.length) return [];
+    const rec = recompute(coll, vals, p, self);
+    const ctx = { clock: opts.clock(), resolver, self, tables: p.tables };
+    const out: RowAction[] = [];
+    for (const t of p.transitions) {
+      if (t.from !== undefined && t.from !== enumOfV(vals[t.field])) continue; // only moves from here
+      out.push({ id: t.id, field: t.field, to: t.to, enabled: applicable(t.when, rec, ctx) });
+    }
+    return out;
+  };
+  const toWire = (coll: string, vals: Record<string, Value>, id: string, deleted: boolean, seq: number, p: Prepared, self: VRef): RowWire => {
+    const hidden = hiddenFields(vals, p, self);
+    const actions = actionsFor(coll, vals, p, self);
+    return { coll, id, doc: vals, deleted, seq, ...(hidden.length ? { hidden } : {}), ...(actions.length ? { actions } : {}) };
+  };
   const guardTransitions = (op: RowOp, before: RowState | null, folded: RowState): void => {
     if (op.op !== 'setField') return;
     const p = prepared.get(op.coll);
@@ -249,8 +270,7 @@ export function createEngine(store: Store, built: Built, opts: EngineOpts): Engi
         if (docEq(next, cur.values)) continue; // changed-gate
         const saved: RowState = { ...cur, values: next };
         store.putRow(coll, saved);
-        const hidden = hiddenFields(next, p, self);
-        out.push({ coll, id: saved.id, doc: saved.values, deleted: saved.deleted, seq: saved.updatedSeq, ...(hidden.length ? { hidden } : {}) });
+        out.push(toWire(coll, next, saved.id, saved.deleted, saved.updatedSeq, p, self));
         for (const rel of relByChild.get(coll) ?? []) {
           if (!rolledUpVias.has(rel.via)) continue;
           const pid = refIdOf(next[rel.childField]);
@@ -291,11 +311,7 @@ export function createEngine(store: Store, built: Built, opts: EngineOpts): Engi
   const read = (coll: string): RowWire[] => {
     const p = prepared.get(coll);
     if (!p) throw new Error(`unknown collection ${coll}`);
-    return store.allRows(coll).map((r) => {
-      const self: VRef = { t: 'ref', collection: coll, id: r.id };
-      const hidden = hiddenFields(r.values, p, self);
-      return { coll, id: r.id, doc: r.values, deleted: r.deleted, seq: r.updatedSeq, ...(hidden.length ? { hidden } : {}) };
-    });
+    return store.allRows(coll).map((r) => toWire(coll, r.values, r.id, r.deleted, r.updatedSeq, p, { t: 'ref', collection: coll, id: r.id }));
   };
 
   return { submit, read };

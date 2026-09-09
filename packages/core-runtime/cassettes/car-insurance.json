@@ -141,15 +141,31 @@
     { "subject": "applications.cover", "stateRules": { "wa": "muted", "waplus": "info", "allrisk": "positive" } },
     { "subject": "applications.premium", "emphasis": "strong" }
   ],
+  "enums": {
+    "coverLevel": [
+      { "id": "wa", "label": "WA (verplicht)" },
+      { "id": "waplus", "label": "WA + beperkt casco" },
+      { "id": "allrisk", "label": "Allrisk" }
+    ],
+    "usage": [
+      { "id": "private", "label": "Privé" },
+      { "id": "commute", "label": "Woon-werk" },
+      { "id": "business", "label": "Zakelijk" }
+    ],
+    "paymentTerm": [
+      { "id": "monthly", "label": "Per maand" },
+      { "id": "annual", "label": "Per jaar" }
+    ]
+  },
   "journey": {
     "field": "step",
     "steps": [
-      { "id": "vehicle", "label": "Voertuig" },
-      { "id": "driver", "label": "Bestuurder" },
-      { "id": "coverage", "label": "Dekking" },
-      { "id": "quote", "label": "Premie" },
-      { "id": "review", "label": "Overzicht" },
-      { "id": "done", "label": "Afgerond" }
+      { "id": "vehicle", "label": "Voertuig", "fields": ["plate", "vehicleDesc", "vehicleValue", "vehicleConfirmed"] },
+      { "id": "driver", "label": "Bestuurder", "fields": ["postcode", "city", "age", "schadevrijeJaren", "annualKm", "usage", "driverConfirmed"] },
+      { "id": "coverage", "label": "Dekking", "fields": ["cover", "optLegalAid", "optPassenger", "optRoadside", "optNoClaimProtect", "coverConfirmed"] },
+      { "id": "quote", "label": "Premie", "fields": ["premium", "gross", "noClaimDiscount"] },
+      { "id": "review", "label": "Overzicht", "fields": ["startDate", "paymentTerm", "termsAccepted"] },
+      { "id": "done", "label": "Afgerond", "fields": ["premium"] }
     ]
   },
   "l10n": {

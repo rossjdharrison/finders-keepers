@@ -54,7 +54,8 @@ export interface Cassette {
   // --- additional dimensions (ignored by the engine; used by the client) ---
   presentation?: CassetteOverride[]; // the P layer
   l10n?: Record<string, Record<string, string>>; // locale → (labelToken → string)
-  journey?: { field: string; steps: { id: string; label?: string }[] }; // the ordered wizard over a step field
+  enums?: Record<string, { id: string; label: string }[]>; // picklist option labels per enum set (i18n)
+  journey?: { field: string; steps: { id: string; label?: string; fields?: string[] }[] }; // the wizard: each step's fields
   seed?: { coll: string; row: string; values: Record<string, Value> }[]; // example rows to apply when empty
 }
 
@@ -69,10 +70,20 @@ export type RowOp =
   | { op: 'insert'; row: string; values?: Record<string, Value> }
   | { op: 'setField'; row: string; field: string; value: Value };
 
+/** A state transition available from a row's current state, with the engine's verdict on
+ * whether its guard is satisfied right now — computed by the SAME conditional function
+ * (`applicable`) that decides `hidden`. Presentation reads `enabled`; it never re-evaluates. */
+export interface RowAction {
+  id: string;
+  field: string;
+  to: string;
+  enabled: boolean;
+}
 export interface RowState {
   id: string;
   doc: Record<string, Value>;
   hidden?: string[]; // fields whose availableWhen is false for this record (not in play)
+  actions?: RowAction[]; // step transitions available from here + whether each is currently allowed
 }
 
 /** The sealed core — the ONLY entry. */

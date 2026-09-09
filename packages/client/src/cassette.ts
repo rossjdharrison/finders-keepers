@@ -70,7 +70,7 @@ const view: ViewDoc = {
   renderer: 'journey',
   query: { coll: 'applications' },
   visibleProps: [],
-  config: { labels, journey: cass.journey },
+  config: { labels, enums: cass.enums, journey: cass.journey },
 };
 
 const mount = app.querySelector<HTMLElement>('#mount')!;

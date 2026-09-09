@@ -17,7 +17,7 @@ export interface CellArgs {
   onEdit: (v: Value) => void;
 }
 
-const EDITABLE = new Set(['text', 'num', 'money', 'enum']);
+const EDITABLE = new Set(['text', 'num', 'money', 'enum', 'bool']);
 
 export function mountCell(host: HTMLElement, a: CellArgs): void {
   host.replaceChildren();
@@ -77,6 +77,16 @@ export function mountCell(host: HTMLElement, a: CellArgs): void {
     if (v?.t === 'enum') sel.value = v.v;
     sel.addEventListener('change', () => a.onEdit(enumV(set, sel.value)));
     host.append(sel);
+    return;
+  }
+
+  if (k === 'bool') {
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.className = 'cell-check';
+    box.checked = v?.t === 'bool' ? v.v : false;
+    box.addEventListener('change', () => a.onEdit({ t: 'bool', v: box.checked }));
+    host.append(box);
     return;
   }
 

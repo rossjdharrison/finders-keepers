@@ -7,6 +7,13 @@ import type { ReadonlySignal } from '@preact/signals-core';
 import type { PresentationOverride, RenderVocabulary, Viewer } from './resolve.ts';
 
 // --- wire --------------------------------------------------------------------
+/** A step transition available from a row's current state + the engine's guard verdict. */
+export interface RowAction {
+  id: string;
+  field: string;
+  to: string;
+  enabled: boolean;
+}
 export interface RowStateWire {
   coll: string;
   id: string;
@@ -14,6 +21,7 @@ export interface RowStateWire {
   deleted: boolean;
   seq: number;
   hidden?: string[]; // fields whose availableWhen is false for this record (not in play)
+  actions?: RowAction[]; // step transitions available from here (engine-decided enabled/disabled)
 }
 export interface Property {
   id: string;
@@ -54,7 +62,7 @@ export interface ViewConfig {
   refs?: Record<string, { collection: string; labelField: string }>; // ref field -> parent collection + its label field
   groupField?: string;
   columns?: string[];
-  journey?: { field: string; steps: { id: string; label?: string }[] }; // the ordered wizard over a step field
+  journey?: { field: string; steps: { id: string; label?: string; fields?: string[] }[] }; // the wizard: each step's fields
 }
 export interface ViewDoc {
   id: string;
