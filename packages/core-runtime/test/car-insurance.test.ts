@@ -68,6 +68,15 @@ test('the journey advances only through guarded step transitions (the verificati
   assert.equal(stepOf(), 'quote');
 });
 
+test('availableWhen: confirm-the-vehicle appears only once a vehicle is found (vehicleDesc set)', () => {
+  const core = createCore(mockExterns());
+  core.load(cassette);
+  const [blank] = core.apply('applications', [{ op: 'insert', row: 'b', values: { step: en('step', 'vehicle') } }]);
+  assert.ok((blank.hidden ?? []).includes('vehicleConfirmed')); // no plate → no vehicle → confirm hidden
+  const [found] = core.apply('applications', [{ op: 'insert', row: 'v', values: { step: en('step', 'vehicle'), plate: text('99-XYZ-1') } }]);
+  assert.ok(!(found.hidden ?? []).includes('vehicleConfirmed')); // RDW resolved vehicleDesc → confirm in play
+});
+
 test('availableWhen: the no-claim protector is in play only with ≥5 claim-free years', () => {
   const core = createCore(mockExterns());
   core.load(cassette);
