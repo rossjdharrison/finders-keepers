@@ -60,11 +60,11 @@ const renderVocabRows = Object.entries(CORE.renderHints).map(([category, hint]) 
 const seedOps = existsSync(join(MODEL, 'seed.json')) ? readJson(join(MODEL, 'seed.json')) : [];
 
 // The P layer lives in its own tree PARALLEL to model/ (so model/ stays purely logic):
-// presentation overrides that reference logic nodes + name vocabulary members.
-const PRES = join(ROOT, 'presentation');
-const presentation = existsSync(PRES)
-  ? readdirSync(PRES).filter((f) => f.endsWith('.json')).flatMap((f) => readJson(join(PRES, f)))
-  : [];
+// presentation/views (how a collection is shown) + presentation/overrides (per-node deltas).
+const presAt = (name) => {
+  const d = join(ROOT, 'presentation', name);
+  return existsSync(d) ? readdirSync(d).filter((f) => f.endsWith('.json')).map((f) => readJson(join(d, f))) : [];
+};
 
 // The `collections` and `properties` meta-collections are populated AUTHORITATIVELY
 // by the WorkspaceDO on PUT (it explodes each collection's schema into Property-rows
@@ -72,14 +72,14 @@ const presentation = existsSync(PRES)
 // only the type lattice is still seeded here (CORE-derived + authored domain types).
 const bundle = {
   collections: dir('collections'),
-  views: dir('views'),
+  views: presAt('views'), // the P layer: views live outside model/ (they are presentation)
   relations: file('relations.json'),
   types: typesFromSeed(seedOps), // domain types only; CORE stays frozen under reduces()
   // The home-docs (model/docs/*.json, each file an array). Carried to the client so
   // the self-portrait + node doc-view can PROJECT them — docs stop being gate-only
   // and become a live view. Each record homes on a node (the Place law).
   docRecords: dir('docs').flat(),
-  presentation, // the P layer (overrides referencing logic nodes)
+  presentation: presAt('overrides').flat(), // the P layer: per-node presentation overrides
   seedOps: [...coreTypeRows, ...renderVocabRows, ...seedOps],
 };
 

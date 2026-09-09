@@ -27,10 +27,11 @@ function main() {
   if (rel.startsWith('..')) rel = String(abs).replace(/\\/g, '/');
 
   const inModel = /(^|\/)model\//.test(rel);
+  const inPres = /(^|\/)presentation\//.test(rel); // the P layer tree, parallel to model/
 
   if (mode === 'pre') {
-    if (inModel && !rel.endsWith('.json')) {
-      process.stderr.write("model/ holds DATA only (JSON). Domain logic isn't code — express it as a model document (a computed column, a doc-record), not a .ts file.\n");
+    if ((inModel || inPres) && !rel.endsWith('.json')) {
+      process.stderr.write(`${inPres ? 'presentation/' : 'model/'} holds DATA only (JSON). Domain logic isn't code — express it as a model/presentation document, not a .ts file.\n`);
       process.exit(2);
     }
     if (rel.endsWith('model.data.json')) {
@@ -44,7 +45,7 @@ function main() {
   }
 
   if (mode === 'post') {
-    if (inModel) {
+    if (inModel || inPres) {
       try {
         process.stdout.write(execSync('node scripts/gate.mjs', { encoding: 'utf8' }));
       } catch (e) {

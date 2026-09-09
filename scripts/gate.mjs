@@ -45,6 +45,26 @@ const modelFiles = existsSync(MODEL) ? walk(MODEL) : [];
 for (const p of modelFiles) {
   if (extname(p) !== '.json') err(`model is data-only: ${relative(ROOT, p)} is not .json`);
 }
+// …and the presentation tree is data only too.
+const PRES_ROOT = join(ROOT, 'presentation');
+for (const p of existsSync(PRES_ROOT) ? walk(PRES_ROOT) : []) {
+  if (extname(p) !== '.json') err(`presentation is data-only: ${relative(ROOT, p)} is not .json`);
+}
+// THE MEMBRANE (model side): model/ holds NO how-shown key — presentation lives in
+// presentation/. Scanned by object KEY (a field named 'glyph' as a VALUE is fine; a
+// KEY 'glyph' is presentation leaking into logic). The seam's other side (overrides carry
+// no logic key) is enforced below in Law B.
+const DENY = new Set(['renderer', 'visibleProps', 'config', 'label', 'glyph', 'format', 'order', 'emphasis', 'role']);
+const scanDeny = (obj, path, file) => {
+  if (Array.isArray(obj)) obj.forEach((x, i) => scanDeny(x, `${path}[${i}]`, file));
+  else if (obj && typeof obj === 'object') {
+    for (const [k, v] of Object.entries(obj)) {
+      if (DENY.has(k)) err(`model is presentation-free: ${file} carries a how-shown key '${k}' (${path ? path + '.' : ''}${k}) — move it to presentation/`);
+      scanDeny(v, path ? `${path}.${k}` : k, file);
+    }
+  }
+};
+for (const p of modelFiles) if (extname(p) === '.json') scanDeny(readJson(p), '', relative(ROOT, p));
 
 const collDir = join(MODEL, 'collections');
 const collections = existsSync(collDir)
@@ -67,15 +87,14 @@ const docsDir = join(MODEL, 'docs');
 const docRecords = existsSync(docsDir)
   ? readdirSync(docsDir).filter((f) => f.endsWith('.json')).flatMap((f) => readJson(join(docsDir, f)))
   : [];
-const viewsDir = join(MODEL, 'views');
-const views = existsSync(viewsDir)
-  ? readdirSync(viewsDir).filter((f) => f.endsWith('.json')).map((f) => readJson(join(viewsDir, f)))
-  : [];
-// The P layer lives PARALLEL to model/ (so model/ stays purely logic).
-const presDir = join(ROOT, 'presentation');
-const presRecords = existsSync(presDir)
-  ? readdirSync(presDir).filter((f) => f.endsWith('.json')).flatMap((f) => readJson(join(presDir, f)))
-  : [];
+// The P layer lives PARALLEL to model/ (so model/ stays purely logic): presentation/views
+// (how a collection is shown) + presentation/overrides (per-node deltas).
+const presAt = (name) => {
+  const d = join(ROOT, 'presentation', name);
+  return existsSync(d) ? readdirSync(d).filter((f) => f.endsWith('.json')).flatMap((f) => readJson(join(d, f))) : [];
+};
+const views = presAt('views');
+const presRecords = presAt('overrides');
 
 const byId = new Map(collections.map((c) => [c.id, c]));
 const propsOf = (coll) => new Map((byId.get(coll)?.properties ?? []).map((p) => [p.id, p]));
