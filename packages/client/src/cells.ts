@@ -6,6 +6,7 @@
 import type { Value } from '@core/values';
 import { moneyDec, enumV, ref, BLANK } from '@core/values';
 import { format } from './format.ts';
+import { checkInput, canonicalize } from './validate.ts';
 import type { EnumOption, Property } from './types.ts';
 
 export interface CellArgs {
@@ -107,22 +108,47 @@ export function mountCell(host: HTMLElement, a: CellArgs): void {
 
   const input = document.createElement('input');
   input.className = 'cell-input';
+  const constraint = a.prop.constraint;
+  const ccy = a.prop.valueType.k === 'money' ? a.prop.valueType.ccy ?? 'EUR' : v?.t === 'money' ? v.ccy : 'EUR';
+  const scale = v?.t === 'money' ? v.scale : 2;
   if (k === 'num') {
     input.type = 'number';
     input.value = v?.t === 'num' ? String(v.v) : '';
-    input.addEventListener('change', () => a.onEdit({ t: 'num', v: Number(input.value) }));
+    if (constraint?.min !== undefined) input.min = String(constraint.min);
+    if (constraint?.max !== undefined) input.max = String(constraint.max);
   } else if (k === 'money') {
-    const ccy = a.prop.valueType.k === 'money' ? a.prop.valueType.ccy ?? 'EUR' : v?.t === 'money' ? v.ccy : 'EUR';
-    const scale = v?.t === 'money' ? v.scale : 2;
     input.type = 'number';
     input.step = '0.01';
     input.value = v?.t === 'money' ? (Number(v.minor) / 10 ** v.scale).toFixed(v.scale) : '';
-    input.addEventListener('change', () => a.onEdit(moneyDec(Number(input.value), ccy, scale)));
   } else {
     input.type = 'text';
     input.value = v?.t === 'text' ? v.v : '';
-    input.addEventListener('change', () => a.onEdit({ t: 'text', v: input.value }));
   }
-  a11y(input, a);
-  host.append(input);
+
+  // validation derived from the type (+ constraint): show an inline error, never commit invalid.
+  const err = document.createElement('p');
+  err.className = 'cell-error';
+  err.hidden = true;
+  const errId = `${a.id ?? 'cell'}-err`;
+  err.id = errId;
+  const showError = (msg: string | null): void => {
+    err.textContent = msg ?? '';
+    err.hidden = !msg;
+    input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    const ids = [a.describedBy, msg ? errId : undefined].filter(Boolean).join(' ');
+    if (ids) input.setAttribute('aria-describedby', ids);
+    else input.removeAttribute('aria-describedby');
+  };
+  input.addEventListener('change', () => {
+    const raw = input.value;
+    const msg = checkInput(raw, k, constraint);
+    showError(msg);
+    if (msg) return; // keep the invalid text visible for the user to fix, but don't commit it
+    if (raw.trim() === '') a.onEdit(BLANK);
+    else if (k === 'num') a.onEdit({ t: 'num', v: Number(raw) });
+    else if (k === 'money') a.onEdit(moneyDec(Number(raw), ccy, scale));
+    else a.onEdit({ t: 'text', v: canonicalize(raw, 'text', constraint) });
+  });
+  a11y(input, a); // base id + describedBy; showError overrides describedBy when an error is present
+  host.append(input, err);
 }

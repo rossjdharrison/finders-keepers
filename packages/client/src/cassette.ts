@@ -8,13 +8,17 @@
 // docs), the journey and its guards. Swap the cassette and the whole site re-skins and re-documents.
 
 import './style/index.css';
-import { createBrowserHostOver, mockExterns } from '@app/core-runtime';
+import { effect } from '@preact/signals-core';
+import { createBrowserHostOver } from '@app/core-runtime';
 import type { Cassette } from '@app/core-runtime';
+import type { Value } from '@core/values';
 import { createSealedCore } from '@app/core-wasm';
 import coreBundleUrl from '@app/core-wasm/vendor/core.bundle.js?url';
 import carInsurance from './cassettes/car-insurance.json';
 import { createBrowserQuickJS } from './quickjs.ts';
 import { createHostStore } from './host-store.ts';
+import { browserExterns } from './browser-externs.ts';
+import { normalizeKenteken, formatKenteken, isValidKenteken } from './kenteken.ts';
 import { localStoragePersistence, broadcastChannelBroadcaster } from './adapters.ts';
 import { applyTheme, initialMode, type ThemeMode } from './theme.ts';
 import { initConsent } from './consent.ts';
@@ -46,13 +50,14 @@ app.innerHTML = `
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-4Zm0 10.9h6.3c-.5 3.6-2.8 6.9-6.3 8V12H5.7V6.3L12 3.2v8.7Z"/></svg>
         Beveiligd
       </span>
+      ${cass.example ? '<button class="cc-btn cc-btn-quiet" id="fill-example" type="button">Voorbeeld invullen</button>' : ''}
       <button class="cc-btn cc-btn-quiet" id="cookie-prefs" type="button">Cookievoorkeuren</button>
       <button class="theme-toggle" id="theme" type="button" aria-label="Wissel tussen licht en donker thema"></button>
     </div>
   </header>
   <h1 class="visually-hidden">${brand.name ?? 'Rowblaa Bank'} — ${brand.product ?? 'aanvraag'} aanvragen</h1>
   <main id="mount" class="mount" tabindex="-1"></main>
-  <footer class="hint">Deze aanvraag draait volledig in uw browser: het verzekerings­model speelt af op de verzegelde <code>@core</code> in een <b>QuickJS&nbsp;WASM</b>-sandbox. Validatie, herberekening en de bewaakte stappen gebeuren in dit tabblad; RDW en regio zijn gesimuleerde koppelingen; er gaat niets naar een server na het laden.</footer>
+  <footer class="hint">Deze aanvraag draait volledig in uw browser: het verzekerings­model speelt af op de verzegelde <code>@core</code> in een <b>QuickJS&nbsp;WASM</b>-sandbox. Validatie, herberekening en de bewaakte stappen gebeuren in dit tabblad. Het kenteken wordt live opgezocht bij de gratis <b>RDW</b> open-data-API (regio is gesimuleerd); verder gaat er niets naar een server na het laden.</footer>
 `;
 
 // theme: project the cassette's palette/fonts onto :root, and keep the toggle re-projecting it.
@@ -100,11 +105,13 @@ const consent = initConsent({
 app.querySelector<HTMLButtonElement>('#cookie-prefs')!.addEventListener('click', () => consent.openPreferences());
 
 // boot the sealed core INSIDE wasm: load the QuickJS runtime + the vendored @core bundle (both
-// fetched once — watch the Network tab), inject the mock externs as the sole egress, then run the
-// same browser host over it. mockExterns is synchronous, which the sealed core requires.
+// fetched once — watch the Network tab), inject the browser externs as the sole egress, then run the
+// same browser host over it. The externs are SYNCHRONOUS (the sealed core requires it); the async RDW
+// lookup is bridged by prefetching into the externs' cache and re-triggering a recompute (below).
+const externs = browserExterns();
 const quickjs = await createBrowserQuickJS();
 const bundleSource = await fetch(coreBundleUrl).then((r) => r.text());
-const sealed = await createSealedCore(quickjs, bundleSource, mockExterns());
+const sealed = await createSealedCore(quickjs, bundleSource, externs);
 
 const chan = `fk-cassette-${cass.id}`;
 const host = await createBrowserHostOver(sealed, cass, {
@@ -143,3 +150,37 @@ const view: ViewDoc = {
 const mount = app.querySelector<HTMLElement>('#mount')!;
 const collStore = store.collection('applications')!; // the active collection; `store` is the workspace
 RENDERERS[view.renderer!](mount, { store: collStore, view, workspace: store, model, vocab, viewer });
+
+// --- kenteken auto-fill: when a valid Dutch plate is entered, look it up (live RDW → demo fallback)
+// and fill the vehicle. The extern reads a cache; here we prefetch it, then re-set the (canonical)
+// plate to trigger a recompute that now resolves vehicleDesc/vehicleValue. Also canonicalizes hyphens.
+const seenPlate = new Set<string>();
+effect(() => {
+  for (const row of collStore.rows.value) {
+    const pv = row.doc.plate;
+    if (pv?.t !== 'text' || !pv.v) continue;
+    const norm = normalizeKenteken(pv.v);
+    if (!isValidKenteken(norm)) continue;
+    const canonical = formatKenteken(norm) ?? pv.v;
+    if (!externs.has(norm) && !seenPlate.has(norm)) {
+      seenPlate.add(norm);
+      void externs.prefetch(norm).then((ok) => {
+        if (ok) collStore.setField(row.id, 'plate', { t: 'text', v: canonical }); // recompute reads the now-filled cache
+      });
+    } else if (externs.has(norm) && pv.v !== canonical) {
+      collStore.setField(row.id, 'plate', { t: 'text', v: canonical }); // just normalize the display form
+    }
+  }
+});
+
+// --- "Voorbeeld invullen": populate the active application with the cassette's example values (a
+// blank-form convenience). Only stored fields are set; the plate then auto-resolves the vehicle.
+const fillBtn = app.querySelector<HTMLButtonElement>('#fill-example');
+if (fillBtn && cass.example) {
+  fillBtn.addEventListener('click', () => {
+    const row = collStore.rows.value[0];
+    if (!row) return;
+    for (const [field, value] of Object.entries(cass.example as Record<string, Value>)) collStore.setField(row.id, field, value);
+    collStore.setField(row.id, 'step', { t: 'enum', set: 'step', v: 'quote' }); // jump to the computed quote
+  });
+}

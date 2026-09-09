@@ -74,6 +74,7 @@ export interface Cassette {
   enums?: Record<string, { id: string; label: string }[]>; // picklist option labels per enum set (i18n)
   journey?: { field: string; steps: { id: string; label?: string; fields?: string[] }[] }; // the wizard: each step's fields
   seed?: { coll: string; row: string; values: Record<string, Value> }[]; // example rows to apply when empty
+  example?: Record<string, Value>; // demo values the client's "fill example" affordance applies to the active record
 }
 
 /** The host-supplied imports — the ONLY egress from the sealed core. */

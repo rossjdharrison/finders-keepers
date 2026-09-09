@@ -31,6 +31,7 @@ export interface Property {
   category?: string; // optional HQDM class for this field's values (must reduce)
   availableWhen?: unknown; // a boolean formula gating this field (evaluated server-side)
   doc?: string; // self-documentation carried on the field (rendered as help text; assists the user)
+  constraint?: { min?: number; max?: number; format?: 'kenteken' | 'postcode' }; // client input validation, derived with the type
 }
 export interface CollectionDoc {
   id: string;

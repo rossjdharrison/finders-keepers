@@ -36,11 +36,16 @@ function sharedPersistence(): Persistence {
   return { loadSnapshot: async () => saved, saveSnapshot: async (s) => void (saved = s) };
 }
 
-test('the cassette seeds itself when empty (an example quote renders with a premium)', async () => {
+test('the cassette seeds a blank application; applying the example computes the quote', async () => {
   const h = await createBrowserHost(cassette, mockExterns());
-  const demo = appById(h, 'app-demo');
-  assert.equal(sv(demo.doc.vehicleDesc), 'Tesla Model 3 2022');
-  assert.equal(minor(demo.doc.premium), 2550); // the seeded scenario computes end-to-end
+  const seeded = appById(h, 'app-1');
+  assert.equal(sv(seeded.doc.step), 'vehicle'); // blank, at the first step
+  assert.ok(!seeded.doc.vehicleDesc || seeded.doc.vehicleDesc.t === 'blank'); // no vehicle looked up yet
+  // the "fill example" affordance applies cassette.example → a full quote computes end-to-end
+  h.apply('applications', Object.entries(cassette.example!).map(([field, value]) => ({ op: 'setField', row: 'app-1', field, value })));
+  const filled = appById(h, 'app-1');
+  assert.equal(sv(filled.doc.vehicleDesc), 'Tesla Model 3 2022'); // mock RDW keys by the hyphenated plate
+  assert.equal(minor(filled.doc.premium), 2550);
 });
 
 test('cross-tab: an edit in one host reaches another via the broadcaster (no server)', async () => {
