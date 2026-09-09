@@ -1,5 +1,7 @@
 {
   "id": "car-insurance",
+  "title": "Rowblaa Autoverzekering — aanvragen",
+  "doc": "Een aanvraagreis voor een autoverzekering bij Rowblaa Bank. Het model berekent de premie stapsgewijs uit het voertuig, de bestuurder en de gekozen dekking; elke stap is bewaakt (guarded) en de premie is een transparante optelling van opslagen minus de no-claimkorting. Ook de presentatie is model-gestuurd: merk, taal, teksten en stijl komen alle uit deze cassette, niet uit code.",
   "locale": "nl",
   "types": {
     "Application": { "specializes": ["activity"] },
@@ -11,6 +13,7 @@
     {
       "id": "applications",
       "semanticClass": "Application",
+      "doc": "Eén autoverzekeringsaanvraag: de door de klant ingevoerde gegevens, de velden die externe bronnen (RDW-kenteken, regio) automatisch aanvullen, en de daaruit berekende premie-opbouw.",
       "properties": [
         { "id": "step", "valueType": { "k": "enum", "set": "step" }, "source": "stored", "category": "class_of_state" },
 
@@ -135,6 +138,35 @@
       ]
     }
   ],
+  "theme": {
+    "brand": { "name": "Rowblaa Bank", "product": "Autoverzekering", "tagline": "Vertrouwd sinds 1961" },
+    "fonts": {
+      "ui": "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif",
+      "brand": "'Source Serif 4', Georgia, 'Times New Roman', serif",
+      "mono": "ui-monospace, 'SF Mono', Menlo, monospace"
+    },
+    "radius": { "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
+    "palette": {
+      "light": {
+        "surface": "#f6f8fb", "surface-raised": "#ffffff", "surface-sunken": "#eef2f8", "border": "#dbe2ec",
+        "ink": "#101a2e", "ink-muted": "#566175", "ink-faint": "#8a94a6",
+        "accent": "#1e4fd6", "brand": "#0a1e4d", "emphasis": "#9a6b12",
+        "on-accent": "#ffffff", "on-brand": "#ffffff",
+        "state-positive": "#157a52", "state-pending": "#9a6b12", "state-error": "#c0392b",
+        "state-info": "#1e4fd6", "state-muted": "#8a94a6", "state-blocked": "#8a94a6", "state-neutral": "#566175",
+        "role-measure-ink": "#3a6ea5", "role-relation-ink": "#1e4fd6"
+      },
+      "dark": {
+        "surface": "#0a1120", "surface-raised": "#111b30", "surface-sunken": "#16213a", "border": "#24324c",
+        "ink": "#eaf0fb", "ink-muted": "#a7b2c6", "ink-faint": "#6e7a91",
+        "accent": "#6e97ff", "brand": "#9db4e8", "emphasis": "#e0b457",
+        "on-accent": "#0a1120", "on-brand": "#0a1120",
+        "state-positive": "#3bb98c", "state-pending": "#e0b457", "state-error": "#f0665f",
+        "state-info": "#6e97ff", "state-muted": "#6e7a91", "state-blocked": "#6e7a91", "state-neutral": "#a7b2c6",
+        "role-measure-ink": "#9db2d6", "role-relation-ink": "#6e97ff"
+      }
+    }
+  },
   "presentation": [
     { "subject": "applications", "variant": "journey" },
     { "subject": "applications.step", "stateRules": { "vehicle": "pending", "driver": "pending", "coverage": "pending", "quote": "info", "review": "info", "done": "positive" } },
@@ -195,6 +227,34 @@
       "gross": "Bruto premie",
       "noClaimDiscount": "No-claimkorting",
       "premium": "Maandpremie"
+    }
+  },
+  "docs": {
+    "nl": {
+      "plate": "Het kenteken van het te verzekeren voertuig. Merk, model en cataloguswaarde halen wij automatisch op bij het RDW.",
+      "vehicleDesc": "Merk en model, automatisch opgehaald bij het RDW aan de hand van het kenteken.",
+      "vehicleValue": "De cataloguswaarde volgens het RDW. Deze bepaalt mede uw premie.",
+      "vehicleConfirmed": "Bevestig dat dit het juiste voertuig is voordat u verder gaat.",
+      "postcode": "Uw postcode bepaalt de risicoregio en daarmee een deel van de premie.",
+      "city": "Plaats, automatisch afgeleid uit uw postcode.",
+      "regionBand": "Risicoregio, automatisch afgeleid uit uw postcode.",
+      "age": "Leeftijd van de hoofdbestuurder. Voor jonge bestuurders geldt een toeslag.",
+      "schadevrijeJaren": "Het aantal aaneengesloten jaren dat u zonder schade rijdt. Meer schadevrije jaren geven een hogere no-claimkorting.",
+      "annualKm": "Het verwachte aantal kilometers per jaar. Meer kilometers betekent een hogere premie.",
+      "usage": "Waarvoor u de auto gebruikt: privé, woon-werkverkeer of zakelijk.",
+      "driverConfirmed": "Bevestig de gegevens van de hoofdbestuurder.",
+      "cover": "Kies uw dekking. WA is wettelijk verplicht; WA + beperkt casco dekt ook schade aan uw eigen auto door bijvoorbeeld brand of storm; Allrisk dekt vrijwel alles.",
+      "coverConfirmed": "Bevestig uw dekkingskeuze.",
+      "optLegalAid": "Rechtsbijstand bij juridische geschillen na een aanrijding. € 3,00 per maand.",
+      "optPassenger": "Ongevallenverzekering voor alle inzittenden. € 1,50 per maand.",
+      "optRoadside": "Pechhulp in binnen- en buitenland. € 2,00 per maand.",
+      "optNoClaimProtect": "Beschermt uw no-claimkorting: na één schade behoudt u uw opgebouwde korting. Beschikbaar vanaf 5 schadevrije jaren.",
+      "startDate": "De gewenste ingangsdatum van de verzekering.",
+      "paymentTerm": "Kies of u per maand of per jaar betaalt. Bij maandbetaling geldt een kleine termijntoeslag.",
+      "termsAccepted": "Ik heb de polisvoorwaarden gelezen en ga hiermee akkoord.",
+      "premium": "Uw maandpremie: de dekking plus alle opslagen, minus de no-claimkorting, plus een eventuele termijntoeslag.",
+      "gross": "De brutopremie: de dekking en alle opslagen samen, vóór aftrek van de no-claimkorting.",
+      "noClaimDiscount": "Uw korting op basis van het aantal schadevrije jaren."
     }
   },
   "seed": [

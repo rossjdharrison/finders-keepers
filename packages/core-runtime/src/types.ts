@@ -24,12 +24,25 @@ export interface Prop {
   category?: string; // optional HQDM class for the value (must reduce)
   api?: string; // extern: which host extern to call
   params?: Record<string, string>; // extern: extern-param name -> source field id
+  doc?: string; // self-documentation: what this field is, in the user's terms (assists the user; may be verbose)
 }
 export interface Collection {
   id: string;
   semanticClass: string; // records classified by this HQDM class (must reduce)
   properties: Prop[];
   tables?: Record<string, unknown>; // lookup tables (configurator data)
+  doc?: string; // self-documentation: what a record of this collection is
+}
+
+/** The brand/theme dimension — style as DATA. Projected into CSS custom properties at load
+ * (see the client's applyTheme): the palette rebinds the Tier-1 semantic tokens the S layer keys
+ * on, fonts/radii bind their tokens. So the whole look is model-sourced and swappable per cassette;
+ * the CSS holds only structure + fallback residue, never a brand's identity. */
+export interface CassetteTheme {
+  brand?: { name?: string; tagline?: string; product?: string };
+  fonts?: Record<string, string>; // token (ui/brand/mono) -> font-family stack
+  radius?: Record<string, string>; // token (sm/md/lg/pill) -> length
+  palette?: { light?: Record<string, string>; dark?: Record<string, string> }; // semantic token -> color, per mode
 }
 /** A presentation override carried by a cassette (the P layer, as data). */
 export interface CassetteOverride {
@@ -47,13 +60,17 @@ export interface CassetteOverride {
  * consumes only types + collections + relations; the rest is carried for the client. */
 export interface Cassette {
   id: string;
+  title?: string; // self-documentation: a human name for the cassette
+  doc?: string; // self-documentation: what this cassette models, in prose (may be verbose)
   locale?: string; // the cassette's default locale (e.g. "nl")
   types: Record<string, { specializes: string[] }>; // domain types → HQDM (must reduce)
   collections: Collection[];
   relations?: Record<string, { parentColl: string; childColl: string; childField: string }>;
   // --- additional dimensions (ignored by the engine; used by the client) ---
+  theme?: CassetteTheme; // the brand/style dimension (projected to CSS custom properties)
   presentation?: CassetteOverride[]; // the P layer
   l10n?: Record<string, Record<string, string>>; // locale → (labelToken → string)
+  docs?: Record<string, Record<string, string>>; // locale → (fieldToken → help prose) — self-documentation, shown to the user
   enums?: Record<string, { id: string; label: string }[]>; // picklist option labels per enum set (i18n)
   journey?: { field: string; steps: { id: string; label?: string; fields?: string[] }[] }; // the wizard: each step's fields
   seed?: { coll: string; row: string; values: Record<string, Value> }[]; // example rows to apply when empty

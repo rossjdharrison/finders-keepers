@@ -1,0 +1,58 @@
+/* @layer brand — the cookie/consent surface. Reusable across sites: it keys only on tokens, so it
+ * themes with whatever cassette is loaded, and its copy + categories are all passed in as data
+ * (see consent.ts). Two forms: a slim bottom banner and a modal preferences dialog. */
+@layer brand {
+  .cc-banner {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    padding: 14px 22px;
+    background: var(--surface-raised); border-top: 1px solid var(--border);
+    box-shadow: 0 -6px 24px color-mix(in srgb, var(--brand) 10%, transparent);
+  }
+  .cc-banner-text { flex: 1 1 340px; font-size: 12.8px; line-height: 1.5; color: var(--ink-muted); }
+  .cc-banner-text strong { color: var(--ink); font-weight: 600; }
+  .cc-banner-text a { color: var(--accent); }
+  .cc-actions { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; }
+
+  .cc-btn {
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    padding: 8px 16px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--surface-sunken); color: var(--ink);
+  }
+  .cc-btn:hover { border-color: var(--accent); }
+  .cc-btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .cc-btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+  .cc-btn-quiet { background: transparent; color: var(--ink-muted); border-color: transparent; text-decoration: underline; }
+
+  /* modal preferences */
+  .cc-scrim {
+    position: fixed; inset: 0; z-index: 50;
+    background: color-mix(in srgb, #000 46%, transparent);
+    display: grid; place-items: center; padding: 20px;
+  }
+  .cc-dialog {
+    width: min(560px, 100%); max-height: 86vh; overflow: auto;
+    background: var(--surface-raised); color: var(--ink);
+    border: 1px solid var(--border); border-radius: var(--radius-lg);
+    box-shadow: 0 20px 60px color-mix(in srgb, var(--brand) 24%, transparent);
+    padding: 22px 22px 18px;
+  }
+  .cc-title { font-family: var(--font-brand); font-size: 19px; font-weight: 600; color: var(--brand); margin: 0 0 6px; }
+  .cc-intro { font-size: 12.8px; line-height: 1.55; color: var(--ink-muted); margin: 0 0 16px; max-width: 62ch; }
+
+  .cc-cat { display: flex; gap: 12px; padding: 13px 0; border-top: 1px solid var(--border); }
+  .cc-cat-main { flex: 1; }
+  .cc-cat-name { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .cc-cat-desc { font-size: 12px; line-height: 1.5; color: var(--ink-muted); margin-top: 3px; max-width: 52ch; }
+  .cc-switch { flex: 0 0 auto; align-self: center; }
+  .cc-switch input { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+  .cc-switch input:disabled { accent-color: var(--state-positive); cursor: not-allowed; opacity: .85; }
+  .cc-locked { font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--state-positive); font-weight: 700; align-self: center; }
+
+  .cc-dialog-actions { display: flex; gap: 9px; flex-wrap: wrap; justify-content: flex-end; margin-top: 18px; }
+
+  @media (max-width: 560px) {
+    .cc-banner { flex-direction: column; align-items: stretch; }
+    .cc-actions { justify-content: flex-end; }
+  }
+}
