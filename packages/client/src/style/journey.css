@@ -1,0 +1,28 @@
+/* @layer journey — the step-wizard family. Keyed only on the neutral hooks (data-state /
+ * data-role / data-emphasis) the journey renderer stamps, reading Tier-1 tokens, so it themes
+ * for free. Scoped under .journey so a state token never over-reaches other families. */
+@layer journey {
+  .journey { display: flex; flex-direction: column; gap: 18px; max-width: 880px; }
+  .journey-card { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+
+  .stepper { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stepper .step { font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); color: var(--ink-muted); }
+  .stepper .step[data-state="positive"] { color: var(--state-positive); border-color: color-mix(in srgb, var(--state-positive) 45%, transparent); }
+  .stepper .step[data-state="pending"] { color: var(--state-pending); border-color: color-mix(in srgb, var(--state-pending) 45%, transparent); }
+  .stepper .step[data-state="info"] { color: var(--state-info); border-color: color-mix(in srgb, var(--state-info) 45%, transparent); }
+  .stepper .step[data-state="muted"] { color: var(--ink-faint); opacity: .7; }
+  .stepper .step[data-current="true"] { background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--ink); }
+
+  .journey-premium { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 14px 16px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, var(--surface-sunken)); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+  .jp-label { color: var(--ink-muted); font-size: 13px; }
+  .jp-value { font-size: 22px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .journey-premium[data-emphasis="strong"] .jp-value { color: var(--accent); }
+
+  .journey-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .jf { background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; display: flex; flex-direction: column; gap: 3px; }
+  .jf-label { font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); }
+  .jf-value { font-size: 13.5px; color: var(--ink); }
+  .jf[data-role="measure"] .jf-value { font-variant-numeric: tabular-nums; color: var(--role-measure-ink); }
+  .jf[data-state="positive"] .jf-value { color: var(--state-positive); font-weight: 600; }
+  .jf[data-state="muted"] .jf-value { color: var(--ink-muted); }
+}

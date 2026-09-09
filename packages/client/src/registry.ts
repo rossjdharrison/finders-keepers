@@ -8,10 +8,12 @@ import { tableRenderer } from './renderers/table.ts';
 import { boardRenderer } from './renderers/board.ts';
 import { selfPortraitRenderer } from './renderers/self-portrait.ts';
 import { docsRenderer } from './renderers/docs.ts';
+import { journeyRenderer } from './renderers/journey.ts';
 
 export const RENDERERS: Record<string, Renderer> = {
   table: tableRenderer,
   board: boardRenderer,
   'self-portrait': selfPortraitRenderer,
   docs: docsRenderer,
+  journey: journeyRenderer,
 };

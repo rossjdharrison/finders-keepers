@@ -2,6 +2,8 @@ node_modules/
 dist/
 # generated from model/ by scripts/bundle-model.mjs — edit the model, not this
 packages/client/src/model.data.json
+# cassettes copied into the client by scripts/bundle-model.mjs — edit packages/core-runtime/cassettes
+packages/client/src/cassettes/
 .wrangler/
 *.tsbuildinfo
 coverage/

@@ -8,6 +8,7 @@
     "@core/values": "*",
     "@core/query": "*",
     "@core/ontology": "*",
+    "@app/core-runtime": "*",
     "@preact/signals-core": "^1.8.0"
   },
   "devDependencies": {

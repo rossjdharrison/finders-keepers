@@ -1,9 +1,10 @@
 /* The S layer entry, imported once by main.ts (Vite bundles it). The @layer statement fixes
  * the cascade order regardless of import order: legacy chrome first, hooks win over it as each
  * legacy rule is retired. tokens.css is unlayered — it only defines custom properties. */
-@layer legacy, hooks;
+@layer legacy, hooks, journey;
 
 @import "./tokens.css";
 @import "./theme.light.css";
 @import "./app.css";
 @import "./hooks.css";
+@import "./journey.css";

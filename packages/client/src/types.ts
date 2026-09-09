@@ -54,12 +54,13 @@ export interface ViewConfig {
   refs?: Record<string, { collection: string; labelField: string }>; // ref field -> parent collection + its label field
   groupField?: string;
   columns?: string[];
+  journey?: { field: string; steps: { id: string; label?: string }[] }; // the ordered wizard over a step field
 }
 export interface ViewDoc {
   id: string;
   collection: string;
   title: string;
-  renderer?: 'table' | 'board' | 'self-portrait' | 'docs'; // absent = derived from the collection's HQDM class
+  renderer?: 'table' | 'board' | 'self-portrait' | 'docs' | 'journey'; // absent = derived from the collection's HQDM class
   query: ViewSpec;
   visibleProps: string[];
   config?: ViewConfig;

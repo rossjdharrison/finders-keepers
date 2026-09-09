@@ -3,7 +3,7 @@
 // it to the view engine (mirrors how the model is PUT to the running WorkspaceDO).
 // The output is generated + gitignored — never hand-edit it, edit model/.
 
-import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync, cpSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CORE } from '@core/ontology';
@@ -86,3 +86,15 @@ const bundle = {
 const out = join(ROOT, 'packages', 'client', 'src', 'model.data.json');
 writeFileSync(out, JSON.stringify(bundle, null, 2) + '\n');
 process.stdout.write(`  bundled model -> packages/client/src/model.data.json (${bundle.collections.length} collections)\n`);
+
+// Copy the core-runtime cassettes into the client so the cassette player can import them as
+// typed JSON. In a real deploy the client FETCHES a cassette (the single initial GET); here the
+// build hands it over, the same way model.data.json is handed to the view engine. Generated.
+const cassettesSrc = join(ROOT, 'packages', 'core-runtime', 'cassettes');
+const cassettesDst = join(ROOT, 'packages', 'client', 'src', 'cassettes');
+if (existsSync(cassettesSrc)) {
+  mkdirSync(cassettesDst, { recursive: true });
+  const names = readdirSync(cassettesSrc).filter((f) => f.endsWith('.json'));
+  for (const f of names) cpSync(join(cassettesSrc, f), join(cassettesDst, f));
+  process.stdout.write(`  copied ${names.length} cassette(s) -> packages/client/src/cassettes/\n`);
+}

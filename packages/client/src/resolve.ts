@@ -12,7 +12,7 @@
 //   · viewer     — the verified actor's scope decides affordance (editable vs read-only),
 //                  never content confidentiality (that stays server-side).
 
-import { supertypesOf } from '@core/ontology';
+import { supertypesOf, CORE } from '@core/ontology';
 import type { CollectionDoc, Property, RowStateWire, TypeMap } from './types.ts';
 
 /** A render pattern (a renderVocabulary row): an HQDM category's default presentation form. */
@@ -140,6 +140,20 @@ export function resolvePlan(input: ResolveInput): RenderPlan {
     };
   });
   return { collection: collection.id, family, variant: variant ?? collOverride?.variant, fields };
+}
+
+/** The vocabulary straight from the frozen CORE.renderHints (category → render pattern). The
+ * genesis source — the same values the bundle projects into renderVocabulary rows. A cassette
+ * has no renderVocabulary rows of its own, so it uses this. */
+export function coreVocabulary(): RenderVocabulary {
+  const v: RenderVocabulary = new Map();
+  for (const [cat, h] of Object.entries(CORE.renderHints)) v.set(cat, { family: h.render ?? UNIVERSAL_FAMILY, glyph: h.glyph, label: h.label });
+  return v;
+}
+
+/** Index a list of P-layer overrides by their subject node (the shape resolvePlan wants). */
+export function overridesFrom(list: PresentationOverride[]): Record<string, PresentationOverride> {
+  return Object.fromEntries(list.map((o) => [o.subject, o]));
 }
 
 /** Build the row-sourced vocabulary from renderVocabulary insert-ops (the bundle's projection). */
