@@ -1,0 +1,25 @@
+{
+  "name": "@app/core-wasm",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "The vendor model: @core sealed into a portable pure-JS bundle (built upstream, committed to vendor/), run inside a prebuilt QuickJS wasm through an injected-extern seam. No wasm toolchain is needed at the run site — only quickjs-emscripten, which the target already has.",
+  "exports": {
+    ".": "./src/host.ts",
+    "./vendor": "./vendor/core.bundle.js"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "verify": "node scripts/build.mjs && git diff --exit-code -- vendor/core.bundle.js",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "quickjs-emscripten": "^0.32.0"
+  },
+  "devDependencies": {
+    "@app/core-runtime": "*",
+    "@core/values": "*",
+    "esbuild": "^0.28.2"
+  }
+}
