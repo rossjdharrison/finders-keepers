@@ -123,9 +123,10 @@ export function resolvePlan(input: ResolveInput): RenderPlan {
     const hidden = row?.hidden?.includes(p.id) ?? false;
     const rawVal = row?.doc[p.id];
     const enumVal = rawVal && rawVal.t === 'enum' ? rawVal.v : undefined;
-    // value → neutral state: a gated field is "blocked"; else the override's stateRules map
-    // the enum value to a neutral token (e.g. accepted → positive), defaulting to the raw value.
-    const state = hidden ? 'blocked' : enumVal !== undefined ? (ov?.stateRules?.[enumVal] ?? enumVal) : undefined;
+    // value → neutral state (CLOSED codomain): a gated field is "blocked"; else the override's
+    // stateRules map the enum to a neutral token (e.g. accepted → positive). No rule → no state
+    // (the raw domain enum must NEVER become a style hook), so S only ever sees neutral tokens.
+    const state = hidden ? 'blocked' : enumVal !== undefined ? ov?.stateRules?.[enumVal] : undefined;
     return {
       node,
       cell: k,

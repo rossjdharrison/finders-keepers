@@ -1,0 +1,56 @@
+/* The token surface. Two load-bearing tiers:
+ *  - Tier 0 (primitives): the honest, untraceable RESIDUE — raw values, meaning-free.
+ *    This is the ONLY file that holds a hex. A theme swaps these.
+ *  - Tier 1 (semantic): the join surface the hooks key on — var() references only.
+ *    role inks + a CLOSED state ramp (data-state's codomain). A theme rebinds ONLY these.
+ * Back-compat aliases map the old variable names onto the tiers at identical values, so the
+ * legacy chrome/table/board/self-portrait/doc CSS keeps working byte-for-byte. */
+:root {
+  color-scheme: dark;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+
+  /* Tier 0 — primitives (residue: the current palette, verbatim, + one amber for `pending`) */
+  --p-bg: #0f1116;
+  --p-panel: #171a21;
+  --p-chip: #1c232d;
+  --p-line: #262e39;
+  --p-ink: #e7eaef;
+  --p-ink2: #aab2bf;
+  --p-faint: #7c8492;
+  --p-blue: #6f97ff;
+  --p-blue-soft: #9db2d6;
+  --p-green: #37b391;
+  --p-red: #f0665f;
+  --p-amber: #d9a441;
+
+  /* Tier 1 — semantic tokens (the join surface; a theme rebinds only this block) */
+  --surface: var(--p-bg);
+  --surface-raised: var(--p-panel);
+  --surface-sunken: var(--p-chip);
+  --border: var(--p-line);
+  --ink: var(--p-ink);
+  --ink-muted: var(--p-ink2);
+  --ink-faint: var(--p-faint);
+  --accent: var(--p-blue);
+  --role-measure-ink: var(--p-blue-soft);
+  --role-relation-ink: var(--p-blue);
+  /* the CLOSED state ramp — the only values data-state may carry */
+  --state-positive: var(--p-green);
+  --state-pending: var(--p-amber);
+  --state-muted: var(--p-faint);
+  --state-blocked: var(--p-faint);
+  --state-error: var(--p-red);
+  --state-neutral: var(--p-ink2);
+  --state-info: var(--p-blue);
+
+  /* Back-compat aliases — legacy selectors read these; identical values, zero pixels move. */
+  --bg: var(--surface);
+  --panel: var(--surface-raised);
+  --chip: var(--surface-sunken);
+  --line: var(--border);
+  --ink2: var(--ink-muted);
+  --faint: var(--ink-faint);
+  --good: var(--state-positive);
+  --computed: var(--role-measure-ink);
+  --error: var(--state-error);
+}

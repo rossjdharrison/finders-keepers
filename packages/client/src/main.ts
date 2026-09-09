@@ -3,6 +3,7 @@
 // collection. Editing a Task's hours/status recomputes the Feature and Initiative
 // rollups on the server and updates every open tab live, with no formula on the client.
 
+import './style/index.css';
 import { effect } from '@preact/signals-core';
 import { createWorkspaceStore } from './store.ts';
 import { RENDERERS } from './registry.ts';

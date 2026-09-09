@@ -1,0 +1,24 @@
+/* @layer hooks — the S seam. Style keyed ONLY on the neutral hooks the renderers stamp
+ * (data-provenance / data-role / data-state), reading tier-1 tokens. No node/field/domain
+ * name appears here. These rules are family-INDEPENDENT: a measure lines up its digits and a
+ * positive state reads warm whether it is in a table cell, a party card, or a spec panel —
+ * so the Nth family costs zero role/state CSS. Layout stays on the renderer's own container
+ * class (.view-table/.view-board), not here. */
+@layer hooks {
+  /* provenance — a DERIVED value (a logic fact: source === 'computed'), the old .cell.computed */
+  [data-provenance="derived"] .cell { color: var(--role-measure-ink); font-variant-numeric: tabular-nums; font-weight: 500; }
+
+  /* role — the field's job, painted the same in any family */
+  [data-role="measure"] { font-variant-numeric: tabular-nums; }
+
+  /* state — a neutral temperature token (the closed ramp), a severity stripe + faint tint that
+   * reads at a glance and never fights the cell's own control. This is the P-authored
+   * value->state (e.g. decisions.status: accepted->positive) finally rendered by S. */
+  td[data-state="positive"] { box-shadow: inset 3px 0 0 var(--state-positive); background: color-mix(in srgb, var(--state-positive) 8%, transparent); }
+  td[data-state="pending"]  { box-shadow: inset 3px 0 0 var(--state-pending); background: color-mix(in srgb, var(--state-pending) 8%, transparent); }
+  td[data-state="muted"]    { box-shadow: inset 3px 0 0 var(--state-muted); }
+  td[data-state="info"]     { box-shadow: inset 3px 0 0 var(--state-info); }
+  td[data-state="error"]    { box-shadow: inset 3px 0 0 var(--state-error); }
+  /* blocked — not-in-play for this record (availableWhen false), the old .cell-gated */
+  td[data-state="blocked"] { color: var(--ink-faint); text-align: center; opacity: .5; }
+}

@@ -57,7 +57,9 @@ export function mountCell(host: HTMLElement, a: CellArgs): void {
   if (a.readOnly || !EDITABLE.has(k)) {
     const span = document.createElement('span');
     span.textContent = format(v, a.options);
-    span.className = a.readOnly ? 'cell computed' : v?.t === 'error' ? 'cell error' : 'cell';
+    // the "derived" look is painted by the S hooks layer via td[data-provenance="derived"]
+    // (a logic fact), NOT by a class here — so read-only-by-permission no longer looks computed
+    span.className = v?.t === 'error' ? 'cell error' : 'cell';
     host.append(span);
     return;
   }

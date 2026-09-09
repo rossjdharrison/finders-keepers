@@ -75,17 +75,18 @@ export const tableRenderer: Renderer = (mount, { store, view, workspace, model, 
         const prop = store.propOf(f);
         const fieldPlan = fp.get(f);
         if (fieldPlan?.role) td.dataset.role = fieldPlan.role; // neutral role hook
+        if (prop) td.dataset.provenance = prop.source === 'computed' ? 'derived' : 'authored'; // logic fact, painted by S
         if (row.hidden?.includes(f)) {
-          // not in play for this record — its availableWhen is false (category-gated)
-          td.className = 'cell-gated';
+          // not in play for this record — availableWhen is false; the hooks layer paints [data-state=blocked]
           td.dataset.state = 'blocked';
           td.textContent = '—';
           td.title = 'not applicable for this record';
         } else if (prop) {
           const value = row.doc[f];
           if (value && value.t === 'enum') {
-            const rules = overrides[`${store.id}.${f}`]?.stateRules;
-            td.dataset.state = rules?.[value.v] ?? value.v; // value → neutral state (override) else the raw value
+            // CLOSED codomain: only a MAPPED neutral token reaches data-state — never a raw domain enum
+            const st = overrides[`${store.id}.${f}`]?.stateRules?.[value.v];
+            if (st) td.dataset.state = st;
           }
           mountCell(td, {
             value,
