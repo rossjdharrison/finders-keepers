@@ -195,9 +195,12 @@ effect(() => {
       seenPostcode.add(norm);
       void externs.prefetchAddress(norm).then((ok) => {
         if (!ok) return;
-        suggestions.value = { ...suggestions.value, houseNumber: externs.addressNumbers(norm) };
+        // guard BOTH writes on the live postcode: a stale resolution for an abandoned postcode must
+        // not overwrite the datalist or the field with the wrong postcode's data.
         const live = collStore.rows.value.find((r) => r.id === row.id)?.doc.postcode;
-        if (live?.t === 'text' && normalizePostcode(live.v) === norm) collStore.setField(row.id, 'postcode', { t: 'text', v: canonical });
+        if (!(live?.t === 'text' && normalizePostcode(live.v) === norm)) return;
+        suggestions.value = { ...suggestions.value, houseNumber: externs.addressNumbers(norm) };
+        if (live.v !== canonical) collStore.setField(row.id, 'postcode', { t: 'text', v: canonical });
       });
     } else if (externs.hasAddress(norm)) {
       const nums = externs.addressNumbers(norm);
