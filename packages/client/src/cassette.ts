@@ -8,17 +8,19 @@
 // docs), the journey and its guards. Swap the cassette and the whole site re-skins and re-documents.
 
 import './style/index.css';
-import { effect } from '@preact/signals-core';
+import { effect, signal } from '@preact/signals-core';
 import { createBrowserHostOver } from '@app/core-runtime';
 import type { Cassette } from '@app/core-runtime';
 import type { Value } from '@core/values';
 import { createSealedCore } from '@app/core-wasm';
 import coreBundleUrl from '@app/core-wasm/vendor/core.bundle.js?url';
+import logoSvg from './assets/rowblaa-logo.svg?raw';
 import carInsurance from './cassettes/car-insurance.json';
 import { createBrowserQuickJS } from './quickjs.ts';
 import { createHostStore } from './host-store.ts';
 import { browserExterns } from './browser-externs.ts';
 import { normalizeKenteken, formatKenteken, isValidKenteken } from './kenteken.ts';
+import { normalizePostcode, formatPostcode, isValidPostcode } from './pdok.ts';
 import { localStoragePersistence, broadcastChannelBroadcaster } from './adapters.ts';
 import { applyTheme, initialMode, type ThemeMode } from './theme.ts';
 import { initConsent } from './consent.ts';
@@ -30,7 +32,6 @@ import type { CollectionDoc, ModelBundle, ViewDoc } from './types.ts';
 const cass = carInsurance as unknown as Cassette;
 setLocale(cass.locale ?? 'nl'); // money reads "€ 6.800,00" and numbers group per the cassette's locale
 const brand = cass.theme?.brand ?? {};
-const mark = (brand.name ?? 'Rowblaa Bank').trim().charAt(0) || 'R';
 if (cass.title) document.title = `${brand.name ?? 'Rowblaa Bank'} — ${brand.product ?? ''}`.trim();
 
 // model-driven brand chrome. Only the wordmark/product/tagline are read from the theme; the look is
@@ -40,7 +41,7 @@ app.innerHTML = `
   <a class="skip-link" href="#mount">Direct naar de aanvraag</a>
   <header class="bank-topbar" role="banner">
     <div class="bank-identity">
-      <span class="bank-mark" aria-hidden="true">${mark}</span>
+      <span class="bank-mark" aria-hidden="true">${logoSvg}</span>
       <span class="bank-name">${brand.name ?? 'Rowblaa Bank'}</span>
       ${brand.tagline ? `<span class="bank-since">${brand.tagline}</span>` : ''}
     </div>
@@ -149,7 +150,10 @@ const view: ViewDoc = {
 
 const mount = app.querySelector<HTMLElement>('#mount')!;
 const collStore = store.collection('applications')!; // the active collection; `store` is the workspace
-RENDERERS[view.renderer!](mount, { store: collStore, view, workspace: store, model, vocab, viewer });
+// reactive per-field datalist options (the house/flat numbers on the entered postcode), filled by the
+// postcode effect below and read by the renderer.
+const suggestions = signal<Record<string, string[]>>({});
+RENDERERS[view.renderer!](mount, { store: collStore, view, workspace: store, model, vocab, viewer, suggestions });
 
 // --- kenteken auto-fill: when a valid Dutch plate is entered, look it up (live RDW → demo fallback)
 // and fill the vehicle. The extern reads a cache; here we prefetch it, then re-set the (canonical)
@@ -162,16 +166,46 @@ effect(() => {
     const norm = normalizeKenteken(pv.v);
     if (!isValidKenteken(norm)) continue;
     const canonical = formatKenteken(norm) ?? pv.v;
-    if (!externs.has(norm) && !seenPlate.has(norm)) {
+    if (!externs.hasVehicle(norm) && !seenPlate.has(norm)) {
       seenPlate.add(norm);
-      void externs.prefetch(norm).then((ok) => {
+      void externs.prefetchVehicle(norm).then((ok) => {
         // guard the async write: drop a stale resolution if the user has since changed the plate,
         // so a slow lookup can't clobber a newer plate (last-typed stays authoritative)
         const live = collStore.rows.value.find((r) => r.id === row.id)?.doc.plate;
         if (ok && live?.t === 'text' && normalizeKenteken(live.v) === norm) collStore.setField(row.id, 'plate', { t: 'text', v: canonical });
       });
-    } else if (externs.has(norm) && pv.v !== canonical) {
+    } else if (externs.hasVehicle(norm) && pv.v !== canonical) {
       collStore.setField(row.id, 'plate', { t: 'text', v: canonical }); // just normalize the display form
+    }
+  }
+});
+
+// --- postcode → address (PDOK): when a valid postcode is entered, look it up (live PDOK BAG) and
+// fill street + city, and populate the house/flat-number datalist for that postcode. Same async
+// bridge as the plate: prefetch the cache, then re-set the (canonical) postcode to trigger recompute.
+const seenPostcode = new Set<string>();
+effect(() => {
+  for (const row of collStore.rows.value) {
+    const pc = row.doc.postcode;
+    if (pc?.t !== 'text' || !pc.v) continue;
+    const norm = normalizePostcode(pc.v);
+    if (!isValidPostcode(norm)) continue;
+    const canonical = formatPostcode(norm);
+    if (!externs.hasAddress(norm) && !seenPostcode.has(norm)) {
+      seenPostcode.add(norm);
+      void externs.prefetchAddress(norm).then((ok) => {
+        if (!ok) return;
+        // guard BOTH writes on the live postcode: a stale resolution for an abandoned postcode must
+        // not overwrite the datalist or the field with the wrong postcode's data.
+        const live = collStore.rows.value.find((r) => r.id === row.id)?.doc.postcode;
+        if (!(live?.t === 'text' && normalizePostcode(live.v) === norm)) return;
+        suggestions.value = { ...suggestions.value, houseNumber: externs.addressNumbers(norm) };
+        if (live.v !== canonical) collStore.setField(row.id, 'postcode', { t: 'text', v: canonical });
+      });
+    } else if (externs.hasAddress(norm)) {
+      const nums = externs.addressNumbers(norm);
+      if (nums.length && suggestions.value.houseNumber !== nums) suggestions.value = { ...suggestions.value, houseNumber: nums };
+      if (pc.v !== canonical) collStore.setField(row.id, 'postcode', { t: 'text', v: canonical });
     }
   }
 });

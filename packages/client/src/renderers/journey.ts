@@ -28,7 +28,7 @@ type Row = CollectionStore['rows']['value'][number];
 type Layout = 'stepped' | 'single';
 const LAYOUT_KEY = 'fk-journey-layout';
 
-export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, viewer }) => {
+export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, viewer, suggestions }) => {
   const collDoc = model.collections.find((c) => c.id === store.id);
   const overrides = overridesFrom(model.presentation ?? []);
   const l10n = new Map(Object.entries(view.config?.labels ?? {}));
@@ -143,6 +143,7 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
         onEdit: (v) => store.setField(row.id, field, v), id: inputId, describedBy: fp.doc ? helpId : undefined,
         pending: pending.get(pkey),
         onValidity: (st) => (st ? pending.set(pkey, st) : pending.delete(pkey)),
+        suggestions: suggestions?.value?.[field], // reactive: read here so the effect re-renders when they arrive
       });
       cell.append(lab, host);
       const h = helpNode();
@@ -211,6 +212,14 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
   return effect(() => {
     const rows = store.rows.value;
     const mode = layout.value;
+    // preserve the focused input's focus + caret + uncommitted text across this full rebuild — an
+    // async arrival (a resolved postcode/suggestions or plate) must not yank focus or discard what
+    // the user is mid-typing (the pending map only covers committed-but-invalid edits).
+    const ae = document.activeElement as HTMLInputElement | null;
+    const keepId = ae && ae.id && wrap.contains(ae) ? ae.id : null;
+    const keepVal = keepId ? ae!.value : null;
+    const keepStart = keepId ? ae!.selectionStart : null;
+    const keepEnd = keepId ? ae!.selectionEnd : null;
     wrap.replaceChildren();
     const announceParts: string[] = [];
     let modeAnnounced = false;
@@ -362,5 +371,19 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
     const announce = announceParts.join('; ');
     if (!modeAnnounced && lastAnnounce !== null && announce !== lastAnnounce) live.textContent = announce;
     lastAnnounce = announce;
+
+    // restore focus/caret/uncommitted text (skip when a layout switch already claimed focus)
+    if (keepId && !modeAnnounced) {
+      const back = wrap.querySelector<HTMLInputElement>('#' + CSS.escape(keepId));
+      if (back) {
+        if (keepVal != null && back.value !== keepVal) back.value = keepVal; // keep the in-progress text
+        back.focus();
+        try {
+          if (keepStart != null) back.setSelectionRange(keepStart, keepEnd ?? keepStart);
+        } catch {
+          /* number inputs don't support setSelectionRange */
+        }
+      }
+    }
   });
 };

@@ -15,6 +15,8 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-pill: 999px;
+  /* the logo badge ground — a warm ivory that carries the navy+gold shield on either theme's header */
+  --logo-tile: #f4f0e6;
   font-family: var(--font-ui);
 
   /* Tier 0 — primitives (residue: the current palette, verbatim, + one amber for `pending`) */
