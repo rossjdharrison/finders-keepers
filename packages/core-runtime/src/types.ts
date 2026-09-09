@@ -31,12 +31,31 @@ export interface Collection {
   properties: Prop[];
   tables?: Record<string, unknown>; // lookup tables (configurator data)
 }
-/** A loadable cassette: a model interpreted by the core through HQDM. */
+/** A presentation override carried by a cassette (the P layer, as data). */
+export interface CassetteOverride {
+  subject: string; // a logic node: "collection" or "collection.field"
+  variant?: string;
+  role?: string;
+  label?: string;
+  emphasis?: string;
+  order?: number;
+  stateRules?: Record<string, string>; // enum value → a neutral state token
+}
+
+/** A loadable cassette: a model interpreted by the core through HQDM, PLUS the additional
+ * dimensions (presentation / i18n / journey / seed) the client renders it with. The engine
+ * consumes only types + collections + relations; the rest is carried for the client. */
 export interface Cassette {
   id: string;
+  locale?: string; // the cassette's default locale (e.g. "nl")
   types: Record<string, { specializes: string[] }>; // domain types → HQDM (must reduce)
   collections: Collection[];
   relations?: Record<string, { parentColl: string; childColl: string; childField: string }>;
+  // --- additional dimensions (ignored by the engine; used by the client) ---
+  presentation?: CassetteOverride[]; // the P layer
+  l10n?: Record<string, Record<string, string>>; // locale → (labelToken → string)
+  journey?: { field: string; steps: { id: string; label?: string }[] }; // the ordered wizard over a step field
+  seed?: { coll: string; row: string; values: Record<string, Value> }[]; // example rows to apply when empty
 }
 
 /** The host-supplied imports — the ONLY egress from the sealed core. */
@@ -53,6 +72,7 @@ export type RowOp =
 export interface RowState {
   id: string;
   doc: Record<string, Value>;
+  hidden?: string[]; // fields whose availableWhen is false for this record (not in play)
 }
 
 /** The sealed core — the ONLY entry. */

@@ -34,9 +34,11 @@ export async function createBrowserHost(
   const subs = new Set<() => void>();
   const notify = (): void => { for (const cb of subs) cb(); };
 
-  // durability: restore the last computed state (externs are NOT re-run)
+  // durability: restore the last computed state (externs are NOT re-run); else seed the cassette's
+  // example rows (applied through the engine once, so their externs resolve + premium computes).
   const saved = opts.persistence ? await opts.persistence.loadSnapshot() : null;
   if (saved) core.restore(saved);
+  else for (const s of cassette.seed ?? []) core.apply(s.coll, [{ op: 'insert', row: s.row, values: s.values }]);
 
   // cross-tab: adopt another tab's state (BroadcastChannel never echoes to the sender)
   opts.broadcaster?.onMessage((s) => { core.restore(s); notify(); });

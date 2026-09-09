@@ -59,12 +59,12 @@ export function createCore(externs: Externs): Core {
         : { op: 'setField', coll, row: op.row, field: op.field, value: op.value },
     );
     const { rows } = engine.submit(engineOps, 'local');
-    return rows.filter((r) => r.coll === coll).map((r) => ({ id: r.id, doc: r.doc }));
+    return rows.filter((r) => r.coll === coll).map((r) => ({ id: r.id, doc: r.doc, ...(r.hidden ? { hidden: r.hidden } : {}) }));
   }
 
   function read(coll: string): RowState[] {
     if (!engine) throw new Error('load a cassette first');
-    return engine.read(coll).map((r) => ({ id: r.id, doc: r.doc }));
+    return engine.read(coll).map((r) => ({ id: r.id, doc: r.doc, ...(r.hidden ? { hidden: r.hidden } : {}) }));
   }
 
   return { load, apply, read, snapshot: () => store.snapshot(), restore: (s) => store.restore(s) };

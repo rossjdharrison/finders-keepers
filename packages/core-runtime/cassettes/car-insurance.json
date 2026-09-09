@@ -1,5 +1,6 @@
 {
   "id": "car-insurance",
+  "locale": "nl",
   "types": {
     "Application": { "specializes": ["activity"] },
     "Vehicle": { "specializes": ["ordinary_physical_object"] },
@@ -11,68 +12,197 @@
       "id": "applications",
       "semanticClass": "Application",
       "properties": [
-        { "id": "plate", "valueType": { "k": "text" }, "source": "stored" },
-        { "id": "cover", "valueType": { "k": "enum", "set": "coverLevel" }, "source": "stored" },
-        { "id": "schadevrijeJaren", "valueType": { "k": "num" }, "source": "stored" },
+        { "id": "step", "valueType": { "k": "enum", "set": "step" }, "source": "stored", "category": "class_of_state" },
 
+        { "id": "plate", "valueType": { "k": "text" }, "source": "stored" },
+        { "id": "vehicleConfirmed", "valueType": { "k": "bool" }, "source": "stored" },
         { "id": "vehicleDesc", "valueType": { "k": "text" }, "source": "extern", "api": "rdwDesc", "params": { "plate": "plate" } },
         { "id": "vehicleValue", "valueType": { "k": "money" }, "source": "extern", "api": "rdwValue", "params": { "plate": "plate" }, "category": "amount_of_money" },
 
+        { "id": "postcode", "valueType": { "k": "text" }, "source": "stored" },
+        { "id": "city", "valueType": { "k": "text" }, "source": "extern", "api": "regionCity", "params": { "postcode": "postcode" } },
+        { "id": "regionBand", "valueType": { "k": "enum", "set": "regionBand" }, "source": "extern", "api": "regionBand", "params": { "postcode": "postcode" } },
+        { "id": "age", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity" },
+        { "id": "schadevrijeJaren", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity" },
+        { "id": "annualKm", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity" },
+        { "id": "usage", "valueType": { "k": "enum", "set": "usage" }, "source": "stored" },
+        { "id": "driverConfirmed", "valueType": { "k": "bool" }, "source": "stored" },
+
+        { "id": "cover", "valueType": { "k": "enum", "set": "coverLevel" }, "source": "stored" },
+        { "id": "coverConfirmed", "valueType": { "k": "bool" }, "source": "stored" },
+        { "id": "optLegalAid", "valueType": { "k": "bool" }, "source": "stored" },
+        { "id": "optPassenger", "valueType": { "k": "bool" }, "source": "stored" },
+        { "id": "optRoadside", "valueType": { "k": "bool" }, "source": "stored" },
+        { "id": "optNoClaimProtect", "valueType": { "k": "bool" }, "source": "stored", "availableWhen": { "op": "gte", "args": [{ "op": "field", "id": "schadevrijeJaren" }, { "op": "lit", "value": { "t": "num", "v": 5 } }] } },
+
+        { "id": "startDate", "valueType": { "k": "date" }, "source": "stored", "category": "point_in_time" },
+        { "id": "paymentTerm", "valueType": { "k": "enum", "set": "paymentTerm" }, "source": "stored" },
+        { "id": "termsAccepted", "valueType": { "k": "bool" }, "source": "stored" },
+
         {
           "id": "valueBand", "valueType": { "k": "enum", "set": "coverBand" }, "source": "computed",
-          "formula": {
-            "op": "call", "fn": "if", "args": [
-              { "op": "lt", "args": [{ "op": "field", "id": "vehicleValue" }, { "op": "lit", "value": { "t": "money", "minor": 1000000, "ccy": "EUR", "scale": 2 } }] },
-              { "op": "lit", "value": { "t": "enum", "set": "coverBand", "v": "low" } },
-              {
-                "op": "call", "fn": "if", "args": [
-                  { "op": "lt", "args": [{ "op": "field", "id": "vehicleValue" }, { "op": "lit", "value": { "t": "money", "minor": 2500000, "ccy": "EUR", "scale": 2 } }] },
-                  { "op": "lit", "value": { "t": "enum", "set": "coverBand", "v": "mid" } },
-                  { "op": "lit", "value": { "t": "enum", "set": "coverBand", "v": "high" } }
-                ]
-              }
-            ]
-          }
+          "formula": { "op": "call", "fn": "if", "args": [
+            { "op": "lt", "args": [{ "op": "field", "id": "vehicleValue" }, { "op": "lit", "value": { "t": "money", "minor": 1000000, "ccy": "EUR", "scale": 2 } }] },
+            { "op": "lit", "value": { "t": "enum", "set": "coverBand", "v": "low" } },
+            { "op": "call", "fn": "if", "args": [
+              { "op": "lt", "args": [{ "op": "field", "id": "vehicleValue" }, { "op": "lit", "value": { "t": "money", "minor": 2500000, "ccy": "EUR", "scale": 2 } }] },
+              { "op": "lit", "value": { "t": "enum", "set": "coverBand", "v": "mid" } },
+              { "op": "lit", "value": { "t": "enum", "set": "coverBand", "v": "high" } }
+            ] }
+          ] }
         },
+        {
+          "id": "ageBand", "valueType": { "k": "enum", "set": "ageBand" }, "source": "computed",
+          "formula": { "op": "call", "fn": "if", "args": [
+            { "op": "lt", "args": [{ "op": "field", "id": "age" }, { "op": "lit", "value": { "t": "num", "v": 23 } }] },
+            { "op": "lit", "value": { "t": "enum", "set": "ageBand", "v": "young" } },
+            { "op": "call", "fn": "if", "args": [
+              { "op": "lt", "args": [{ "op": "field", "id": "age" }, { "op": "lit", "value": { "t": "num", "v": 65 } }] },
+              { "op": "lit", "value": { "t": "enum", "set": "ageBand", "v": "standard" } },
+              { "op": "lit", "value": { "t": "enum", "set": "ageBand", "v": "senior" } }
+            ] }
+          ] }
+        },
+        {
+          "id": "kmBand", "valueType": { "k": "enum", "set": "kmBand" }, "source": "computed",
+          "formula": { "op": "call", "fn": "if", "args": [
+            { "op": "lt", "args": [{ "op": "field", "id": "annualKm" }, { "op": "lit", "value": { "t": "num", "v": 10001 } }] },
+            { "op": "lit", "value": { "t": "enum", "set": "kmBand", "v": "low" } },
+            { "op": "call", "fn": "if", "args": [
+              { "op": "lt", "args": [{ "op": "field", "id": "annualKm" }, { "op": "lit", "value": { "t": "num", "v": 20001 } }] },
+              { "op": "lit", "value": { "t": "enum", "set": "kmBand", "v": "mid" } },
+              { "op": "lit", "value": { "t": "enum", "set": "kmBand", "v": "high" } }
+            ] }
+          ] }
+        },
+        {
+          "id": "sjBand", "valueType": { "k": "enum", "set": "sjBand" }, "source": "computed",
+          "formula": { "op": "call", "fn": "if", "args": [
+            { "op": "lt", "args": [{ "op": "field", "id": "schadevrijeJaren" }, { "op": "lit", "value": { "t": "num", "v": 5 } }] },
+            { "op": "lit", "value": { "t": "enum", "set": "sjBand", "v": "none" } },
+            { "op": "call", "fn": "if", "args": [
+              { "op": "lt", "args": [{ "op": "field", "id": "schadevrijeJaren" }, { "op": "lit", "value": { "t": "num", "v": 10 } }] },
+              { "op": "lit", "value": { "t": "enum", "set": "sjBand", "v": "mid" } },
+              { "op": "call", "fn": "if", "args": [
+                { "op": "lt", "args": [{ "op": "field", "id": "schadevrijeJaren" }, { "op": "lit", "value": { "t": "num", "v": 15 } }] },
+                { "op": "lit", "value": { "t": "enum", "set": "sjBand", "v": "high" } },
+                { "op": "lit", "value": { "t": "enum", "set": "sjBand", "v": "max" } }
+              ] }
+            ] }
+          ] }
+        },
+
         { "id": "coverBase", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "coverRate", "key": { "op": "field", "id": "cover" } } },
         { "id": "bandSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "bandRate", "key": { "op": "field", "id": "valueBand" } } },
-        { "id": "base", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "field", "id": "coverBase" }, { "op": "field", "id": "bandSurcharge" }] } },
-        {
-          "id": "premium", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money",
-          "formula": {
-            "op": "call", "fn": "if", "args": [
-              { "op": "gte", "args": [{ "op": "field", "id": "schadevrijeJaren" }, { "op": "lit", "value": { "t": "num", "v": 5 } }] },
-              { "op": "sub", "args": [{ "op": "field", "id": "base" }, { "op": "lookup", "table": "ncDiscount", "key": { "op": "field", "id": "cover" } }] },
-              { "op": "field", "id": "base" }
-            ]
-          }
-        }
+        { "id": "ageSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "ageRate", "key": { "op": "field", "id": "ageBand" } } },
+        { "id": "kmSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "kmRate", "key": { "op": "field", "id": "kmBand" } } },
+        { "id": "regionSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "regionRate", "key": { "op": "field", "id": "regionBand" } } },
+        { "id": "usageSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "usageRate", "key": { "op": "field", "id": "usage" } } },
+
+        { "id": "optLegalAidFee", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "field", "id": "optLegalAid" }, { "op": "lit", "value": { "t": "money", "minor": 300, "ccy": "EUR", "scale": 2 } }, { "op": "lit", "value": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 } }] } },
+        { "id": "optPassengerFee", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "field", "id": "optPassenger" }, { "op": "lit", "value": { "t": "money", "minor": 150, "ccy": "EUR", "scale": 2 } }, { "op": "lit", "value": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 } }] } },
+        { "id": "optRoadsideFee", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "field", "id": "optRoadside" }, { "op": "lit", "value": { "t": "money", "minor": 200, "ccy": "EUR", "scale": 2 } }, { "op": "lit", "value": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 } }] } },
+        { "id": "optNoClaimFee", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "field", "id": "optNoClaimProtect" }, { "op": "lit", "value": { "t": "money", "minor": 250, "ccy": "EUR", "scale": 2 } }, { "op": "lit", "value": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 } }] } },
+        { "id": "optionsTotal", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "add", "args": [{ "op": "field", "id": "optLegalAidFee" }, { "op": "field", "id": "optPassengerFee" }] }, { "op": "add", "args": [{ "op": "field", "id": "optRoadsideFee" }, { "op": "field", "id": "optNoClaimFee" }] }] } },
+
+        { "id": "subVehicle", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "field", "id": "coverBase" }, { "op": "field", "id": "bandSurcharge" }] } },
+        { "id": "subDriver", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "field", "id": "ageSurcharge" }, { "op": "field", "id": "kmSurcharge" }] } },
+        { "id": "subContext", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "field", "id": "regionSurcharge" }, { "op": "field", "id": "usageSurcharge" }] } },
+        { "id": "gross", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "add", "args": [{ "op": "field", "id": "subVehicle" }, { "op": "field", "id": "subDriver" }] }, { "op": "add", "args": [{ "op": "field", "id": "subContext" }, { "op": "field", "id": "optionsTotal" }] }] } },
+        { "id": "noClaimDiscount", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "ncDiscount", "key": { "op": "field", "id": "sjBand" } } },
+        { "id": "netPremium", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "sub", "args": [{ "op": "field", "id": "gross" }, { "op": "field", "id": "noClaimDiscount" }] } },
+        { "id": "paymentSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "paymentTerm" }, { "op": "lit", "value": { "t": "enum", "set": "paymentTerm", "v": "monthly" } }] }, { "op": "lit", "value": { "t": "money", "minor": 50, "ccy": "EUR", "scale": 2 } }, { "op": "lit", "value": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 } }] } },
+        { "id": "premium", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "field", "id": "netPremium" }, { "op": "field", "id": "paymentSurcharge" }] } },
+
+        { "id": "vehicleReady", "valueType": { "k": "bool" }, "source": "computed", "formula": { "op": "eq", "args": [{ "op": "field", "id": "vehicleConfirmed" }, { "op": "lit", "value": { "t": "bool", "v": true } }] } },
+        { "id": "driverReady", "valueType": { "k": "bool" }, "source": "computed", "formula": { "op": "eq", "args": [{ "op": "field", "id": "driverConfirmed" }, { "op": "lit", "value": { "t": "bool", "v": true } }] } }
       ],
       "tables": {
-        "coverRate": {
-          "kind": "1d", "of": { "k": "money" },
-          "map": {
-            "wa": { "t": "money", "minor": 400, "ccy": "EUR", "scale": 2 },
-            "waplus": { "t": "money", "minor": 700, "ccy": "EUR", "scale": 2 },
-            "allrisk": { "t": "money", "minor": 1100, "ccy": "EUR", "scale": 2 }
-          }
-        },
-        "bandRate": {
-          "kind": "1d", "of": { "k": "money" },
-          "map": {
-            "low": { "t": "money", "minor": 100, "ccy": "EUR", "scale": 2 },
-            "mid": { "t": "money", "minor": 300, "ccy": "EUR", "scale": 2 },
-            "high": { "t": "money", "minor": 600, "ccy": "EUR", "scale": 2 }
-          }
-        },
-        "ncDiscount": {
-          "kind": "1d", "of": { "k": "money" },
-          "map": {
-            "wa": { "t": "money", "minor": 100, "ccy": "EUR", "scale": 2 },
-            "waplus": { "t": "money", "minor": 200, "ccy": "EUR", "scale": 2 },
-            "allrisk": { "t": "money", "minor": 350, "ccy": "EUR", "scale": 2 }
-          }
-        }
+        "coverRate": { "kind": "1d", "of": { "k": "money" }, "map": { "wa": { "t": "money", "minor": 400, "ccy": "EUR", "scale": 2 }, "waplus": { "t": "money", "minor": 700, "ccy": "EUR", "scale": 2 }, "allrisk": { "t": "money", "minor": 1100, "ccy": "EUR", "scale": 2 } } },
+        "bandRate": { "kind": "1d", "of": { "k": "money" }, "map": { "low": { "t": "money", "minor": 100, "ccy": "EUR", "scale": 2 }, "mid": { "t": "money", "minor": 300, "ccy": "EUR", "scale": 2 }, "high": { "t": "money", "minor": 600, "ccy": "EUR", "scale": 2 } } },
+        "ageRate": { "kind": "1d", "of": { "k": "money" }, "default": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "map": { "young": { "t": "money", "minor": 400, "ccy": "EUR", "scale": 2 }, "standard": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "senior": { "t": "money", "minor": 150, "ccy": "EUR", "scale": 2 } } },
+        "kmRate": { "kind": "1d", "of": { "k": "money" }, "default": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "map": { "low": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "mid": { "t": "money", "minor": 150, "ccy": "EUR", "scale": 2 }, "high": { "t": "money", "minor": 350, "ccy": "EUR", "scale": 2 } } },
+        "regionRate": { "kind": "1d", "of": { "k": "money" }, "default": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "map": { "low": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "mid": { "t": "money", "minor": 150, "ccy": "EUR", "scale": 2 }, "high": { "t": "money", "minor": 400, "ccy": "EUR", "scale": 2 } } },
+        "usageRate": { "kind": "1d", "of": { "k": "money" }, "default": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "map": { "private": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "commute": { "t": "money", "minor": 100, "ccy": "EUR", "scale": 2 }, "business": { "t": "money", "minor": 300, "ccy": "EUR", "scale": 2 } } },
+        "ncDiscount": { "kind": "1d", "of": { "k": "money" }, "default": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "map": { "none": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "mid": { "t": "money", "minor": 150, "ccy": "EUR", "scale": 2 }, "high": { "t": "money", "minor": 300, "ccy": "EUR", "scale": 2 }, "max": { "t": "money", "minor": 500, "ccy": "EUR", "scale": 2 } } }
+      },
+      "transitions": [
+        { "id": "toDriver", "field": "step", "from": "vehicle", "to": "driver", "category": "event", "when": { "op": "field", "id": "vehicleReady" } },
+        { "id": "toCoverage", "field": "step", "from": "driver", "to": "coverage", "category": "event", "when": { "op": "field", "id": "driverReady" } },
+        { "id": "toQuote", "field": "step", "from": "coverage", "to": "quote", "category": "event", "when": { "op": "eq", "args": [{ "op": "field", "id": "coverConfirmed" }, { "op": "lit", "value": { "t": "bool", "v": true } }] } },
+        { "id": "toReview", "field": "step", "from": "quote", "to": "review", "category": "event", "when": { "op": "lit", "value": { "t": "bool", "v": true } } },
+        { "id": "toSubmit", "field": "step", "from": "review", "to": "done", "category": "event", "when": { "op": "eq", "args": [{ "op": "field", "id": "termsAccepted" }, { "op": "lit", "value": { "t": "bool", "v": true } }] } }
+      ]
+    }
+  ],
+  "presentation": [
+    { "subject": "applications", "variant": "journey" },
+    { "subject": "applications.step", "stateRules": { "vehicle": "pending", "driver": "pending", "coverage": "pending", "quote": "info", "review": "info", "done": "positive" } },
+    { "subject": "applications.cover", "stateRules": { "wa": "muted", "waplus": "info", "allrisk": "positive" } },
+    { "subject": "applications.premium", "emphasis": "strong" }
+  ],
+  "journey": {
+    "field": "step",
+    "steps": [
+      { "id": "vehicle", "label": "Voertuig" },
+      { "id": "driver", "label": "Bestuurder" },
+      { "id": "coverage", "label": "Dekking" },
+      { "id": "quote", "label": "Premie" },
+      { "id": "review", "label": "Overzicht" },
+      { "id": "done", "label": "Afgerond" }
+    ]
+  },
+  "l10n": {
+    "nl": {
+      "step": "Stap",
+      "plate": "Kenteken",
+      "vehicleConfirmed": "Voertuig bevestigd",
+      "vehicleDesc": "Voertuig",
+      "vehicleValue": "Cataloguswaarde",
+      "postcode": "Postcode",
+      "city": "Plaats",
+      "regionBand": "Regio",
+      "age": "Leeftijd hoofdbestuurder",
+      "schadevrijeJaren": "Schadevrije jaren",
+      "annualKm": "Kilometers per jaar",
+      "usage": "Gebruik",
+      "driverConfirmed": "Bestuurder bevestigd",
+      "cover": "Dekking",
+      "coverConfirmed": "Dekking bevestigd",
+      "optLegalAid": "Rechtsbijstand",
+      "optPassenger": "Ongevallen inzittenden",
+      "optRoadside": "Pechhulp",
+      "optNoClaimProtect": "No-claimbeschermer",
+      "startDate": "Ingangsdatum",
+      "paymentTerm": "Betaaltermijn",
+      "termsAccepted": "Voorwaarden geaccepteerd",
+      "gross": "Bruto premie",
+      "noClaimDiscount": "No-claimkorting",
+      "premium": "Maandpremie"
+    }
+  },
+  "seed": [
+    {
+      "coll": "applications", "row": "app-demo", "values": {
+        "step": { "t": "enum", "set": "step", "v": "quote" },
+        "plate": { "t": "text", "v": "99-XYZ-1" },
+        "vehicleConfirmed": { "t": "bool", "v": true },
+        "postcode": { "t": "text", "v": "1011 AB" },
+        "age": { "t": "num", "v": 40 },
+        "schadevrijeJaren": { "t": "num", "v": 6 },
+        "annualKm": { "t": "num", "v": 15000 },
+        "usage": { "t": "enum", "set": "usage", "v": "commute" },
+        "driverConfirmed": { "t": "bool", "v": true },
+        "cover": { "t": "enum", "set": "coverLevel", "v": "allrisk" },
+        "coverConfirmed": { "t": "bool", "v": true },
+        "optLegalAid": { "t": "bool", "v": true },
+        "paymentTerm": { "t": "enum", "set": "paymentTerm", "v": "monthly" }
+      }
+    },
+    {
+      "coll": "applications", "row": "app-new", "values": {
+        "step": { "t": "enum", "set": "step", "v": "vehicle" },
+        "plate": { "t": "text", "v": "AB-123-C" }
       }
     }
   ]
