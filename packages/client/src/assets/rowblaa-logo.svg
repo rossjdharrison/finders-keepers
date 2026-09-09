@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Rowblaa Bank — shield mark. Decorative in the header (the "Rowblaa Bank" wordmark carries the
+       accessible name), so the host wraps it in an aria-hidden element. -->
+  <path fill="#14183B" d="M 142,90 Q 256,81 370,90 Q 404,90 404,122 L 404,266 C 404,356 352,422 256,452 C 160,422 108,356 108,266 L 108,122 Q 108,90 142,90 Z"/>
+  <g fill="#E7D3A1">
+    <rect x="194" y="165" width="28" height="157"/>
+    <rect x="182" y="165" width="52" height="13"/>
+    <rect x="182" y="309" width="52" height="13"/>
+    <path d="M 214,165 L 264,165 C 318,165 344,196 344,231 C 344,268 316,290 266,290 L 214,290 Z"/>
+    <path d="M 234.1,290.9 L 269.9,269.1 L 337.4,385.6 L 306.6,404.4 Z"/>
+  </g>
+  <path fill="#14183B" d="M 228,188 L 264,188 C 300,188 318,206 318,231 C 318,256 300,270 264,270 L 228,270 Z"/>
+</svg>

@@ -14,6 +14,7 @@ import type { Cassette } from '@app/core-runtime';
 import type { Value } from '@core/values';
 import { createSealedCore } from '@app/core-wasm';
 import coreBundleUrl from '@app/core-wasm/vendor/core.bundle.js?url';
+import logoSvg from './assets/rowblaa-logo.svg?raw';
 import carInsurance from './cassettes/car-insurance.json';
 import { createBrowserQuickJS } from './quickjs.ts';
 import { createHostStore } from './host-store.ts';
@@ -30,7 +31,6 @@ import type { CollectionDoc, ModelBundle, ViewDoc } from './types.ts';
 const cass = carInsurance as unknown as Cassette;
 setLocale(cass.locale ?? 'nl'); // money reads "€ 6.800,00" and numbers group per the cassette's locale
 const brand = cass.theme?.brand ?? {};
-const mark = (brand.name ?? 'Rowblaa Bank').trim().charAt(0) || 'R';
 if (cass.title) document.title = `${brand.name ?? 'Rowblaa Bank'} — ${brand.product ?? ''}`.trim();
 
 // model-driven brand chrome. Only the wordmark/product/tagline are read from the theme; the look is
@@ -40,7 +40,7 @@ app.innerHTML = `
   <a class="skip-link" href="#mount">Direct naar de aanvraag</a>
   <header class="bank-topbar" role="banner">
     <div class="bank-identity">
-      <span class="bank-mark" aria-hidden="true">${mark}</span>
+      <span class="bank-mark" aria-hidden="true">${logoSvg}</span>
       <span class="bank-name">${brand.name ?? 'Rowblaa Bank'}</span>
       ${brand.tagline ? `<span class="bank-since">${brand.tagline}</span>` : ''}
     </div>
