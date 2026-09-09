@@ -7,6 +7,14 @@
 // host bridge unchanged.
 
 import type { Value, ValueType } from '@core/values';
+import type { RowState as EngineRow } from '@core/events';
+
+/** A serializable snapshot of all rows — the browser host persists/broadcasts this (so externs
+ * are never re-called on replay: the computed result travels, not the recipe). */
+export interface Snapshot {
+  seq: number;
+  rows: Record<string, EngineRow[]>;
+}
 
 export interface Prop {
   id: string;
@@ -28,6 +36,7 @@ export interface Cassette {
   id: string;
   types: Record<string, { specializes: string[] }>; // domain types → HQDM (must reduce)
   collections: Collection[];
+  relations?: Record<string, { parentColl: string; childColl: string; childField: string }>;
 }
 
 /** The host-supplied imports — the ONLY egress from the sealed core. */
@@ -51,4 +60,6 @@ export interface Core {
   load(cassette: Cassette): void;
   apply(coll: string, ops: RowOp[]): RowState[];
   read(coll: string): RowState[];
+  snapshot(): Snapshot;
+  restore(s: Snapshot): void;
 }
