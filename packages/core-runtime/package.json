@@ -1,0 +1,17 @@
+{
+  "name": "@app/core-runtime",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "The sealed core behind an extern-function ABI. It loads a JSON cassette, interprets it via HQDM + @core, and reaches the outside world (time, external/API data) ONLY through host-supplied extern functions. wasm-adjacent: the only entry is the exported methods (load/apply/read), the only egress is the externs — so it can be sealed into wasm later without changing the host bridge.",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@core/values": "*",
+    "@core/formula": "*",
+    "@core/ontology": "*"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

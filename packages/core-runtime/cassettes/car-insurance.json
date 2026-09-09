@@ -1,0 +1,79 @@
+{
+  "id": "car-insurance",
+  "types": {
+    "Application": { "specializes": ["activity"] },
+    "Vehicle": { "specializes": ["ordinary_physical_object"] },
+    "Cover": { "specializes": ["possible_world"] },
+    "Driver": { "specializes": ["party"] }
+  },
+  "collections": [
+    {
+      "id": "applications",
+      "semanticClass": "Application",
+      "properties": [
+        { "id": "plate", "valueType": { "k": "text" }, "source": "stored" },
+        { "id": "cover", "valueType": { "k": "enum", "set": "coverLevel" }, "source": "stored" },
+        { "id": "schadevrijeJaren", "valueType": { "k": "num" }, "source": "stored" },
+
+        { "id": "vehicleDesc", "valueType": { "k": "text" }, "source": "extern", "api": "rdwDesc", "params": { "plate": "plate" } },
+        { "id": "vehicleValue", "valueType": { "k": "money" }, "source": "extern", "api": "rdwValue", "params": { "plate": "plate" }, "category": "amount_of_money" },
+
+        {
+          "id": "valueBand", "valueType": { "k": "enum", "set": "coverBand" }, "source": "computed",
+          "formula": {
+            "op": "call", "fn": "if", "args": [
+              { "op": "lt", "args": [{ "op": "field", "id": "vehicleValue" }, { "op": "lit", "value": { "t": "money", "minor": 1000000, "ccy": "EUR", "scale": 2 } }] },
+              { "op": "lit", "value": { "t": "enum", "set": "coverBand", "v": "low" } },
+              {
+                "op": "call", "fn": "if", "args": [
+                  { "op": "lt", "args": [{ "op": "field", "id": "vehicleValue" }, { "op": "lit", "value": { "t": "money", "minor": 2500000, "ccy": "EUR", "scale": 2 } }] },
+                  { "op": "lit", "value": { "t": "enum", "set": "coverBand", "v": "mid" } },
+                  { "op": "lit", "value": { "t": "enum", "set": "coverBand", "v": "high" } }
+                ]
+              }
+            ]
+          }
+        },
+        { "id": "coverBase", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "coverRate", "key": { "op": "field", "id": "cover" } } },
+        { "id": "bandSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "bandRate", "key": { "op": "field", "id": "valueBand" } } },
+        { "id": "base", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "field", "id": "coverBase" }, { "op": "field", "id": "bandSurcharge" }] } },
+        {
+          "id": "premium", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money",
+          "formula": {
+            "op": "call", "fn": "if", "args": [
+              { "op": "gte", "args": [{ "op": "field", "id": "schadevrijeJaren" }, { "op": "lit", "value": { "t": "num", "v": 5 } }] },
+              { "op": "sub", "args": [{ "op": "field", "id": "base" }, { "op": "lookup", "table": "ncDiscount", "key": { "op": "field", "id": "cover" } }] },
+              { "op": "field", "id": "base" }
+            ]
+          }
+        }
+      ],
+      "tables": {
+        "coverRate": {
+          "kind": "1d", "of": { "k": "money" },
+          "map": {
+            "wa": { "t": "money", "minor": 400, "ccy": "EUR", "scale": 2 },
+            "waplus": { "t": "money", "minor": 700, "ccy": "EUR", "scale": 2 },
+            "allrisk": { "t": "money", "minor": 1100, "ccy": "EUR", "scale": 2 }
+          }
+        },
+        "bandRate": {
+          "kind": "1d", "of": { "k": "money" },
+          "map": {
+            "low": { "t": "money", "minor": 100, "ccy": "EUR", "scale": 2 },
+            "mid": { "t": "money", "minor": 300, "ccy": "EUR", "scale": 2 },
+            "high": { "t": "money", "minor": 600, "ccy": "EUR", "scale": 2 }
+          }
+        },
+        "ncDiscount": {
+          "kind": "1d", "of": { "k": "money" },
+          "map": {
+            "wa": { "t": "money", "minor": 100, "ccy": "EUR", "scale": 2 },
+            "waplus": { "t": "money", "minor": 200, "ccy": "EUR", "scale": 2 },
+            "allrisk": { "t": "money", "minor": 350, "ccy": "EUR", "scale": 2 }
+          }
+        }
+      }
+    }
+  ]
+}
