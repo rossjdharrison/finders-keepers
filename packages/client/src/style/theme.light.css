@@ -13,6 +13,10 @@
   --ink-muted: var(--p-l-ink2);
   --ink-faint: var(--p-l-faint);
   --accent: var(--p-l-blue);
+  --brand: var(--p-l-blue); /* deep brand ink — a model rebinds it, but the static light theme must be complete */
+  --emphasis: var(--p-l-amber); /* the reserved emphasis accent (premium figure, the Loom's rollup ink) — light residue */
+  --on-accent: var(--p-white);
+  --on-brand: var(--p-white);
   --role-measure-ink: var(--p-l-blue-soft);
   --role-relation-ink: var(--p-l-blue);
   --state-positive: var(--p-l-green);

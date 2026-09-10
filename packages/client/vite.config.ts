@@ -3,7 +3,8 @@ import { resolve } from 'node:path';
 
 // Entries: index.html (the finders-keepers model over the DO — needs the dev proxy below), the
 // client-only surfaces catalogue.html (the cassette index) + play.html (the one player, ?cassette=<id>)
-// + admin.html (the rules editor), all over the in-browser engine with no server/proxy.
+// + loom.html (the unified view+alter model surface) + admin.html (a thin redirect into the Loom's
+// rules tab, kept for old links), all over the in-browser engine with no server/proxy.
 export default defineConfig({
   build: {
     rollupOptions: {
@@ -12,6 +13,7 @@ export default defineConfig({
         admin: resolve(import.meta.dirname, 'admin.html'),
         play: resolve(import.meta.dirname, 'play.html'),
         catalogue: resolve(import.meta.dirname, 'catalogue.html'),
+        loom: resolve(import.meta.dirname, 'loom.html'),
       },
       output: {
         // Keep the QuickJS/emscripten runtime in its OWN chunk. play.ts is now its sole consumer, so

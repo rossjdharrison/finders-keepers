@@ -30,7 +30,7 @@ app.innerHTML = `
       ${brand.tagline ? `<span class="bank-since">${brand.tagline}</span>` : ''}
     </div>
     <div class="bank-tools">
-      <a class="cc-btn cc-btn-quiet" href="/admin.html">Beheer</a>
+      <a class="cc-btn cc-btn-quiet" href="/loom.html?cassette=car-insurance#regels">Beheer</a>
       <button class="theme-toggle" id="theme" type="button" aria-label="Wissel tussen licht en donker thema"></button>
     </div>
   </header>
@@ -66,19 +66,28 @@ for (const [klass, metas] of byClass) {
   section.append(el('h2', 'cat-section-head', klass));
   const grid = el('div', 'cat-grid');
   for (const m of metas) {
-    const card = el('a', 'cat-card') as HTMLAnchorElement;
-    card.href = `/play.html?cassette=${encodeURIComponent(m.id)}`;
+    const card = el('div', 'cat-card');
+    const main = el('a', 'cat-card-main') as HTMLAnchorElement;
+    main.href = `/play.html?cassette=${encodeURIComponent(m.id)}`;
     const top = el('div', 'cat-card-top');
     top.append(el('span', 'cat-card-title', m.title));
     top.append(el('span', `cat-badge cat-badge-${m.shape}`, shapeLabel(m.shape)));
-    card.append(top);
-    if (m.doc) card.append(el('p', 'cat-card-doc', m.doc));
+    main.append(top);
+    if (m.doc) main.append(el('p', 'cat-card-doc', m.doc));
     const vitals = el('div', 'cat-vitals');
     vitals.append(el('span', 'cat-vital', `${m.collections} ${m.collections === 1 ? 'collectie' : 'collecties'}`));
     if (m.hasSteps) vitals.append(el('span', 'cat-vital', 'stapsgewijze journey'));
     vitals.append(el('span', 'cat-vital cat-mono', m.id));
-    card.append(vitals);
-    card.append(el('span', 'cat-go', 'Openen →'));
+    main.append(vitals);
+    main.append(el('span', 'cat-go', 'Openen →'));
+    card.append(main);
+    // second entry: the Loom (view the structure + graph, alter the rules) — a journey opens by ?journey=
+    const foot = el('div', 'cat-card-foot');
+    const loom = el('a', 'cat-card-loom') as HTMLAnchorElement;
+    loom.href = `/loom.html?${m.shape === 'journey' ? 'journey' : 'cassette'}=${encodeURIComponent(m.id)}`;
+    loom.textContent = '⚙ Model & regels';
+    foot.append(loom);
+    card.append(foot);
     grid.append(card);
   }
   section.append(grid);

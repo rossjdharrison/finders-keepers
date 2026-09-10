@@ -76,7 +76,7 @@ app.innerHTML = `
       </span>
       <a class="cc-btn cc-btn-quiet" href="/catalogue.html">Catalogus</a>
       ${cass.example ? '<button class="cc-btn cc-btn-quiet" id="fill-example" type="button">Voorbeeld invullen</button>' : ''}
-      ${journeyDoc ? '' : `<a class="cc-btn cc-btn-quiet" id="admin-link" href="/admin.html?model=${cass.id}">Beheer${modelIsEdited ? ' <span class="bank-edited" title="Er zijn aangepaste regels actief">•</span>' : ''}</a>`}
+      <a class="cc-btn cc-btn-quiet" id="loom-link" href="${journeyDoc ? `/loom.html?journey=${encodeURIComponent(journeyDoc.id)}` : `/loom.html?cassette=${cass.id}`}">Model${!journeyDoc && modelIsEdited ? ' <span class="bank-edited" title="Er zijn aangepaste regels actief">•</span>' : ''}</a>
       <button class="cc-btn cc-btn-quiet" id="cookie-prefs" type="button">Cookievoorkeuren</button>
       <button class="theme-toggle" id="theme" type="button" aria-label="Wissel tussen licht en donker thema"></button>
     </div>
