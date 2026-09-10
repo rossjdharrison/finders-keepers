@@ -76,6 +76,24 @@ test('setFormulaLiteral keeps a STRING minor a string (canonical anti-f64 repres
   assert.equal(typeof lit.minor, 'string'); // representation preserved, integer kept
 });
 
+test('a FRACTIONAL num literal (a rate/ratio) survives editing — it is not rounded to an integer', () => {
+  // financing.leennorm is a fractional num lit (0.15 = a 15% leennorm-ratio); loyaltyDiscount holds 0.01/0.005.
+  // collectFormulaLiterals must surface them as num, and setFormulaLiteral must preserve the decimal exactly
+  // (the graph inspector + Regels editor edit these; an integer round would collapse a ratio to 0).
+  const fin = JSON.parse(readFileSync(new URL('../../core-runtime/cassettes/financing.json', import.meta.url), 'utf8')) as Cassette;
+  const finColl = fin.collections[0].id;
+  const finFormula = (id: string): unknown => (fin.collections[0].properties.find((p) => p.id === id) as { formula?: unknown } | undefined)?.formula;
+
+  assert.deepEqual(collectFormulaLiterals(finFormula('leennorm')).map((l) => ({ raw: l.raw, t: l.valueType })), [{ raw: 0.15, t: 'num' }], 'the leennorm ratio is a single fractional num literal');
+  const loyalty = collectFormulaLiterals(finFormula('loyaltyDiscount'));
+  assert.ok(loyalty.some((l) => l.raw === 0.01) && loyalty.some((l) => l.raw === 0.005), 'the loyalty rate steps are fractional num literals');
+
+  const [ratio] = collectFormulaLiterals(finFormula('leennorm'));
+  const next = setFormulaLiteral(fin, finColl, 'leennorm', ratio.path, 0.2);
+  const edited = collectFormulaLiterals(next.collections[0].properties.find((p) => p.id === 'leennorm')!.formula)[0].raw;
+  assert.equal(edited, 0.2, 'the edited ratio keeps its decimal (0.2), never rounded to 0');
+});
+
 test('previewCassette computes the flat sample premium from the cassette example (€25,50)', () => {
   const res = previewCassette(cass);
   assert.equal(res.ok, true);

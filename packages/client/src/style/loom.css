@@ -106,6 +106,31 @@
   .lm-node:focus-visible .lm-node-box { stroke: var(--accent); stroke-width: 2.4; }
   .lm-graph-svg.is-hovering .lm-node.is-dim { opacity: .3; }
 
+  /* interactive computed nodes — click to open the formula inspector below the graph */
+  .lm-node-interactive { cursor: pointer; }
+  .lm-node-interactive:hover .lm-node-box { stroke: var(--accent); }
+  .lm-node.is-selected .lm-node-box { stroke: var(--accent); stroke-width: 2.4; fill: color-mix(in srgb, var(--accent) 9%, var(--surface-raised)); }
+
+  /* --- formula inspector (Grafiek: click a ƒ node to see + edit its formula) ---------------- */
+  .lm-inspect { margin-top: 14px; }
+  .lm-inspect-empty { display: flex; align-items: center; gap: 8px; padding: 13px 16px; border: 1px dashed var(--border); border-radius: var(--radius-md); color: var(--ink-muted); font-size: 12.5px; background: color-mix(in srgb, var(--surface-sunken) 40%, var(--surface)); }
+  .lm-inspect-glyph { font-weight: 700; color: var(--lm-computed); font-size: 15px; }
+  .lm-inspect-card { padding: 15px 18px; border: 1px solid color-mix(in srgb, var(--lm-computed) 35%, var(--border)); border-radius: var(--radius-md); background: var(--surface-raised); }
+  .lm-inspect-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 11px; }
+  .lm-inspect-badge { font-weight: 700; color: var(--lm-computed); font-size: 15px; }
+  .lm-inspect-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+  .lm-inspect-meta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  .lm-inspect-eq { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); line-height: 2; }
+  .lm-inspect-eq-lhs { color: var(--ink-muted); font-weight: 600; white-space: nowrap; }
+  .lm-inspect-formula { line-height: 2; overflow-wrap: anywhere; }
+  .lm-inspect-note { font-size: 12px; color: var(--ink-muted); line-height: 1.6; margin: 11px 0 0; }
+  .lm-inspect-status { font-size: 12.5px; font-weight: 600; margin-top: 9px; min-height: 1.2em; }
+  .lm-inspect-status[data-state="positive"] { color: var(--state-positive); }
+  .lm-inspect-status[data-state="error"] { color: var(--state-error); font-weight: 500; overflow-wrap: anywhere; }
+  .lm-inspect-more { appearance: none; background: none; border: none; color: var(--accent); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 11px 0 0; }
+  .lm-inspect-more:hover { text-decoration: underline; }
+  .lm-inspect-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+
   .lm-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; font-size: 11.5px; color: var(--ink-muted); }
   .lm-legend-item { display: inline-flex; align-items: center; gap: 6px; }
   .lm-legend-glyph { font-weight: 700; }

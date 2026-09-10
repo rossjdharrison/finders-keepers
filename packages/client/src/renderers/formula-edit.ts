@@ -43,8 +43,11 @@ export function buildEditableFormula(formula: unknown, opts: EditableFormulaOpts
     input.className = 'fx-input';
     input.type = 'number';
     input.min = '0';
-    input.step = t === 'money' ? '0.01' : '1';
-    input.inputMode = t === 'money' ? 'decimal' : 'numeric';
+    // 'any' step for a num: a num literal may be an INTEGER threshold (age < 23) OR a FRACTIONAL rate/ratio
+    // (a 15% leennorm = 0.15, a 0.5% rate step = 0.005). step '1' would flag a ratio as invalid and the
+    // Math.round below would flatten it to 0; 'any' + no rounding keeps both kinds exact.
+    input.step = t === 'money' ? '0.01' : 'any';
+    input.inputMode = 'decimal';
     const display = (r: number): string => (t === 'money' ? (r / 100).toFixed(2) : String(r)); // r is num value or money minor
     let committed = raw; // last VALID raw this input holds — a rejected entry reverts HERE, not to the stale original
     input.value = display(committed);
@@ -60,7 +63,9 @@ export function buildEditableFormula(formula: unknown, opts: EditableFormulaOpts
       // Number("") is 0, which would silently commit a cleared/garbage input as zero.
       const num = input.valueAsNumber;
       if (!Number.isFinite(num) || num < 0) { input.value = display(committed); sizeToContent(); return; } // reject; revert to last good
-      committed = t === 'money' ? Math.round(num * 100) : Math.round(num);
+      // money → integer minor units; num → keep the entered value EXACTLY (never round to int, or a
+      // fractional rate/ratio like 0.15 would collapse to 0). Typed values are clean, so no float noise.
+      committed = t === 'money' ? Math.round(num * 100) : num;
       input.value = display(committed); // normalize what's shown (e.g. "9" → "9.00") so a later reject reverts cleanly
       sizeToContent();
       opts.onEdit(path, committed);

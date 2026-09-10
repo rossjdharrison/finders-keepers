@@ -25,6 +25,8 @@ import { buildGraph, renderGraph } from './loom/graph.ts';
 import { renderRulesEditor } from './loom/rules-edit.ts';
 import { renderCompositionEditor } from './loom/composition-edit.ts';
 import { loadJourneyDoc } from './loom/journey-edit.ts';
+import { createFormulaInspector } from './loom/formula-inspector.ts';
+import { createModelEditing } from './loom/model-editing.ts';
 
 const COLL_LABELS: Record<string, string> = { applications: 'Aanvraag', vehicles: 'Voertuig', drivers: 'Bestuurder', covers: 'Dekking' };
 
@@ -131,16 +133,19 @@ themeBtn.addEventListener('click', () => paint(mode === 'light' ? 'dark' : 'ligh
 
 const mount = app.querySelector<HTMLElement>('#mount')!;
 
-// hero
-const hero = el('div', 'lm-hero');
-// arrived here by drilling from a journey's composition? offer a way back to it.
+// arrived here by drilling from a journey's composition? the "back to the journey" link is rendered just
+// above the diagram in the Grafiek panel (where a drill lands), not up here in the hero — see that tab.
 const fromJourney = qs.get('from');
-if (!journeyDoc && fromJourney && Object.hasOwn(JOURNEYS, fromJourney)) {
+const backToJourney = (): HTMLAnchorElement | null => {
+  if (journeyDoc || !fromJourney || !Object.hasOwn(JOURNEYS, fromJourney)) return null;
   const back = el('a', 'lm-back') as HTMLAnchorElement;
   back.href = `/loom.html?journey=${encodeURIComponent(fromJourney)}#compositie`;
   back.append(el('span', 'lm-back-arrow', '←'), document.createTextNode(` Terug naar ${JOURNEYS[fromJourney].title ?? fromJourney}`));
-  hero.append(back);
-}
+  return back;
+};
+
+// hero
+const hero = el('div', 'lm-hero');
 const badge = el('span', `lm-hero-badge lm-badge-${journeyDoc ? 'journey' : shipped.collections.length > 1 ? 'composed' : 'flat'}`, journeyDoc ? 'Pakket' : shipped.collections.length > 1 ? 'Samengesteld' : 'Eén model');
 hero.append(badge);
 hero.append(el('h1', 'lm-hero-title', subjectTitle));
@@ -155,6 +160,10 @@ interface Tab {
 }
 
 const outputField = (shipped.journey?.summary?.total as string | undefined) ?? 'premium';
+
+// a flat product cassette has ONE shared editing session: the Regels tab AND the Grafiek formula inspector
+// both read/write it (so neither can silently discard the other's unsaved edits). A journey is view-only here.
+const editing = journeyDoc ? undefined : createModelEditing(shipped);
 
 const tabs: Tab[] = [];
 
@@ -198,11 +207,38 @@ tabs.push({
   id: 'grafiek',
   label: 'Grafiek',
   build: (panel) => {
-    panel.append(el('p', 'lm-panel-intro', 'Wat voedt wat. Invoervelden links, uitkomsten rechts; de pijlen zijn afhankelijkheden, opnieuw afgeleid uit de formules. Rollups over relaties (en de L2-naad van een pakket) zijn geaccentueerd. Beweeg over een veld om zijn keten te lichten.'));
+    // the "← Terug naar <journey>" link sits right above the diagram (this is where a drill from the
+    // journey composition lands), so the way back is clear next to the graph it brought you to.
+    const back = backToJourney();
+    if (back) panel.append(back);
+    panel.append(el('p', 'lm-panel-intro', 'Wat voedt wat. Invoervelden links, uitkomsten rechts; de pijlen zijn afhankelijkheden, opnieuw afgeleid uit de formules. Rollups over relaties (en de L2-naad van een pakket) zijn geaccentueerd. Beweeg over een veld om zijn keten te lichten; klik op een berekend veld (ƒ) om de formule te bekijken' + (journeyDoc ? '.' : ' en de getallen erin aan te passen.')));
     const g = buildGraph(shipped!, { label: labelFor, collLabel: labelFor, outputField });
     const holder = el('div');
-    renderGraph(holder, g);
     panel.append(holder);
+    const inspectorMount = el('div', 'lm-inspect');
+    panel.append(inspectorMount);
+
+    if (!editing) {
+      // a compiled journey: the composed formula is shown READ-ONLY (its rules live in the member products)
+      const inspector = createFormulaInspector(inspectorMount, { label: labelFor, model: () => shipped! });
+      renderGraph(holder, g, { onSelect: (node) => inspector.show(node) });
+    } else {
+      // a flat product cassette: the field's numeric literals are EDITABLE through the SHARED session (the
+      // same cassette the Regels tab edits), auto-saved so the effect is immediate. save() persists + notifies,
+      // and the subscribe below re-syncs the Regels tab — so an edit here can never discard Regels' work.
+      const inspector = createFormulaInspector(inspectorMount, {
+        label: labelFor,
+        model: () => editing.cass(),
+        outputLabel: labelFor(outputField),
+        onEdit: (collId, propId, path, raw) => {
+          editing.applyLiteral(collId, propId, path, raw);
+          const res = editing.save(); // validate + persist the shared cassette (no-op persist if invalid)
+          return { ok: res.ok, error: res.error, premium: res.premium };
+        },
+        openRules: () => activate('regels'),
+      });
+      renderGraph(holder, g, { onSelect: (node) => inspector.show(node) });
+    }
   },
 });
 
@@ -237,7 +273,9 @@ tabs.push({
       panel.append(links);
       return;
     }
-    renderRulesEditor(panel, { shipped: shipped!, labels, collLabels: COLL_LABELS });
+    // the Regels editor and the Grafiek inspector share ONE editing session (see `editing` + the subscribe
+    // below that re-syncs sibling tabs on save/revert), so neither can discard the other's unsaved edits.
+    renderRulesEditor(panel, { editing: editing!, labels, collLabels: COLL_LABELS });
   },
 });
 
@@ -248,8 +286,10 @@ const panelWrap = el('div', 'lm-panels');
 const built = new Set<string>();
 const panelById = new Map<string, HTMLElement>();
 const btnById = new Map<string, HTMLButtonElement>();
+let activeTab = '';
 
 const activate = (id: string): void => {
+  activeTab = id;
   for (const [tid, btn] of btnById) {
     const on = tid === id;
     btn.classList.toggle('is-active', on);
@@ -265,6 +305,13 @@ const activate = (id: string): void => {
   }
   if (location.hash.slice(1) !== id) history.replaceState(null, '', `#${id}`);
 };
+
+// keep the two editing tabs coherent: after a save/revert (from either the Regels editor or the Grafiek
+// inspector), evict the OTHER cached tab so it rebuilds from the shared cassette next time it is opened. The
+// active tab already reflects the change (it made it), so it is left intact (no focus/scroll disruption).
+editing?.subscribe(() => {
+  for (const id of ['regels', 'grafiek']) if (id !== activeTab) built.delete(id);
+});
 
 for (const t of tabs) {
   const btn = el('button', 'lm-tab', t.label) as HTMLButtonElement;
