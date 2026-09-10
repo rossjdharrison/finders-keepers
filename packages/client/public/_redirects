@@ -1,3 +1,6 @@
-# Serve the demo landing at the root (200 = rewrite, no URL change). The DO-backed index.html
-# stays reachable at /index.html but needs a server, so it is not the public entry.
-/    /landing.html    200
+# The catalogue is the public entry (200 = rewrite, no URL change): it lists every cassette and each
+# opens in the one player at /play.html?cassette=<id>. The DO-backed index.html stays at /index.html
+# but needs a server, so it is not the public entry. The old per-cassette URLs redirect to the player.
+/    /catalogue.html    200
+/cassette.html    /play.html?cassette=car-insurance    301
+/composed.html    /play.html?cassette=car-insurance-composed    301

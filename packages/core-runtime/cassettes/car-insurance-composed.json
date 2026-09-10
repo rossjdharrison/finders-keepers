@@ -38,7 +38,7 @@
       "doc": "The vehicle configurator — an ordinary physical object. Kenteken in, catalogue value + the value-band surcharge out.",
       "properties": [
         { "id": "app", "valueType": { "k": "ref", "collection": "applications" }, "source": "stored", "category": "association", "doc": "The application this vehicle participates in." },
-        { "id": "plate", "valueType": { "k": "text" }, "source": "stored", "doc": "Kenteken." },
+        { "id": "plate", "valueType": { "k": "text" }, "source": "stored", "constraint": { "format": "kenteken" }, "doc": "Kenteken." },
         { "id": "vehicleDesc", "valueType": { "k": "text" }, "source": "extern", "api": "rdwDesc", "params": { "plate": "plate" } },
         { "id": "vehicleValue", "valueType": { "k": "money" }, "source": "extern", "api": "rdwValue", "params": { "plate": "plate" }, "category": "amount_of_money" },
         {
