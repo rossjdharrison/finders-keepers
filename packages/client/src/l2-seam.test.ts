@@ -6,7 +6,7 @@ import { compileJourney } from './compile-journey.ts';
 
 const read = (f: string) => JSON.parse(readFileSync(new URL('../../core-runtime/cassettes/' + f, import.meta.url), 'utf8'));
 const money = (v: unknown) => (v as { minor?: unknown })?.minor !== undefined ? Number((v as { minor: unknown }).minor) / 100 : v;
-const registry = () => ({ 'car-insurance': read('car-insurance.json'), financing: read('financing.json'), voertuig: read('voertuig.json'), adres: read('adres.json') });
+const registry = () => ({ 'car-insurance': read('car-insurance.json'), financing: read('financing.json'), voertuig: read('voertuig.json'), adres: read('adres.json'), individual: read('individual.json') });
 
 test('L2 compile: the 4-configurator autopakket composes; the car value AND the region CLASS flow across seams', () => {
   const composed = compileJourney(read('auto-package.json'), registry() as never);

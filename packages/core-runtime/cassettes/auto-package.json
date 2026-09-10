@@ -2,54 +2,56 @@
   "kind": "journey",
   "id": "auto-package",
   "title": "Autopakket",
-  "doc": "De volledige autoreis bij Rowblaa Bank, functioneel gedecomponeerd in vier herbruikbare configurators — Voertuig, Adres, Verzekering en Financiering — samengesteld via getypte L2-naden. Voertuig kiest de auto: de cataloguswaarde voedt ZOWEL de premie (via de waardeklasse) ALS het te financieren bedrag (de kritieke waardestroom). Adres levert de risicoregio (een categorie) die de verzekering zelf beprijst. De schadevrije jaren uit de verzekering geven een loyaliteitskorting op de financieringsrente. Alles gecomponeerd via relaties + rollup in dezelfde verzegelde @core, zonder codewijziging.",
+  "doc": "De volledige autoreis bij Rowblaa Bank, functioneel gedecomponeerd in vijf herbruikbare configurators — Voertuig, Adres, Individu, Verzekering en Financiering — samengesteld via getypte L2-naden. Voertuig kiest de auto (de cataloguswaarde voedt zowel de premie als het te financieren bedrag — de kritieke waardestroom). Adres levert de risicoregio. Individu is een rijk persoonsprofiel waarvan de reis alléén de benodigde velden gebruikt (leeftijd, schadevrije jaren, kilometers, gebruik) — met dataminimalisatie aan toont de reis uitsluitend die velden: privacy by design, afgeleid uit de compositie. De schadevrije jaren geven bovendien een loyaliteitskorting op de financieringsrente. Alles gecomponeerd via relaties + rollup in dezelfde verzegelde @core, zonder codewijziging.",
   "locale": "nl",
+  "minimal": true,
   "models": [
     { "ref": "voertuig", "as": "veh" },
     { "ref": "adres", "as": "adr" },
+    { "ref": "individual", "as": "ind" },
     { "ref": "car-insurance", "as": "ins" },
     { "ref": "financing", "as": "fin" }
   ],
   "spine": "fin",
   "bindings": [
     {
-      "id": "vehToInsValue",
-      "from": "veh",
-      "to": "ins",
-      "contract": {
-        "provides": [{ "as": "vval", "source": "output:catalogValue" }],
-        "requires": [{ "name": "vval", "target": "field:vehicleValue" }]
-      },
+      "id": "vehToInsValue", "from": "veh", "to": "ins",
+      "contract": { "provides": [{ "as": "vval", "source": "output:catalogValue" }], "requires": [{ "name": "vval", "target": "field:vehicleValue" }] },
       "mapping": [{ "to": "vehicleValue", "from": { "op": "field", "id": "vval" } }]
     },
     {
-      "id": "vehToFinPrincipal",
-      "from": "veh",
-      "to": "fin",
-      "contract": {
-        "provides": [{ "as": "vprin", "source": "output:catalogValue" }],
-        "requires": [{ "name": "vprin", "target": "field:principal" }]
-      },
+      "id": "vehToFinPrincipal", "from": "veh", "to": "fin",
+      "contract": { "provides": [{ "as": "vprin", "source": "output:catalogValue" }], "requires": [{ "name": "vprin", "target": "field:principal" }] },
       "mapping": [{ "to": "principal", "from": { "op": "field", "id": "vprin" } }]
     },
     {
-      "id": "adrToInsRegion",
-      "from": "adr",
-      "to": "ins",
-      "contract": {
-        "provides": [{ "as": "region", "source": "output:regionBand" }],
-        "requires": [{ "name": "region", "target": "field:regionBand" }]
-      },
+      "id": "adrToInsRegion", "from": "adr", "to": "ins",
+      "contract": { "provides": [{ "as": "region", "source": "output:regionBand" }], "requires": [{ "name": "region", "target": "field:regionBand" }] },
       "mapping": [{ "to": "regionBand", "from": { "op": "field", "id": "region" } }]
     },
     {
-      "id": "insToFinLoyalty",
-      "from": "ins",
-      "to": "fin",
-      "contract": {
-        "provides": [{ "as": "nc", "source": "output:schadevrijeJaren" }],
-        "requires": [{ "name": "nc", "target": "field:loyaltyYears" }]
-      },
+      "id": "indToInsAge", "from": "ind", "to": "ins",
+      "contract": { "provides": [{ "as": "age", "source": "output:age" }], "requires": [{ "name": "age", "target": "field:age" }] },
+      "mapping": [{ "to": "age", "from": { "op": "field", "id": "age" } }]
+    },
+    {
+      "id": "indToInsNoClaim", "from": "ind", "to": "ins",
+      "contract": { "provides": [{ "as": "sj", "source": "output:schadevrijeJaren" }], "requires": [{ "name": "sj", "target": "field:schadevrijeJaren" }] },
+      "mapping": [{ "to": "schadevrijeJaren", "from": { "op": "field", "id": "sj" } }]
+    },
+    {
+      "id": "indToInsKm", "from": "ind", "to": "ins",
+      "contract": { "provides": [{ "as": "km", "source": "output:annualKm" }], "requires": [{ "name": "km", "target": "field:annualKm" }] },
+      "mapping": [{ "to": "annualKm", "from": { "op": "field", "id": "km" } }]
+    },
+    {
+      "id": "indToInsUsage", "from": "ind", "to": "ins",
+      "contract": { "provides": [{ "as": "use", "source": "output:usage" }], "requires": [{ "name": "use", "target": "field:usage" }] },
+      "mapping": [{ "to": "usage", "from": { "op": "field", "id": "use" } }]
+    },
+    {
+      "id": "indToFinLoyalty", "from": "ind", "to": "fin",
+      "contract": { "provides": [{ "as": "nc", "source": "output:schadevrijeJaren" }], "requires": [{ "name": "nc", "target": "field:loyaltyYears" }] },
       "mapping": [{ "to": "loyaltyYears", "from": { "op": "field", "id": "nc" } }]
     }
   ],
@@ -60,6 +62,7 @@
   "sections": [
     { "model": "veh", "label": "Voertuig", "fields": ["merkModel", "bouwjaar", "catalogValue"] },
     { "model": "adr", "label": "Adres", "fields": ["postcode", "houseNumber", "street", "city", "regionBand"] },
+    { "model": "ind", "label": "Individu", "fields": ["firstName", "lastName", "dateOfBirth", "age", "email", "phone", "gender", "nationality", "maritalStatus", "occupation", "grossIncome", "driversLicenceSince", "schadevrijeJaren", "annualKm", "usage"] },
     { "model": "ins", "label": "Verzekering", "fields": ["vehicleValue", "regionBand", "age", "schadevrijeJaren", "annualKm", "usage", "cover", "optLegalAid", "optRoadside", "premium"] },
     { "model": "fin", "label": "Financiering", "fields": ["principal", "downPayment", "tradeIn", "termMonths", "loyaltyYears", "annualRate", "finMonthly"] }
   ]

@@ -8,6 +8,7 @@ import { projectStructure } from './structure.ts';
 import { buildGraph } from './graph.ts';
 import { buildJourneyGraph } from './journey-graph.ts';
 import { addBinding, removeBinding, setBindingMapping, setBindingCondition, setTotalOf, removeSurface, removeModel, previewJourney } from './journey-edit.ts';
+import { neededFields } from './data-minimization.ts';
 
 const read = (f: string): Cassette => JSON.parse(readFileSync(new URL('../../../core-runtime/cassettes/' + f, import.meta.url), 'utf8'));
 const id = (s: string): string => s;
@@ -15,8 +16,8 @@ const id = (s: string): string => s;
 const carInsurance = (): Cassette => read('car-insurance.json');
 const composed = (): Cassette => read('car-insurance-composed.json');
 const journeyDoc = (): JourneyDoc => read('auto-package.json') as unknown as JourneyDoc;
-// the auto-package now composes FOUR products: voertuig, adres, car-insurance, financing
-const registry = (): Record<string, Cassette> => ({ 'car-insurance': carInsurance(), financing: read('financing.json'), voertuig: read('voertuig.json'), adres: read('adres.json') });
+// the auto-package now composes FIVE products: voertuig, adres, individual, car-insurance, financing
+const registry = (): Record<string, Cassette> => ({ 'car-insurance': carInsurance(), financing: read('financing.json'), voertuig: read('voertuig.json'), adres: read('adres.json'), individual: read('individual.json') });
 const compiledJourney = (): Cassette => compileJourney(journeyDoc(), registry());
 
 // --- structure -----------------------------------------------------------------------------------
@@ -93,17 +94,17 @@ test('buildGraph: a compiled journey draws the L2 binding seam as a rollup edge 
 
 // --- journey composition graph -------------------------------------------------------------------
 
-test('buildJourneyGraph: four configurators become boxes, the spine sits downstream, every binding is a wire', () => {
+test('buildJourneyGraph: five configurators become boxes, the spine sits downstream, every binding is a wire', () => {
   const jg = buildJourneyGraph(journeyDoc(), { label: id });
-  assert.equal(jg.boxes.length, 4, 'voertuig, adres, verzekering, financiering');
+  assert.equal(jg.boxes.length, 5, 'voertuig, adres, individu, verzekering, financiering');
   const fin = jg.boxes.find((b) => b.alias === 'fin')!;
   const veh = jg.boxes.find((b) => b.alias === 'veh')!;
   assert.equal(fin.isSpine, true, 'the spine (financiering) carries the total');
   assert.ok(fin.rank > veh.rank, 'the upstream voertuig sits left of the downstream financing');
-  assert.equal(jg.wires.length, 4, 'four bindings');
-  // the car value feeds BOTH insurance and financing (functional decomposition: one choice, two consumers)
-  const vehWires = jg.wires.filter((w) => w.from === 'veh');
-  assert.equal(vehWires.length, 2, 'voertuig feeds two consumers');
+  assert.equal(jg.wires.length, 8, 'eight bindings');
+  // the car value feeds BOTH insurance and financing; the individual feeds four driver facts + the loyalty
+  assert.equal(jg.wires.filter((w) => w.from === 'veh').length, 2, 'voertuig feeds two consumers');
+  assert.equal(jg.wires.filter((w) => w.from === 'ind').length, 5, 'the individual feeds age/no-claim/km/usage → insurance and no-claim → financing');
   assert.equal(jg.total.field, 'combinedMonthly');
   assert.ok(jg.surface.length >= 1, 'the surfaced insurance premium line is present');
 });
@@ -150,7 +151,7 @@ test('compileJourney: two bindings between the SAME pair share one ref + seed ro
 test('compileJourney: a conditional binding takes a typed zero when its condition is false', () => {
   const gated = structuredClone(journeyDoc());
   // gate the LOYALTY binding on an impossible no-claim threshold (example = 6) → never applies
-  const loyalty = gated.bindings.find((b) => b.id === 'insToFinLoyalty')!;
+  const loyalty = gated.bindings.find((b) => b.id === 'indToFinLoyalty')!;
   (loyalty as { condition?: unknown }).condition = { op: 'gte', args: [{ op: 'field', id: 'schadevrijeJaren' }, { op: 'lit', value: { t: 'num', v: 100 } }] };
   const compiled = compileJourney(gated, registry());
   const core = createCore(mockExterns());
@@ -184,12 +185,12 @@ test('journey-edit: removing a removable binding compiles (target reverts to its
   assert.equal(res.ok, true, res.error);
 });
 
-test('journey-edit: removing the only ins→spine binding still compiles — the surface synthesizes its own relation', () => {
-  // insToFinLoyalty was the sole ins→fin relation the insPremium surface rode on; with surface
-  // auto-synthesis, dropping it no longer orphans the surface (edit-safe composition editing)
-  const res = previewJourney(removeBinding(journeyDoc(), 'insToFinLoyalty'), registry());
+test('surface auto-synthesis: the insurance has NO binding to the spine, yet its premium surfaces (edit-safe)', () => {
+  // no ins→fin binding exists in the shipped journey (loyalty flows ind→fin); the insPremium surface must
+  // still reach the spine by synthesizing its own ins→spine relation — proven by the base compile + total
+  const res = previewJourney(journeyDoc(), registry());
   assert.equal(res.ok, true, res.error);
-  assert.ok(res.total && res.total.t === 'money', 'the combined total still computes with the surfaced premium');
+  assert.ok(res.total && res.total.t === 'money', 'the combined total includes the surfaced premium');
 });
 
 test('compileJourney: two models declaring the same enum set with DIFFERENT members are rejected', () => {
@@ -254,4 +255,52 @@ test('journey-edit: removeSurface also drops the line from total.of (stays self-
   assert.ok(!edited.total.of.includes('insPremium'), 'the surfaced id is stripped from total.of');
   const res = previewJourney(edited, registry());
   assert.equal(res.ok, true, res.error);
+});
+
+// --- data minimization (privacy by design): collect only what the composition provably needs ----
+
+test('data-minimization: the Individual collects only the four consumed driver facts; the rest is hidden', () => {
+  const min = neededFields(journeyDoc(), 'ind', registry());
+  assert.deepEqual([...min.shown].sort(), ['age', 'annualKm', 'schadevrijeJaren', 'usage'], 'only what the journey pulls out of the individual');
+  for (const secret of ['dateOfBirth', 'email', 'phone', 'grossIncome', 'occupation', 'firstName']) {
+    assert.ok(min.hidden.includes(secret), `${secret} is collected-but-unused → hidden`);
+  }
+  assert.ok(!min.shown.includes('dateOfBirth'), 'we ask the age, not the date of birth');
+});
+
+test('data-minimization: the insurance shows its own choices, not the facts provided upstream', () => {
+  const min = neededFields(journeyDoc(), 'ins', registry());
+  assert.ok(min.shown.includes('cover'), 'the policy choice is entered here');
+  assert.ok(min.shown.includes('premium'), 'the premium readout is shown');
+  for (const bound of ['vehicleValue', 'regionBand', 'age', 'schadevrijeJaren', 'annualKm', 'usage']) {
+    assert.ok(!min.shown.includes(bound), `${bound} is provided by a binding, so it is not collected in the insurance`);
+  }
+});
+
+test('data-minimization: a mapping that reads an EXTRA from-field un-hides it (no false-hide)', () => {
+  // edit vehToFinPrincipal's mapping to also read bouwjaar (a real voertuig field beyond the seam var)
+  const edited = setBindingMapping(journeyDoc(), 'vehToFinPrincipal', { op: 'call', fn: 'if', args: [{ op: 'gte', args: [{ op: 'field', id: 'bouwjaar' }, { op: 'lit', value: { t: 'num', v: 2015 } }] }, { op: 'field', id: 'vprin' }, { op: 'field', id: 'vprin' }] });
+  const min = neededFields(edited, 'veh', registry());
+  assert.ok(min.shown.includes('bouwjaar'), 'the mapping now reads bouwjaar, so it is collected — not falsely hidden');
+});
+
+test('data-minimization: a binding CONDITION that reads an extra from-field un-hides it', () => {
+  const edited = setBindingCondition(journeyDoc(), 'indToFinLoyalty', { op: 'gte', args: [{ op: 'field', id: 'driversLicenceSince' }, { op: 'lit', value: { t: 'num', v: 1 } }] });
+  const min = neededFields(edited, 'ind', registry());
+  assert.ok(min.shown.includes('driversLicenceSince'), 'the condition reads driversLicenceSince, so the gate input is collected');
+});
+
+test('data-minimization: minimal mode does NOT seed hidden fields (privacy integrity, not just hidden from view)', () => {
+  const compiled = compileJourney(journeyDoc(), registry()) as unknown as { seed: { row: string; values: Record<string, unknown> }[] };
+  const indSeed = compiled.seed.find((s) => s.row === 'ind-1')!;
+  assert.ok(!('firstName' in indSeed.values) && !('email' in indSeed.values) && !('gender' in indSeed.values), 'the "niet verzameld" PII is genuinely absent from the record');
+  assert.ok('age' in indSeed.values, 'a needed field is still seeded');
+});
+
+test('compileJourney minimal: the compiled Individu step carries ONLY the needed fields (15 → 4)', () => {
+  const stepsOf = (d: JourneyDoc): { id: string; fields: string[] }[] => (compileJourney(d, registry()) as unknown as { journey: { steps: { id: string; fields: string[] }[] } }).journey.steps;
+  const on = stepsOf(journeyDoc()).find((s) => s.id === 'ind')!;
+  assert.deepEqual([...on.fields].sort(), ['age', 'annualKm', 'schadevrijeJaren', 'usage'], 'minimal on → 4 fields');
+  const off = stepsOf({ ...journeyDoc(), minimal: false }).find((s) => s.id === 'ind')!;
+  assert.equal(off.fields.length, 15, 'minimal off → the full authored profile (15 fields)');
 });

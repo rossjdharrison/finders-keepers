@@ -218,6 +218,14 @@
   .lm-ce-fieldchips { display: flex; flex-wrap: wrap; gap: 5px 12px; }
   .lm-ce-fieldchip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ink-muted); cursor: pointer; }
   .lm-ce-fieldchip input { margin: 0; flex: none; }
+  /* minimal (privacy) mode: a field is shown (needed), provided-by-binding, or not-collected */
+  .lm-ce-fieldchip-bound { color: var(--ink-faint); }
+  .lm-ce-fieldchip-bound span { text-decoration: underline dotted; text-underline-offset: 2px; }
+  .lm-ce-fieldchip-off { color: var(--ink-faint); opacity: .6; }
+  .lm-ce-fieldchip-off span { text-decoration: line-through; }
+  .lm-ce-privacy { display: flex; align-items: center; gap: 8px; padding: 9px 12px; margin-bottom: 14px; background: color-mix(in srgb, var(--state-positive) 8%, var(--surface-sunken)); border: 1px solid color-mix(in srgb, var(--state-positive) 30%, var(--border)); border-radius: var(--radius-md); font-size: 12.5px; font-weight: 600; color: var(--ink); cursor: pointer; }
+  .lm-ce-privacy input { margin: 0; flex: none; }
+  .lm-ce-minmsg { font-size: 11px; color: var(--state-positive); font-weight: 600; margin-bottom: 7px; }
 
   .lm-mono { font-family: var(--font-mono); }
   .lm-empty { color: var(--ink-muted); font-size: 14px; padding: 20px; }

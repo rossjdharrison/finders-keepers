@@ -13,10 +13,11 @@ import { formatExpr, parseExpr, type Node } from './expr.ts';
 import {
   addBinding, removeBinding, setBindingMapping, setBindingCondition,
   addModel, removeModel, addSurface, removeSurface, setTotalOf,
-  setSectionLabel, moveSection, toggleSectionField,
+  setSectionLabel, moveSection, toggleSectionField, setMinimal,
   previewJourney, loadJourneyDoc, saveJourneyDoc, clearJourneyDoc, hasJourneyOverride,
   bindingVar, bindingTarget, bindingSource,
 } from './journey-edit.ts';
+import { neededFields } from './data-minimization.ts';
 
 interface FieldInfo { id: string; label: string; k: string; source: string }
 
@@ -110,7 +111,14 @@ export function renderCompositionEditor(mount: HTMLElement, opts: CompositionEdi
     mount.append(root);
 
     if (focusKey) {
-      const restored = mount.querySelector<HTMLElement>(`[data-focus-key="${CSS.escape(focusKey)}"]`);
+      let restored = mount.querySelector<HTMLElement>(`[data-focus-key="${CSS.escape(focusKey)}"]`);
+      // the same-key control can come back disabled (a move button pushed to a boundary) — fall back to the
+      // section's opposite move button so keyboard focus isn't dropped to <body>.
+      if (restored && (restored as HTMLButtonElement).disabled) {
+        const alt = focusKey.endsWith(':up') ? focusKey.slice(0, -3) + ':down' : focusKey.endsWith(':down') ? focusKey.slice(0, -5) + ':up' : null;
+        const altEl = alt ? mount.querySelector<HTMLElement>(`[data-focus-key="${CSS.escape(alt)}"]`) : null;
+        if (altEl) restored = altEl;
+      }
       if (restored && !(restored as HTMLButtonElement).disabled) {
         restored.focus({ preventScroll: true });
         if (selStart != null && restored instanceof HTMLInputElement) try { restored.setSelectionRange(selStart, selStart); } catch { /* not selectable */ }
@@ -333,7 +341,19 @@ export function renderCompositionEditor(mount: HTMLElement, opts: CompositionEdi
   function sectionSteps(): HTMLElement {
     const sec = el('section', 'lm-ce-sec');
     sec.append(el('h3', 'lm-ce-h', 'Stappen & secties'));
-    sec.append(el('p', 'lm-ce-sub', 'De volgorde van de stappen in de reis en welke velden elke configurator toont. Gebruik de pijlen om te herordenen; vink velden aan of uit.'));
+    sec.append(el('p', 'lm-ce-sub', 'De volgorde van de stappen in de reis en welke velden elke configurator toont. Gebruik de pijlen om te herordenen.'));
+
+    // privacy by design: derive each section's fields from what the journey provably needs (data
+    // minimization). On → the fields are computed and read-only; off → you pick them by hand.
+    const privacy = el('label', 'lm-ce-privacy');
+    const pcb = document.createElement('input');
+    pcb.type = 'checkbox';
+    pcb.checked = !!doc.minimal;
+    pcb.dataset.focusKey = 'minimal';
+    pcb.addEventListener('change', () => commit(setMinimal(doc, pcb.checked)));
+    privacy.append(pcb, el('span', 'lm-ce-privacy-label', 'Privacy by design — toon alleen de velden die de reis nodig heeft (dataminimalisatie)'));
+    sec.append(privacy);
+
     doc.sections.forEach((s, idx) => {
       const card = el('div', 'lm-ce-section');
       const head = el('div', 'lm-ce-section-head');
@@ -367,18 +387,43 @@ export function renderCompositionEditor(mount: HTMLElement, opts: CompositionEdi
       card.append(head);
 
       const chips = el('div', 'lm-ce-fieldchips');
-      for (const f of fieldsOf(s.model)) {
-        const chip = el('label', 'lm-ce-fieldchip');
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = s.fields.includes(f.id);
-        cb.dataset.focusKey = `chip:${s.model}:${f.id}`;
-        // a section needs at least one field, else the player would skip the whole configurator — so the
-        // last remaining checked field can't be unchecked.
-        if (cb.checked && s.fields.length <= 1) { cb.disabled = true; chip.title = 'een sectie toont minstens één veld'; }
-        cb.addEventListener('change', () => commit(toggleSectionField(doc, s.model, f.id)));
-        chip.append(cb, el('span', undefined, f.label));
-        chips.append(chip);
+      if (doc.minimal) {
+        // DERIVED: show every field of the model, marked shown (needed) / provided (by a binding) / hidden
+        // (collected-but-unused). Read-only — you can't over-collect, because "needed" is computed.
+        const min = neededFields(doc, s.model, registry);
+        const boundN = fieldsOf(s.model).length - min.shown.length - min.hidden.length; // supplied by a binding
+        const note = el('div', 'lm-ce-minmsg');
+        const parts = [`${min.shown.length} getoond`];
+        if (boundN > 0) parts.push(`${boundN} aangeleverd`);
+        if (min.hidden.length) parts.push(`${min.hidden.length} niet verzameld`);
+        note.textContent = parts.join(' · ') + (min.hidden.length ? ' (privacy by design)' : '');
+        card.append(note);
+        for (const f of fieldsOf(s.model)) {
+          const shown = min.shown.includes(f.id);
+          const provided = !shown && !min.hidden.includes(f.id); // a binding supplies it upstream
+          const chip = el('label', `lm-ce-fieldchip ${shown ? '' : provided ? 'lm-ce-fieldchip-bound' : 'lm-ce-fieldchip-off'}`.trim());
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = shown;
+          cb.disabled = true;
+          chip.title = shown ? 'nodig voor dit proces' : provided ? 'aangeleverd door een binding' : 'niet verzameld — privacy by design';
+          chip.append(cb, el('span', undefined, f.label));
+          chips.append(chip);
+        }
+      } else {
+        for (const f of fieldsOf(s.model)) {
+          const chip = el('label', 'lm-ce-fieldchip');
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = s.fields.includes(f.id);
+          cb.dataset.focusKey = `chip:${s.model}:${f.id}`;
+          // a section needs at least one field, else the player would skip the whole configurator — so the
+          // last remaining checked field can't be unchecked.
+          if (cb.checked && s.fields.length <= 1) { cb.disabled = true; chip.title = 'een sectie toont minstens één veld'; }
+          cb.addEventListener('change', () => commit(toggleSectionField(doc, s.model, f.id)));
+          chip.append(cb, el('span', undefined, f.label));
+          chips.append(chip);
+        }
       }
       card.append(chips);
       sec.append(card);
