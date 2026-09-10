@@ -332,26 +332,31 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, workspace
           section.append(grid);
           main.append(section);
         }
-        const lastStepId = steps[steps.length - 1]?.id;
-        if (stepVal === lastStepId) {
-          const done = el('div', 'jc-complete');
-          done.append(el('span', 'jc-complete-mark', '✓'), el('span', 'jc-complete-text', 'Uw aanvraag is afgerond.'));
-          main.append(done);
-          announceParts.push('Uw aanvraag is afgerond');
-        } else {
-          const navBar = el('div', 'journey-nav');
-          navBar.setAttribute('role', 'group');
-          navBar.setAttribute('aria-label', 'Aanvraag afronden');
-          const submit = el('button', 'j-btn j-next', 'Aanvraag afronden →') as HTMLButtonElement;
-          submit.type = 'button';
-          const ok = readyToSubmit(spineRow);
-          submit.dataset.state = ok ? 'ready' : 'blocked';
-          submit.disabled = !ok;
-          submit.setAttribute('aria-disabled', String(!ok));
-          if (!ok) submit.title = confirmField ? 'Vul alle stappen in en accepteer de voorwaarden' : 'Bevestig elke sectie';
-          submit.addEventListener('click', () => ok && walkToEnd(spineRow.id, stepVal ?? steps[0]?.id ?? ''));
-          navBar.append(submit);
-          main.append(navBar);
+        // the terminal (done / submit) belongs only to a real WIZARD — a journey with a step machine
+        // driving >1 step. A step-field-less journey (a compiled L2 pakket, or a single-step calculator)
+        // is a live form: no submit, no false "afgerond" — the rail already shows the result.
+        if (hasStepper) {
+          const lastStepId = steps[steps.length - 1]?.id;
+          if (stepVal === lastStepId) {
+            const done = el('div', 'jc-complete');
+            done.append(el('span', 'jc-complete-mark', '✓'), el('span', 'jc-complete-text', 'Uw aanvraag is afgerond.'));
+            main.append(done);
+            announceParts.push('Uw aanvraag is afgerond');
+          } else {
+            const navBar = el('div', 'journey-nav');
+            navBar.setAttribute('role', 'group');
+            navBar.setAttribute('aria-label', 'Aanvraag afronden');
+            const submit = el('button', 'j-btn j-next', 'Aanvraag afronden →') as HTMLButtonElement;
+            submit.type = 'button';
+            const ok = readyToSubmit(spineRow);
+            submit.dataset.state = ok ? 'ready' : 'blocked';
+            submit.disabled = !ok;
+            submit.setAttribute('aria-disabled', String(!ok));
+            if (!ok) submit.title = confirmField ? 'Vul alle stappen in en accepteer de voorwaarden' : 'Bevestig elke sectie';
+            submit.addEventListener('click', () => ok && walkToEnd(spineRow.id, stepVal ?? steps[0]?.id ?? ''));
+            navBar.append(submit);
+            main.append(navBar);
+          }
         }
       }
 

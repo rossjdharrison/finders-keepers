@@ -107,10 +107,14 @@ export interface PreviewResult {
 
 interface SeedRow { coll: string; row: string; values: Record<string, Value> }
 
-/** The collection that computes the output `premium` (the flat cassette's single collection, or the
- * composed cassette's application spine). Falls back to the first collection. */
-function outputCollection(cassette: Cassette): string {
-  const c = cassette.collections.find((coll) => (coll.properties ?? []).some((p) => p.id === 'premium' && p.source === 'computed'));
+/** The cassette's headline output field — its journey summary total (e.g. finMonthly), else `premium`. */
+function outputField(cassette: Cassette): string {
+  return (cassette as { journey?: { summary?: { total?: string } } }).journey?.summary?.total ?? 'premium';
+}
+/** The collection that computes the output field (the flat cassette's single collection, or the
+ * composed/journey spine). Falls back to the first collection. */
+function outputCollection(cassette: Cassette, field: string): string {
+  const c = cassette.collections.find((coll) => (coll.properties ?? []).some((p) => p.id === field && p.source === 'computed'));
   return (c ?? cassette.collections[0]).id;
 }
 
@@ -128,18 +132,19 @@ export function previewCassette(cassette: Cassette, sample?: Record<string, Valu
   try {
     const core = createCore(mockExterns());
     core.load(cassette);
-    const outColl = outputCollection(cassette);
+    const field = outputField(cassette);
+    const outColl = outputCollection(cassette, field);
     const seed = (cassette as { seed?: SeedRow[] }).seed;
     let premium: Value | undefined;
     if (cassette.collections.length > 1 && Array.isArray(seed) && seed.length) {
-      // composed: apply each seeded row into its collection (seed order puts the app parent first);
-      // the engine composes the premium across collections via relations + rollup.
+      // composed / journey: apply each seeded row into its collection (seed order puts the parent first);
+      // the engine composes the total across collections via relations + rollup.
       for (const s of seed) core.apply(s.coll, [{ op: 'insert', row: s.row, values: s.values }]);
-      premium = core.read(outColl).find((r) => r.doc.premium && r.doc.premium.t !== 'blank')?.doc.premium;
+      premium = core.read(outColl).find((r) => r.doc[field] && r.doc[field].t !== 'blank')?.doc[field];
     } else {
       const values = sample ?? (cassette as { example?: Record<string, Value> }).example ?? {};
       const [row] = core.apply(outColl, [{ op: 'insert', row: 'preview', values }]);
-      premium = row?.doc.premium;
+      premium = row?.doc[field];
     }
     return { ok: true, premium: premium && premium.t !== 'blank' ? premium : undefined };
   } catch (e) {
