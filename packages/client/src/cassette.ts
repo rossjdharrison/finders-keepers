@@ -21,6 +21,7 @@ import { createHostStore } from './host-store.ts';
 import { browserExterns } from './browser-externs.ts';
 import { normalizeKenteken, formatKenteken, isValidKenteken } from './kenteken.ts';
 import { normalizePostcode, formatPostcode, isValidPostcode } from './pdok.ts';
+import { initRequestDrawer } from './request-view.ts';
 import { localStoragePersistence, broadcastChannelBroadcaster } from './adapters.ts';
 import { applyTheme, initialMode, type ThemeMode } from './theme.ts';
 import { initConsent } from './consent.ts';
@@ -154,6 +155,26 @@ const collStore = store.collection('applications')!; // the active collection; `
 // postcode effect below and read by the renderer.
 const suggestions = signal<Record<string, string[]>>({});
 RENDERERS[view.renderer!](mount, { store: collStore, view, workspace: store, model, vocab, viewer, suggestions });
+
+// the live request preview — a subtle drawer over the wasm-computed model state, full-screen at the end
+const journeySteps = cass.journey?.steps ?? [];
+const lastStepId = journeySteps[journeySteps.length - 1]?.id;
+initRequestDrawer(
+  app,
+  collStore,
+  {
+    props: (cass.collections[0]?.properties ?? []) as { id: string; valueType: { k: string; set?: string } }[],
+    steps: journeySteps,
+    labels,
+    enums: cass.enums ?? {},
+    stepField: cass.journey?.field,
+    title: `${cass.theme?.brand?.product ?? 'Aanvraag'} — uw aanvraag`,
+  },
+  (doc) => {
+    const s = cass.journey?.field ? doc[cass.journey.field] : undefined;
+    return !!s && s.t === 'enum' && s.v === lastStepId;
+  },
+);
 
 // --- kenteken auto-fill: when a valid Dutch plate is entered, look it up (live RDW → demo fallback)
 // and fill the vehicle. The extern reads a cache; here we prefetch it, then re-set the (canonical)
