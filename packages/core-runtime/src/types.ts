@@ -80,6 +80,7 @@ export interface Cassette {
   // field, e.g. a rollup subtotal). Composition itself is relations + rollup inside the sealed core.
   journey?: {
     field: string;
+    confirmField?: string; // a spine bool that must be true to submit (e.g. termsAccepted); absent = no such gate
     steps: { id: string; label?: string; collection?: string; fields?: string[]; gate?: string }[];
     summary?: { total: string; per?: string; lines?: { field: string; label?: string }[] };
   };

@@ -195,6 +195,7 @@
   },
   "journey": {
     "field": "step",
+    "confirmField": "termsAccepted",
     "steps": [
       { "id": "vehicle", "label": "Voertuig", "fields": ["plate", "vehicleDesc", "vehicleValue", "vehicleConfirmed"] },
       { "id": "driver", "label": "Bestuurder", "gate": "vehicleReady", "fields": ["postcode", "houseNumber", "street", "city", "age", "schadevrijeJaren", "annualKm", "usage", "driverConfirmed"] },

@@ -71,6 +71,7 @@ export interface ViewConfig {
   // total field, a per-period suffix, and the breakdown lines (spine fields, e.g. rollup subtotals).
   journey?: {
     field: string;
+    confirmField?: string; // a spine bool that must be true to submit (e.g. termsAccepted); absent = no such gate
     steps: { id: string; label?: string; collection?: string; fields?: string[]; gate?: string }[];
     summary?: { total: string; per?: string; lines?: { field: string; label?: string }[] };
   };
