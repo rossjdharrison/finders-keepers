@@ -11,6 +11,7 @@ export default defineConfig({
         index: resolve(import.meta.dirname, 'index.html'),
         cassette: resolve(import.meta.dirname, 'cassette.html'),
         composed: resolve(import.meta.dirname, 'composed.html'),
+        admin: resolve(import.meta.dirname, 'admin.html'),
       },
     },
   },
