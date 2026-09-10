@@ -179,6 +179,13 @@ export function toggleSectionField(doc: JourneyDoc, model: string, field: string
   return setSectionFields(doc, model, present ? sec!.fields.filter((f) => f !== field) : [...(sec?.fields ?? []), field]);
 }
 
+/** Toggle data minimization (privacy by design): show only the fields the journey provably needs. */
+export function setMinimal(doc: JourneyDoc, minimal: boolean): JourneyDoc {
+  const next = clone(doc);
+  next.minimal = minimal;
+  return next;
+}
+
 export function setMeta(doc: JourneyDoc, meta: { title?: string; doc?: string }): JourneyDoc {
   const next = clone(doc);
   if (meta.title !== undefined) next.title = meta.title;

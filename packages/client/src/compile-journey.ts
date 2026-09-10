@@ -12,6 +12,7 @@
 
 import type { Cassette, Collection } from '@app/core-runtime';
 import type { Value } from '@core/values';
+import { neededFields } from './loom/data-minimization.ts';
 
 export interface JourneyBinding {
   id: string;
@@ -27,6 +28,7 @@ export interface JourneyDoc {
   title?: string;
   doc?: string;
   locale?: string;
+  minimal?: boolean; // data minimization (privacy by design): show ONLY the fields the journey provably needs
   models: { ref: string; as: string }[];
   spine: string; // the alias whose collection is the journey spine (carries the total)
   bindings: JourneyBinding[];
@@ -146,7 +148,11 @@ export function compileJourney(doc: JourneyDoc, registry: Record<string, Cassett
       const agg = tprop.valueType.k === 'money' || tprop.valueType.k === 'num' ? 'sum' : 'min';
       tprop.source = 'computed';
       (tprop as { formula?: unknown }).formula = { op: 'rollup', via: rel, agg, of: { op: 'field', id: seamField } };
+      // it's a computed rollup now — drop the input-only metadata it no longer carries (a stale extern
+      // api/params on a computed field is self-contradictory and could confuse downstream tooling).
       delete (tprop as { constraint?: unknown }).constraint;
+      delete (tprop as { api?: unknown }).api;
+      delete (tprop as { params?: unknown }).params;
     }
   }
 
@@ -176,8 +182,15 @@ export function compileJourney(doc: JourneyDoc, registry: Record<string, Cassett
   if (doc.total.label) (l10n[doc.locale ?? 'nl'] = l10n[doc.locale ?? 'nl'] ?? {})[doc.total.field] = doc.total.label;
   for (const s of doc.surface ?? []) if (s.label) (l10n[doc.locale ?? 'nl'] = l10n[doc.locale ?? 'nl'] ?? {})[s.as] = s.label;
 
-  // 5. the journey block: one section per model + the summary rail (total + surfaced/own lines)
-  const steps = doc.sections.map((s) => ({ id: s.model, label: s.label, collection: modelColl[s.model].id, fields: s.fields }));
+  // 5. the journey block: one section per model + the summary rail (total + surfaced/own lines). With data
+  //    minimization on, each section's fields are DERIVED — only what the journey provably needs from that
+  //    model (its needed inputs + its exported readouts) — so unused profile fields are never shown.
+  const steps = doc.sections.map((s) => ({
+    id: s.model,
+    label: s.label,
+    collection: modelColl[s.model].id,
+    fields: doc.minimal ? neededFields(doc, s.model, registry).shown : s.fields,
+  }));
   const summary = {
     total: doc.total.field,
     per: doc.total.per,
@@ -210,7 +223,14 @@ export function compileJourney(doc: JourneyDoc, registry: Record<string, Cassett
         if (modelColl[parentAlias]) refs[p.id] = { t: 'ref', collection: modelColl[parentAlias].id, id: `${parentAlias}-1` } as Value;
       }
     }
-    seed.push({ coll: coll.id, row: `${m.as}-1`, values: { ...storedOnly(coll, mCass.example ?? {}), ...refs } });
+    // privacy integrity: with data minimization on, seed ONLY the fields the journey shows — so a "niet
+    // verzameld" field is genuinely ABSENT from the record, not merely hidden from view.
+    let vals = storedOnly(coll, mCass.example ?? {});
+    if (doc.minimal) {
+      const shown = new Set(neededFields(doc, m.as, registry).shown);
+      vals = Object.fromEntries(Object.entries(vals).filter(([k]) => shown.has(k)));
+    }
+    seed.push({ coll: coll.id, row: `${m.as}-1`, values: { ...vals, ...refs } });
   }
 
   return {
