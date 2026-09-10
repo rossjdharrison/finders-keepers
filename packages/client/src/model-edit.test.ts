@@ -2,12 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import type { Cassette } from '@app/core-runtime';
-import { collectFormulaLiterals, setFormulaLiteral, tableCellMinor, setTableCell } from './model-edit.ts';
+import { collectFormulaLiterals, setFormulaLiteral, tableCellMinor, setTableCell, previewCassette } from './model-edit.ts';
 
 // the shipped flat cassette (the model). Read from core-runtime so the test exercises the REAL formulas.
 const cass = JSON.parse(
   readFileSync(new URL('../../core-runtime/cassettes/car-insurance.json', import.meta.url), 'utf8'),
 ) as Cassette;
+const composed = JSON.parse(
+  readFileSync(new URL('../../core-runtime/cassettes/car-insurance-composed.json', import.meta.url), 'utf8'),
+) as Cassette;
+const minor = (v: unknown): string => String((v as { minor: unknown }).minor);
 const COLL = cass.collections[0].id; // 'applications'
 const propFormula = (id: string): unknown =>
   (cass.collections[0].properties.find((p) => p.id === id) as { formula?: unknown } | undefined)?.formula;
@@ -70,6 +74,35 @@ test('setFormulaLiteral keeps a STRING minor a string (canonical anti-f64 repres
   const lit = (next.collections[0].properties.find((p) => p.id === 'f')!.formula as { value: { minor: unknown } }).value;
   assert.equal(lit.minor, '512');
   assert.equal(typeof lit.minor, 'string'); // representation preserved, integer kept
+});
+
+test('previewCassette computes the flat sample premium from the cassette example (€25,50)', () => {
+  const res = previewCassette(cass);
+  assert.equal(res.ok, true);
+  assert.equal(minor(res.premium), '2550');
+});
+
+test('previewCassette computes the COMPOSED premium by applying the seed graph across collections (€25,50)', () => {
+  const res = previewCassette(composed);
+  assert.equal(res.ok, true, res.error);
+  assert.equal(minor(res.premium), '2550'); // same rollup as the flat cassette — proves multi-collection preview
+});
+
+test('previewCassette reflects a composed rate edit (bandRate lives on the vehicles collection)', () => {
+  // vehicles.bandRate.high drives the sample vehicle (value €41.000 → band high). Bump it +€10.
+  const before = tableCellMinor(composed, 'vehicles', 'bandRate', 'high');
+  assert.equal(before, 600); // €6.00 baseline (matches the composed test's vehicleSub)
+  const edited = setTableCell(composed, 'vehicles', 'bandRate', 'high', 1600); // €16.00 (+€10)
+  const res = previewCassette(edited);
+  assert.equal(res.ok, true, res.error);
+  assert.equal(minor(res.premium), '3550'); // €25,50 + €10 = €35,50
+});
+
+test('previewCassette surfaces an invalid composed edit as ok:false (throwaway core throws)', () => {
+  const bad = structuredClone(composed) as unknown as { types: Record<string, unknown> };
+  bad.types = { ...bad.types, Cover: { specializes: ['nowhere'] } }; // dangling HQDM type → buildPrepared throws
+  const res = previewCassette(bad as unknown as Cassette);
+  assert.equal(res.ok, false);
 });
 
 test('the slice-1 table ops still work (regression)', () => {

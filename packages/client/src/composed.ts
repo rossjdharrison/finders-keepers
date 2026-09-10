@@ -15,7 +15,7 @@ import logoSvg from './assets/rowblaa-logo.svg?raw';
 import composedCassette from './cassettes/car-insurance-composed.json';
 import flatCassette from './cassettes/car-insurance.json';
 import { createBrowserQuickJS } from './quickjs.ts';
-import { createHostStore } from './host-store.ts';
+import { createHostStore, recomputeAll } from './host-store.ts';
 import { browserExterns } from './browser-externs.ts';
 import { normalizeKenteken, formatKenteken, isValidKenteken } from './kenteken.ts';
 import { normalizePostcode, formatPostcode, isValidPostcode } from './pdok.ts';
@@ -27,7 +27,23 @@ import { coreVocabulary } from './resolve.ts';
 import { mountComposedJourney } from './renderers/composed-journey.ts';
 import type { CollectionDoc } from './types.ts';
 
-const model = composedCassette as unknown as Cassette;
+// the model is DATA: if the admin (/admin.html?model=car-insurance-composed) saved edited rules, run
+// those instead of the shipped JSON — same override seam as the flat player (cassette.ts).
+let modelIsEdited = false;
+const model: Cassette = ((): Cassette => {
+  const shipped = composedCassette as unknown as Cassette;
+  try {
+    const ov = localStorage.getItem(`fk-cassette-model-${shipped.id}`);
+    if (ov) {
+      const parsed = JSON.parse(ov) as Cassette; // parse BEFORE flagging, so a corrupt override falls back cleanly
+      modelIsEdited = true;
+      return parsed;
+    }
+  } catch {
+    /* fall back to shipped */
+  }
+  return shipped;
+})();
 const pres = flatCassette as unknown as Cassette; // reuse theme / l10n / enums for presentation
 const theme = pres.theme;
 const brand = theme?.brand ?? {};
@@ -50,6 +66,7 @@ app.innerHTML = `
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-4Zm0 10.9h6.3c-.5 3.6-2.8 6.9-6.3 8V12H5.7V6.3L12 3.2v8.7Z"/></svg>
         Beveiligd
       </span>
+      <a class="cc-btn cc-btn-quiet" id="admin-link" href="/admin.html?model=car-insurance-composed">Beheer${modelIsEdited ? ' <span class="bank-edited" title="Er zijn aangepaste regels actief">•</span>' : ''}</a>
       <button class="cc-btn cc-btn-quiet" id="cookie-prefs" type="button">Cookievoorkeuren</button>
       <button class="theme-toggle" id="theme" type="button" aria-label="Wissel tussen licht en donker thema"></button>
     </div>
@@ -102,6 +119,10 @@ const host = await createBrowserHostOver(sealed, model, {
   broadcaster: broadcastChannelBroadcaster(chan),
 });
 const collections = model.collections as unknown as CollectionDoc[];
+// edited rules booted over a persisted snapshot: restore reloads stored computed docs verbatim, so
+// recompute every row's derived fields under the edited rules before the renderer reads them (else a
+// child-collection rate edit shows a stale rolled-up premium until a manual field edit).
+if (modelIsEdited) recomputeAll(host, collections);
 const store = createHostStore(host, collections);
 
 const mount = app.querySelector<HTMLElement>('#mount')!;

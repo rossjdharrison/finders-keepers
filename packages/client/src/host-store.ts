@@ -9,6 +9,27 @@ import type { Signal } from '@preact/signals-core';
 import type { BrowserHost } from '@app/core-runtime';
 import type { CollectionDoc, ConnStatus, Property, RowStateWire, WorkspaceStore } from './types.ts';
 
+/** Re-apply every stored input on every row so the engine recomputes all derived fields under the
+ * CURRENT rules. Needed on boot when an EDITED model is loaded over a persisted row snapshot: restore
+ * reloads the stored computed docs verbatim and never recomputes, and the cascade only re-fires on a
+ * later apply — so an edited rule on a collection with no extern re-trigger (e.g. a covers rate in the
+ * composed model) would otherwise show a STALE rolled-up total until the user happens to edit a field.
+ * Touching each row's stored inputs re-runs engine.submit per row and cascades the rollups. Idempotent
+ * (re-setting a value to itself), so it is safe to run whenever the effective rules may differ from the
+ * snapshot; children are touched last so the application's rollup ends on fresh subtotals. */
+export function recomputeAll(host: BrowserHost, collections: CollectionDoc[]): void {
+  for (const doc of collections) {
+    const stored = doc.properties.filter((p) => p.source === 'stored').map((p) => p.id);
+    if (!stored.length) continue;
+    for (const r of host.read(doc.id)) {
+      const ops = stored
+        .filter((f) => r.doc[f] !== undefined && r.doc[f].t !== 'blank')
+        .map((f) => ({ op: 'setField' as const, row: r.id, field: f, value: r.doc[f] }));
+      if (ops.length) host.apply(doc.id, ops);
+    }
+  }
+}
+
 export function createHostStore(host: BrowserHost, collections: CollectionDoc[]): WorkspaceStore {
   const status = signal<ConnStatus>('open'); // local engine — always "connected"
   const rowsById = new Map<string, Signal<RowStateWire[]>>();

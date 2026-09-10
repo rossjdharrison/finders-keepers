@@ -105,15 +105,43 @@ export interface PreviewResult {
   premium?: Value; // the sample quote's premium under the (edited) rules
 }
 
+interface SeedRow { coll: string; row: string; values: Record<string, Value> }
+
+/** The collection that computes the output `premium` (the flat cassette's single collection, or the
+ * composed cassette's application spine). Falls back to the first collection. */
+function outputCollection(cassette: Cassette): string {
+  const c = cassette.collections.find((coll) => (coll.properties ?? []).some((p) => p.id === 'premium' && p.source === 'computed'));
+  return (c ?? cassette.collections[0]).id;
+}
+
 /** Try-load a candidate cassette in a THROWAWAY core: validates (buildPrepared throws on a bad edit —
- * HQDM reduce + typecheck + acyclicity) and computes a sample quote. Never touches the live core. */
-export function previewCassette(cassette: Cassette, sample: Record<string, Value>): PreviewResult {
+ * HQDM reduce + typecheck + acyclicity) and computes a sample quote. Never touches the live core.
+ *
+ * The sample is taken FROM the cassette so this works for either shape:
+ *  · composed (multiple collections) → apply the `seed` graph (rows across collections, linked by
+ *    relations), so the premium rolls up exactly as in the live player;
+ *  · flat (one collection) → insert one row of `example` (or an explicit `sample`) into it.
+ * (The flat cassette also carries a 1-row `seed`, but it is only a journey-starter — `step` — not a
+ * quote; the collection count, not the mere presence of a seed, is what selects the path.)
+ * Either way the premium is read from the collection that computes it (outputCollection). */
+export function previewCassette(cassette: Cassette, sample?: Record<string, Value>): PreviewResult {
   try {
     const core = createCore(mockExterns());
     core.load(cassette);
-    const [row] = core.apply('applications', [{ op: 'insert', row: 'preview', values: sample }]);
-    const p = row?.doc.premium;
-    return { ok: true, premium: p && p.t !== 'blank' ? p : undefined };
+    const outColl = outputCollection(cassette);
+    const seed = (cassette as { seed?: SeedRow[] }).seed;
+    let premium: Value | undefined;
+    if (cassette.collections.length > 1 && Array.isArray(seed) && seed.length) {
+      // composed: apply each seeded row into its collection (seed order puts the app parent first);
+      // the engine composes the premium across collections via relations + rollup.
+      for (const s of seed) core.apply(s.coll, [{ op: 'insert', row: s.row, values: s.values }]);
+      premium = core.read(outColl).find((r) => r.doc.premium && r.doc.premium.t !== 'blank')?.doc.premium;
+    } else {
+      const values = sample ?? (cassette as { example?: Record<string, Value> }).example ?? {};
+      const [row] = core.apply(outColl, [{ op: 'insert', row: 'preview', values }]);
+      premium = row?.doc.premium;
+    }
+    return { ok: true, premium: premium && premium.t !== 'blank' ? premium : undefined };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

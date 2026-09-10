@@ -17,7 +17,7 @@ import coreBundleUrl from '@app/core-wasm/vendor/core.bundle.js?url';
 import logoSvg from './assets/rowblaa-logo.svg?raw';
 import carInsurance from './cassettes/car-insurance.json';
 import { createBrowserQuickJS } from './quickjs.ts';
-import { createHostStore } from './host-store.ts';
+import { createHostStore, recomputeAll } from './host-store.ts';
 import { browserExterns } from './browser-externs.ts';
 import { normalizeKenteken, formatKenteken, isValidKenteken } from './kenteken.ts';
 import { normalizePostcode, formatPostcode, isValidPostcode } from './pdok.ts';
@@ -38,8 +38,9 @@ const cass: Cassette = ((): Cassette => {
   try {
     const ov = localStorage.getItem(`fk-cassette-model-${shipped.id}`);
     if (ov) {
+      const parsed = JSON.parse(ov) as Cassette; // parse BEFORE flagging, so a corrupt override falls back cleanly
       modelIsEdited = true;
-      return JSON.parse(ov) as Cassette;
+      return parsed;
     }
   } catch {
     /* fall back to shipped */
@@ -139,6 +140,8 @@ const host = await createBrowserHostOver(sealed, cass, {
 
 // the clean seam: engine → data-only WorkspaceStore
 const collections = cass.collections as unknown as CollectionDoc[];
+// edited rules over a persisted snapshot → recompute derived fields under the new rules before render
+if (modelIsEdited) recomputeAll(host, collections);
 const store = createHostStore(host, collections);
 
 // the presentation inputs, gathered here (not in the store, not in the engine) and handed to resolve()
