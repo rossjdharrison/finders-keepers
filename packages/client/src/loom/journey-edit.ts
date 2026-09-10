@@ -153,6 +153,32 @@ export function setSectionFields(doc: JourneyDoc, model: string, fields: string[
   return next;
 }
 
+/** Rename a section (its step label in the journey). */
+export function setSectionLabel(doc: JourneyDoc, model: string, label: string): JourneyDoc {
+  const next = clone(doc);
+  const sec = next.sections.find((s) => s.model === model);
+  if (sec) sec.label = label;
+  return next;
+}
+
+/** Reorder a section by one place (dir −1 = earlier, +1 = later) — this is the STEP order the player
+ * walks, since the compiled journey's steps are the sections in order. */
+export function moveSection(doc: JourneyDoc, model: string, dir: -1 | 1): JourneyDoc {
+  const next = clone(doc);
+  const i = next.sections.findIndex((s) => s.model === model);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= next.sections.length) return next;
+  [next.sections[i], next.sections[j]] = [next.sections[j], next.sections[i]];
+  return next;
+}
+
+/** Toggle one field's presence in a section (add if absent, remove if present). */
+export function toggleSectionField(doc: JourneyDoc, model: string, field: string): JourneyDoc {
+  const sec = doc.sections.find((s) => s.model === model);
+  const present = sec?.fields.includes(field);
+  return setSectionFields(doc, model, present ? sec!.fields.filter((f) => f !== field) : [...(sec?.fields ?? []), field]);
+}
+
 export function setMeta(doc: JourneyDoc, meta: { title?: string; doc?: string }): JourneyDoc {
   const next = clone(doc);
   if (meta.title !== undefined) next.title = meta.title;

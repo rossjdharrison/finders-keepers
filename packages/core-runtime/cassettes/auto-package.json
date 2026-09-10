@@ -2,26 +2,48 @@
   "kind": "journey",
   "id": "auto-package",
   "title": "Autopakket",
-  "doc": "De volledige autoreis bij Rowblaa Bank: verzekering én financiering in één maandbedrag. Twee getypte L2-naden binden de losse producten samen — de cataloguswaarde uit de verzekering wordt het te financieren bedrag, en uw schadevrije jaren geven een loyaliteitskorting op de rente. Aanbetaling en inruil verlagen het te financieren bedrag. Alles gecomponeerd via relaties + rollup in dezelfde verzegelde @core, zonder enige codewijziging.",
+  "doc": "De volledige autoreis bij Rowblaa Bank, functioneel gedecomponeerd in vier herbruikbare configurators — Voertuig, Adres, Verzekering en Financiering — samengesteld via getypte L2-naden. Voertuig kiest de auto: de cataloguswaarde voedt ZOWEL de premie (via de waardeklasse) ALS het te financieren bedrag (de kritieke waardestroom). Adres levert de risicoregio (een categorie) die de verzekering zelf beprijst. De schadevrije jaren uit de verzekering geven een loyaliteitskorting op de financieringsrente. Alles gecomponeerd via relaties + rollup in dezelfde verzegelde @core, zonder codewijziging.",
   "locale": "nl",
   "models": [
+    { "ref": "voertuig", "as": "veh" },
+    { "ref": "adres", "as": "adr" },
     { "ref": "car-insurance", "as": "ins" },
     { "ref": "financing", "as": "fin" }
   ],
   "spine": "fin",
   "bindings": [
     {
-      "id": "valToPrincipal",
-      "from": "ins",
-      "to": "fin",
+      "id": "vehToInsValue",
+      "from": "veh",
+      "to": "ins",
       "contract": {
-        "provides": [{ "as": "vval", "source": "output:vehicleValue" }],
-        "requires": [{ "name": "vval", "target": "field:principal" }]
+        "provides": [{ "as": "vval", "source": "output:catalogValue" }],
+        "requires": [{ "name": "vval", "target": "field:vehicleValue" }]
       },
-      "mapping": [{ "to": "principal", "from": { "op": "field", "id": "vval" } }]
+      "mapping": [{ "to": "vehicleValue", "from": { "op": "field", "id": "vval" } }]
     },
     {
-      "id": "noClaimToLoyalty",
+      "id": "vehToFinPrincipal",
+      "from": "veh",
+      "to": "fin",
+      "contract": {
+        "provides": [{ "as": "vprin", "source": "output:catalogValue" }],
+        "requires": [{ "name": "vprin", "target": "field:principal" }]
+      },
+      "mapping": [{ "to": "principal", "from": { "op": "field", "id": "vprin" } }]
+    },
+    {
+      "id": "adrToInsRegion",
+      "from": "adr",
+      "to": "ins",
+      "contract": {
+        "provides": [{ "as": "region", "source": "output:regionBand" }],
+        "requires": [{ "name": "region", "target": "field:regionBand" }]
+      },
+      "mapping": [{ "to": "regionBand", "from": { "op": "field", "id": "region" } }]
+    },
+    {
+      "id": "insToFinLoyalty",
       "from": "ins",
       "to": "fin",
       "contract": {
@@ -36,7 +58,9 @@
   ],
   "total": { "field": "combinedMonthly", "of": ["insPremium", "finMonthly"], "label": "Maandbedrag", "per": "per maand" },
   "sections": [
-    { "model": "ins", "label": "Verzekering", "fields": ["plate", "vehicleDesc", "vehicleValue", "schadevrijeJaren", "cover", "optLegalAid", "premium"] },
+    { "model": "veh", "label": "Voertuig", "fields": ["merkModel", "bouwjaar", "catalogValue"] },
+    { "model": "adr", "label": "Adres", "fields": ["postcode", "houseNumber", "street", "city", "regionBand"] },
+    { "model": "ins", "label": "Verzekering", "fields": ["vehicleValue", "regionBand", "age", "schadevrijeJaren", "annualKm", "usage", "cover", "optLegalAid", "optRoadside", "premium"] },
     { "model": "fin", "label": "Financiering", "fields": ["principal", "downPayment", "tradeIn", "termMonths", "loyaltyYears", "annualRate", "finMonthly"] }
   ]
 }

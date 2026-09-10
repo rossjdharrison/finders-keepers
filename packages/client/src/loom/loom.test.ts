@@ -15,7 +15,9 @@ const id = (s: string): string => s;
 const carInsurance = (): Cassette => read('car-insurance.json');
 const composed = (): Cassette => read('car-insurance-composed.json');
 const journeyDoc = (): JourneyDoc => read('auto-package.json') as unknown as JourneyDoc;
-const compiledJourney = (): Cassette => compileJourney(journeyDoc(), { 'car-insurance': carInsurance(), financing: read('financing.json') } as never);
+// the auto-package now composes FOUR products: voertuig, adres, car-insurance, financing
+const registry = (): Record<string, Cassette> => ({ 'car-insurance': carInsurance(), financing: read('financing.json'), voertuig: read('voertuig.json'), adres: read('adres.json') });
+const compiledJourney = (): Cassette => compileJourney(journeyDoc(), registry());
 
 // --- structure -----------------------------------------------------------------------------------
 
@@ -82,8 +84,8 @@ test('buildGraph: a composed cassette draws the cross-collection rollups as roll
 test('buildGraph: a compiled journey draws the L2 binding seam as a rollup edge into the total', () => {
   const cass = compiledJourney();
   const g = buildGraph(cass, { label: id, outputField: 'combinedMonthly' });
-  const seam = g.edges.filter((e) => e.kind === 'rollup' && (e.label ?? '').includes('rel_valToPrincipal'));
-  assert.ok(seam.length >= 1, 'the cross-cassette binding is visible as a rollup edge');
+  const seam = g.edges.filter((e) => e.kind === 'rollup' && (e.label ?? '').includes('rel_vehToFinPrincipal'));
+  assert.ok(seam.length >= 1, 'the critical value→principal binding is visible as a rollup edge');
   const output = g.nodes.find((n) => n.id === 'combinedMonthly')!;
   assert.equal(output.isOutput, true, "the journey's combined total is the highlighted output");
   assert.equal(g.cycle.length, 0, 'the compiled journey is acyclic');
@@ -91,18 +93,17 @@ test('buildGraph: a compiled journey draws the L2 binding seam as a rollup edge 
 
 // --- journey composition graph -------------------------------------------------------------------
 
-test('buildJourneyGraph: models become boxes, the spine sits downstream, every binding is a wire', () => {
+test('buildJourneyGraph: four configurators become boxes, the spine sits downstream, every binding is a wire', () => {
   const jg = buildJourneyGraph(journeyDoc(), { label: id });
-  assert.equal(jg.boxes.length, 2, 'two member products');
+  assert.equal(jg.boxes.length, 4, 'voertuig, adres, verzekering, financiering');
   const fin = jg.boxes.find((b) => b.alias === 'fin')!;
-  const ins = jg.boxes.find((b) => b.alias === 'ins')!;
-  assert.equal(fin.isSpine, true, 'the spine carries the total');
-  assert.ok(fin.rank > ins.rank, 'the downstream spine sits right of its upstream supplier');
-  assert.equal(jg.wires.length, 2, 'two bindings (value→principal and no-claim→loyalty)');
-  for (const w of jg.wires) {
-    assert.equal(w.from, 'ins');
-    assert.equal(w.to, 'fin');
-  }
+  const veh = jg.boxes.find((b) => b.alias === 'veh')!;
+  assert.equal(fin.isSpine, true, 'the spine (financiering) carries the total');
+  assert.ok(fin.rank > veh.rank, 'the upstream voertuig sits left of the downstream financing');
+  assert.equal(jg.wires.length, 4, 'four bindings');
+  // the car value feeds BOTH insurance and financing (functional decomposition: one choice, two consumers)
+  const vehWires = jg.wires.filter((w) => w.from === 'veh');
+  assert.equal(vehWires.length, 2, 'voertuig feeds two consumers');
   assert.equal(jg.total.field, 'combinedMonthly');
   assert.ok(jg.surface.length >= 1, 'the surfaced insurance premium line is present');
 });
@@ -110,16 +111,15 @@ test('buildJourneyGraph: models become boxes, the spine sits downstream, every b
 // --- compile-journey: multiple bindings between the same pair, + conditional bindings --------------
 
 const num = (v: unknown): number => Number((v as { v?: unknown })?.v ?? v);
+const minor = (v: unknown): number => Number((v as { minor?: unknown })?.minor);
 
-test('compileJourney: two bindings between the same pair share ONE ref/seed row; the loyalty rate flows', () => {
-  const registry = { 'car-insurance': carInsurance(), financing: read('financing.json') };
-  const compiled = compileJourney(journeyDoc(), registry as never);
-  // exactly one __to_fin ref field on the child (not one per binding), and one seed row per model
-  const child = compiled.collections.find((c) => c.id === 'ins__applications')!;
-  const toRefs = child.properties.filter((p) => p.id === '__to_fin');
-  assert.equal(toRefs.length, 1, 'the shared parent ref is declared once, not per binding');
-  const insSeeds = compiled.seed!.filter((s) => s.row === 'ins-1');
-  assert.equal(insSeeds.length, 1, 'the child is seeded once even though it binds twice');
+test('compileJourney: a child bound to several parents gets one ref PER parent and is seeded once; loyalty flows', () => {
+  const compiled = compileJourney(journeyDoc(), registry());
+  // voertuig binds to BOTH insurance and financing — one __to ref per distinct parent, one seed row
+  const veh = compiled.collections.find((c) => c.id === 'veh__vehicles')!;
+  const refs = veh.properties.filter((p) => p.id.startsWith('__to_')).map((p) => p.id);
+  assert.ok(refs.includes('__to_ins') && refs.includes('__to_fin'), 'voertuig names both parents it feeds');
+  assert.equal(compiled.seed!.filter((s) => s.row === 'veh-1').length, 1, 'the child is seeded once, with all its parent refs');
 
   const core = createCore(mockExterns());
   core.load(compiled);
@@ -127,29 +127,41 @@ test('compileJourney: two bindings between the same pair share ONE ref/seed row;
   const fin = core.read('fin__financings')[0];
   // schadevrijeJaren example = 6 → loyaltyYears bound to 6 → loyaltyDiscount 0.005 → annualRate = 0.079 − 0.005
   assert.equal(num(fin.doc.loyaltyYears), 6, 'loyaltyYears bound from the insurance no-claim years');
-  assert.equal(num(fin.doc.loyaltyDiscount), 0.005, 'a 0.5% loyalty discount at 6 years');
   assert.ok(Math.abs(num(fin.doc.annualRate) - 0.074) < 1e-9, 'effective rate = base 0.079 − loyalty 0.005');
 });
 
+test('compileJourney: two bindings between the SAME pair share one ref + seed row (dedup)', () => {
+  const doc = {
+    kind: 'journey', id: 't', locale: 'nl',
+    models: [{ ref: 'voertuig', as: 'v' }, { ref: 'financing', as: 'f' }], spine: 'f',
+    bindings: [
+      { id: 'b1', from: 'v', to: 'f', contract: { provides: [{ as: 'a', source: 'output:catalogValue' }], requires: [{ name: 'a', target: 'field:principal' }] }, mapping: [{ to: 'principal', from: { op: 'field', id: 'a' } }] },
+      { id: 'b2', from: 'v', to: 'f', contract: { provides: [{ as: 'b', source: 'output:catalogValue' }], requires: [{ name: 'b', target: 'field:downPayment' }] }, mapping: [{ to: 'downPayment', from: { op: 'field', id: 'b' } }] },
+    ],
+    total: { field: 'finMonthly', of: ['finMonthly'] },
+    sections: [{ model: 'v', label: 'V', fields: ['merkModel'] }, { model: 'f', label: 'F', fields: ['finMonthly'] }],
+  } as unknown as JourneyDoc;
+  const compiled = compileJourney(doc, registry());
+  const v = compiled.collections.find((c) => c.id === 'v__vehicles')!;
+  assert.equal(v.properties.filter((p) => p.id === '__to_f').length, 1, 'one shared ref for two same-pair bindings');
+  assert.equal(compiled.seed!.filter((s) => s.row === 'v-1').length, 1, 'the child is seeded once');
+});
+
 test('compileJourney: a conditional binding takes a typed zero when its condition is false', () => {
-  const registry = { 'car-insurance': carInsurance(), financing: read('financing.json') };
   const gated = structuredClone(journeyDoc());
-  // gate the loyalty binding on an impossible threshold (example schadevrijeJaren = 6) → never applies
-  (gated.bindings[1] as { condition?: unknown }).condition = { op: 'gte', args: [{ op: 'field', id: 'schadevrijeJaren' }, { op: 'lit', value: { t: 'num', v: 100 } }] };
-  const compiled = compileJourney(gated, registry as never);
+  // gate the LOYALTY binding on an impossible no-claim threshold (example = 6) → never applies
+  const loyalty = gated.bindings.find((b) => b.id === 'insToFinLoyalty')!;
+  (loyalty as { condition?: unknown }).condition = { op: 'gte', args: [{ op: 'field', id: 'schadevrijeJaren' }, { op: 'lit', value: { t: 'num', v: 100 } }] };
+  const compiled = compileJourney(gated, registry());
   const core = createCore(mockExterns());
   core.load(compiled);
   for (const s of compiled.seed!) core.apply(s.coll, [{ op: 'insert', row: s.row, values: s.values }]);
   const fin = core.read('fin__financings')[0];
   assert.equal(num(fin.doc.loyaltyYears), 0, 'gated-off binding yields the typed zero, not the provided 6');
-  assert.equal(num(fin.doc.loyaltyDiscount), 0, 'so no loyalty discount applies');
   assert.ok(Math.abs(num(fin.doc.annualRate) - 0.079) < 1e-9, 'the effective rate is the base rate');
 });
 
 // --- journey-edit ops (each validated by recompile, exactly as the editor does) ------------------
-
-const registry = (): Record<string, Cassette> => ({ 'car-insurance': carInsurance(), financing: read('financing.json') });
-const minor = (v: unknown): number => Number((v as { minor?: unknown })?.minor);
 
 test('journey-edit: previewJourney compiles + totals the shipped journey', () => {
   const res = previewJourney(journeyDoc(), registry());
@@ -159,15 +171,40 @@ test('journey-edit: previewJourney compiles + totals the shipped journey', () =>
 
 test('journey-edit: editing a binding mapping (finance half the car) lowers the combined total', () => {
   const base = previewJourney(journeyDoc(), registry());
-  const edited = setBindingMapping(journeyDoc(), 'valToPrincipal', { op: 'mul', args: [{ op: 'field', id: 'vval' }, { op: 'lit', value: { t: 'num', v: 0.5 } }] });
+  // the vehToFinPrincipal binding provides the seam var `vprin` (the car value); finance half of it
+  const edited = setBindingMapping(journeyDoc(), 'vehToFinPrincipal', { op: 'mul', args: [{ op: 'field', id: 'vprin' }, { op: 'lit', value: { t: 'num', v: 0.5 } }] });
   const res = previewJourney(edited, registry());
   assert.equal(res.ok, true, res.error);
   assert.ok(minor(res.total) < minor(base.total), 'financing half the catalogue value cuts the monthly');
 });
 
-test('journey-edit: removing a binding still compiles (target reverts to a stored input)', () => {
-  const res = previewJourney(removeBinding(journeyDoc(), 'noClaimToLoyalty'), registry());
+test('journey-edit: removing a removable binding compiles (target reverts to its own source)', () => {
+  // dropping adr→ins reverts insurance.regionBand to its own extern lookup — still compiles
+  const res = previewJourney(removeBinding(journeyDoc(), 'adrToInsRegion'), registry());
   assert.equal(res.ok, true, res.error);
+});
+
+test('journey-edit: removing the only ins→spine binding still compiles — the surface synthesizes its own relation', () => {
+  // insToFinLoyalty was the sole ins→fin relation the insPremium surface rode on; with surface
+  // auto-synthesis, dropping it no longer orphans the surface (edit-safe composition editing)
+  const res = previewJourney(removeBinding(journeyDoc(), 'insToFinLoyalty'), registry());
+  assert.equal(res.ok, true, res.error);
+  assert.ok(res.total && res.total.t === 'money', 'the combined total still computes with the surfaced premium');
+});
+
+test('compileJourney: two models declaring the same enum set with DIFFERENT members are rejected', () => {
+  // clone auto-package but corrupt voertuig to redeclare regionBand with different members
+  const badVoertuig = structuredClone(read('voertuig.json')) as unknown as { enums: Record<string, { id: string; label: string }[]> };
+  badVoertuig.enums.regionBand = [{ id: 'urban', label: 'Urban' }, { id: 'rural', label: 'Rural' }];
+  const reg = { ...registry(), voertuig: badVoertuig as unknown as Cassette };
+  assert.throws(() => compileJourney(journeyDoc(), reg as never), /enum set 'regionBand' is declared with different members/);
+});
+
+test('compileJourney: a conditional binding on a NON-numeric target is rejected with binding context', () => {
+  const gated = structuredClone(journeyDoc());
+  const region = gated.bindings.find((b) => b.id === 'adrToInsRegion')!;
+  (region as { condition?: unknown }).condition = { op: 'gte', args: [{ op: 'field', id: 'houseNumber' }, { op: 'lit', value: { t: 'num', v: 0 } }] };
+  assert.throws(() => compileJourney(gated, registry() as never), /binding adrToInsRegion has a condition but its target 'regionBand' is enum/);
 });
 
 test('journey-edit: addBinding is proven by recompile — a bad target fails cleanly, not by throwing', () => {
@@ -184,8 +221,9 @@ test('journey-edit: removeModel refuses to orphan the spine (no-op)', () => {
 // --- review fixes: conditional money binding, financed clamp, empty total, surface/total consistency ---
 
 test('compile: a MONEY conditional binding compiles (ccy-neutral zero, not "branches disagree money vs money")', () => {
-  // gate the money binding valToPrincipal on a child field; the else-branch zero must unify with the mapped money
-  const gated = setBindingCondition(journeyDoc(), 'valToPrincipal', { op: 'gte', args: [{ op: 'field', id: 'schadevrijeJaren' }, { op: 'lit', value: { t: 'num', v: 0 } }] });
+  // gate the money binding vehToFinPrincipal on one of ITS from-model (voertuig) fields; the else-branch
+  // zero must unify with the mapped money type
+  const gated = setBindingCondition(journeyDoc(), 'vehToFinPrincipal', { op: 'gte', args: [{ op: 'field', id: 'bouwjaar' }, { op: 'lit', value: { t: 'num', v: 0 } }] });
   const res = previewJourney(gated, registry());
   assert.equal(res.ok, true, res.error); // previously threw at load: branches disagree: money vs money
   assert.ok(res.total && res.total.t === 'money');

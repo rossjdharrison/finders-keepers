@@ -92,7 +92,17 @@ export function compileJourney(doc: JourneyDoc, registry: Record<string, Cassett
     collections.push(src);
     Object.assign(types, cass.types);
     for (const [loc, map] of Object.entries(cass.l10n ?? {})) l10n[loc] = { ...(l10n[loc] ?? {}), ...map };
-    Object.assign(enums, cass.enums ?? {});
+    // enum sets union by NAME (they are not namespaced, so a shared set like `regionBand` can flow across
+    // a categorical seam). Guard the one hazard that would make: two models declaring the SAME set name with
+    // DIFFERENT members — that would silently collapse last-wins and a mismatched option id would then fall
+    // through a lookup default (a silent wrong price). Reject it with a clear error instead.
+    for (const [setName, options] of Object.entries(cass.enums ?? {})) {
+      const existing = enums[setName];
+      if (existing && existing.map((o) => o.id).join(',') !== options.map((o) => o.id).join(',')) {
+        throw new Error(`journey ${doc.id}: enum set '${setName}' is declared with different members by more than one model — a categorical seam requires the producer and consumer to share the same set`);
+      }
+      enums[setName] = options;
+    }
   }
 
   // 2. bindings: `from` becomes a CHILD of `to`; each required target on `to` becomes a rollup of the child's
@@ -120,24 +130,44 @@ export function compileJourney(doc: JourneyDoc, registry: Record<string, Cassett
       const mapped = map ? substSeam(map.from, seamSrc) : { op: 'field', id: seamSrc[r.name] ?? r.name };
       const tprop = parent.properties.find((p) => p.id === target);
       if (!tprop) throw new Error(`journey ${doc.id}: binding ${b.id} target field '${target}' not on model '${b.to}'`);
-      // optional condition: when false the target takes a typed zero (the seam field, and thus the sum, is 0)
+      // optional condition: when false the target takes a typed zero (the seam field, and thus the sum, is 0).
+      // A category (enum/text/…) has no typed zero, so reject a conditional non-numeric binding WITH context.
+      if (b.condition && tprop.valueType.k !== 'money' && tprop.valueType.k !== 'num') {
+        throw new Error(`journey ${doc.id}: binding ${b.id} has a condition but its target '${target}' is ${tprop.valueType.k} — a conditional binding needs a money or num target (there is no typed zero for a category)`);
+      }
       const expr = b.condition ? { op: 'call', fn: 'if', args: [substSeam(b.condition, seamSrc), mapped, zeroLike(mapped, tprop.valueType)] } : mapped;
       const seamField = `__seam_${b.id}_${target}`;
       child.properties.push({ id: seamField, valueType: tprop.valueType, source: 'computed', formula: expr } as Collection['properties'][number]);
-      // turn the bound input into a live, non-editable computed rollup (sum over the 1-row relation = the value)
+      // turn the bound input into a live, non-editable computed rollup over the 1-row relation = the value.
+      // sum for money/num; min for any OTHER type (enum/text/bool/date) — over a single child row min/sum
+      // both return that one value unchanged (the reduce/compare never fires), so ANY typed value crosses
+      // the seam, cascade-live, with no engine change. This is what lets a categorical output (a region
+      // class) flow between configurators — the crux of composable functional decomposition.
+      const agg = tprop.valueType.k === 'money' || tprop.valueType.k === 'num' ? 'sum' : 'min';
       tprop.source = 'computed';
-      (tprop as { formula?: unknown }).formula = { op: 'rollup', via: rel, agg: 'sum', of: { op: 'field', id: seamField } };
+      (tprop as { formula?: unknown }).formula = { op: 'rollup', via: rel, agg, of: { op: 'field', id: seamField } };
       delete (tprop as { constraint?: unknown }).constraint;
     }
   }
 
-  // 3. surface: roll a child output up to the spine (for the rail breakdown lines)
+  // 3. surface: roll a child output up to the spine (for the rail breakdown lines). The surface reuses a
+  //    child→spine relation if a binding already made one; otherwise it SYNTHESIZES its own — so a surfaced
+  //    line does not depend on an unrelated value binding staying in place (edit-safe: dropping a binding
+  //    must not orphan the surface).
   const spine = modelColl[doc.spine];
   if (!spine) throw new Error(`journey ${doc.id}: spine '${doc.spine}' is not a declared model`);
   for (const s of doc.surface ?? []) {
     const child = modelColl[s.from];
-    const rel = Object.entries(relations).find(([, r]) => r.childColl === child?.id && r.parentColl === spine.id)?.[0];
-    if (!child || !rel) throw new Error(`journey ${doc.id}: surface '${s.as}' has no relation from '${s.from}' to the spine`);
+    if (!child) throw new Error(`journey ${doc.id}: surface '${s.as}' names an undeclared model '${s.from}'`);
+    let rel = Object.entries(relations).find(([, r]) => r.childColl === child.id && r.parentColl === spine.id)?.[0];
+    if (!rel) {
+      const childField = `__to_${doc.spine}`;
+      if (!child.properties.some((p) => p.id === childField)) {
+        child.properties.push({ id: childField, valueType: { k: 'ref', collection: spine.id }, source: 'stored', category: 'association' } as Collection['properties'][number]);
+      }
+      rel = `rel_surface_${s.as}`;
+      relations[rel] = { parentColl: spine.id, childColl: child.id, childField };
+    }
     spine.properties.push({ id: s.as, valueType: { k: 'money' }, source: 'computed', category: 'amount_of_money', formula: { op: 'rollup', via: rel, agg: 'sum', of: { op: 'field', id: s.field } } } as Collection['properties'][number]);
   }
 
@@ -171,8 +201,15 @@ export function compileJourney(doc: JourneyDoc, registry: Record<string, Cassett
   for (const m of seedOrder) {
     const coll = modelColl[m.as];
     const mCass = cassOf(m.as);
+    // set EVERY __to_<parent> ref this collection carries — whether a binding OR the surface synthesis added
+    // it — so a surfaced-only child still links to its parent row.
     const refs: Record<string, Value> = {};
-    for (const b of doc.bindings) if (b.from === m.as) refs[`__to_${b.to}`] = { t: 'ref', collection: modelColl[b.to].id, id: `${b.to}-1` } as Value;
+    for (const p of coll.properties) {
+      if (p.id.startsWith('__to_')) {
+        const parentAlias = p.id.slice('__to_'.length);
+        if (modelColl[parentAlias]) refs[p.id] = { t: 'ref', collection: modelColl[parentAlias].id, id: `${parentAlias}-1` } as Value;
+      }
+    }
     seed.push({ coll: coll.id, row: `${m.as}-1`, values: { ...storedOnly(coll, mCass.example ?? {}), ...refs } });
   }
 

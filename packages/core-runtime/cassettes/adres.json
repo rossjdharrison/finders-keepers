@@ -1,0 +1,48 @@
+{
+  "id": "adres",
+  "title": "Adres",
+  "doc": "Voer een postcode in; straat, plaats en risicoregio worden automatisch aangevuld (BAG/PDOK). Een op zichzelf staande, herbruikbare configurator: het adres is één keuze die losstaat van de verzekering. In het Autopakket levert deze de RISICOREGIO (een categorie) aan de verzekering, die er ZELF de opslag aan verbindt — de regioprijs blijft dus bij de verzekering, niet bij het adres (echte functionele decompositie: het adres classificeert, de consument beprijst).",
+  "locale": "nl",
+  "types": { "Address": { "specializes": ["sign"] } },
+  "collections": [
+    {
+      "id": "addresses",
+      "semanticClass": "Address",
+      "doc": "Een adres: postcode + huisnummer in; straat, plaats en risicoregio automatisch aangevuld.",
+      "properties": [
+        { "id": "postcode", "valueType": { "k": "text" }, "source": "stored", "constraint": { "format": "postcode" }, "doc": "Uw postcode; bepaalt de risicoregio." },
+        { "id": "houseNumber", "valueType": { "k": "text" }, "source": "stored", "doc": "Uw huisnummer." },
+        { "id": "street", "valueType": { "k": "text" }, "source": "extern", "api": "addrStreet", "params": { "postcode": "postcode" } },
+        { "id": "city", "valueType": { "k": "text" }, "source": "extern", "api": "regionCity", "params": { "postcode": "postcode" } },
+        { "id": "regionBand", "valueType": { "k": "enum", "set": "regionBand" }, "source": "extern", "api": "regionBand", "params": { "postcode": "postcode" }, "doc": "Risicoregio, automatisch afgeleid uit de postcode. Dit is de categorie die aan een consument (bijv. de verzekering) wordt geleverd." }
+      ]
+    }
+  ],
+  "l10n": { "nl": { "postcode": "Postcode", "houseNumber": "Huisnummer", "street": "Straat", "city": "Plaats", "regionBand": "Risicoregio" } },
+  "docs": {
+    "nl": {
+      "postcode": "Uw postcode bepaalt de risicoregio. Straat en plaats vullen wij automatisch aan via het BAG (PDOK).",
+      "houseNumber": "Kies uw huisnummer. Wij tonen de bekende huisnummers op deze postcode.",
+      "street": "Straat, automatisch opgehaald bij het BAG (PDOK).",
+      "city": "Plaats, automatisch opgehaald bij het BAG (PDOK).",
+      "regionBand": "Risicoregio, automatisch afgeleid uit uw postcode."
+    }
+  },
+  "enums": {
+    "regionBand": [
+      { "id": "low", "label": "Laag risico" },
+      { "id": "mid", "label": "Gemiddeld risico" },
+      { "id": "high", "label": "Hoog risico" }
+    ]
+  },
+  "journey": {
+    "field": "step",
+    "steps": [
+      { "id": "adres", "label": "Adres", "fields": ["postcode", "houseNumber", "street", "city", "regionBand"] }
+    ]
+  },
+  "seed": [
+    { "coll": "addresses", "row": "a-1", "values": { "postcode": { "t": "text", "v": "" }, "houseNumber": { "t": "text", "v": "" } } }
+  ],
+  "example": { "postcode": { "t": "text", "v": "1011 AB" }, "houseNumber": { "t": "text", "v": "105" } }
+}

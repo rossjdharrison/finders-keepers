@@ -13,6 +13,7 @@ import { formatExpr, parseExpr, type Node } from './expr.ts';
 import {
   addBinding, removeBinding, setBindingMapping, setBindingCondition,
   addModel, removeModel, addSurface, removeSurface, setTotalOf,
+  setSectionLabel, moveSection, toggleSectionField,
   previewJourney, loadJourneyDoc, saveJourneyDoc, clearJourneyDoc, hasJourneyOverride,
   bindingVar, bindingTarget, bindingSource,
 } from './journey-edit.ts';
@@ -69,12 +70,23 @@ export function renderCompositionEditor(mount: HTMLElement, opts: CompositionEdi
   };
 
   function render(): void {
+    // preserve keyboard focus across the full rebuild: a checkbox/button toggle keeps its focus, so a
+    // keyboard user isn't dropped to <body> on every edit (the app's journey renderer does the same).
+    const ae = document.activeElement as HTMLElement | null;
+    const focusKey = ae?.dataset?.focusKey;
+    const selStart = ae instanceof HTMLInputElement && ae.type === 'text' ? ae.selectionStart : null;
     mount.replaceChildren();
     const root = el('div', 'lm-ce');
 
-    // the live composition graph (rebuilt from the working doc)
+    // the live composition graph (rebuilt from the working doc); wires labelled with the value they carry,
+    // the MONEY flows (the critical value path) drawn boldest.
     const graphHolder = el('div');
-    renderJourneyGraph(graphHolder, buildJourneyGraph(doc, { label: (ref) => registry[ref]?.title ?? ref }), { loomHref: opts.loomHref });
+    const targetIsMoney = (b: { to: string; contract: { requires: { target: string }[] } }): boolean => {
+      const cass = cassOf(b.to);
+      const tf = (b.contract.requires[0]?.target ?? '').split(':')[1] ?? '';
+      return (cass?.collections[0]?.properties ?? []).some((p) => p.id === tf && (p as { valueType?: { k?: string } }).valueType?.k === 'money');
+    };
+    renderJourneyGraph(graphHolder, buildJourneyGraph(doc, { label: (ref) => registry[ref]?.title ?? ref, fieldLabel: opts.label, targetIsMoney }), { loomHref: opts.loomHref });
     root.append(graphHolder);
 
     if (banner) {
@@ -91,10 +103,19 @@ export function renderCompositionEditor(mount: HTMLElement, opts: CompositionEdi
     main.append(sectionModels());
     main.append(sectionBindings());
     main.append(sectionSummary());
+    main.append(sectionSteps());
     cols.append(main);
     cols.append(sidePreview());
     root.append(cols);
     mount.append(root);
+
+    if (focusKey) {
+      const restored = mount.querySelector<HTMLElement>(`[data-focus-key="${CSS.escape(focusKey)}"]`);
+      if (restored && !(restored as HTMLButtonElement).disabled) {
+        restored.focus({ preventScroll: true });
+        if (selStart != null && restored instanceof HTMLInputElement) try { restored.setSelectionRange(selStart, selStart); } catch { /* not selectable */ }
+      }
+    }
   }
 
   // --- Modellen -------------------------------------------------------------------------------
@@ -296,6 +317,7 @@ export function renderCompositionEditor(mount: HTMLElement, opts: CompositionEdi
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.checked = chosen.has(c);
+      cb.dataset.focusKey = `total:${c}`;
       cb.addEventListener('change', () => {
         const of = cb.checked ? [...doc.total.of, c] : doc.total.of.filter((x) => x !== c);
         commit(setTotalOf(doc, of)); // commit() always re-renders, so the box reflects the committed (or reverted) state
@@ -304,6 +326,63 @@ export function renderCompositionEditor(mount: HTMLElement, opts: CompositionEdi
       chips.append(chip);
     }
     sec.append(chips);
+    return sec;
+  }
+
+  // --- Stappen & secties (step order + which fields each configurator shows) ------------------
+  function sectionSteps(): HTMLElement {
+    const sec = el('section', 'lm-ce-sec');
+    sec.append(el('h3', 'lm-ce-h', 'Stappen & secties'));
+    sec.append(el('p', 'lm-ce-sub', 'De volgorde van de stappen in de reis en welke velden elke configurator toont. Gebruik de pijlen om te herordenen; vink velden aan of uit.'));
+    doc.sections.forEach((s, idx) => {
+      const card = el('div', 'lm-ce-section');
+      const head = el('div', 'lm-ce-section-head');
+      const moves = el('div', 'lm-ce-moves');
+      const up = el('button', 'lm-ce-move', '↑') as HTMLButtonElement;
+      up.type = 'button';
+      up.title = 'Eerder';
+      up.dataset.focusKey = `move:${s.model}:up`;
+      up.disabled = idx === 0; // boundary reorder is a no-op — disable it (no spurious dirty)
+      up.setAttribute('aria-label', `Sectie ${s.label} eerder in de reis`);
+      up.addEventListener('click', () => commit(moveSection(doc, s.model, -1)));
+      const down = el('button', 'lm-ce-move', '↓') as HTMLButtonElement;
+      down.type = 'button';
+      down.title = 'Later';
+      down.dataset.focusKey = `move:${s.model}:down`;
+      down.disabled = idx === doc.sections.length - 1;
+      down.setAttribute('aria-label', `Sectie ${s.label} later in de reis`);
+      down.addEventListener('click', () => commit(moveSection(doc, s.model, 1)));
+      moves.append(up, down);
+      head.append(moves);
+      const labelInput = document.createElement('input');
+      labelInput.className = 'cell-input lm-ce-section-label';
+      labelInput.type = 'text';
+      labelInput.value = s.label;
+      labelInput.dataset.focusKey = `label:${s.model}`;
+      labelInput.setAttribute('aria-label', `Naam van de sectie voor ${modelLabel(s.model)}`);
+      // commit a non-blank rename; a cleared label snaps back to the current one (a visible cue, no silent drop)
+      labelInput.addEventListener('change', () => { const v = labelInput.value.trim(); if (v) commit(setSectionLabel(doc, s.model, v), true); else labelInput.value = s.label; });
+      head.append(labelInput);
+      head.append(el('span', 'lm-mono lm-ce-section-model', s.model));
+      card.append(head);
+
+      const chips = el('div', 'lm-ce-fieldchips');
+      for (const f of fieldsOf(s.model)) {
+        const chip = el('label', 'lm-ce-fieldchip');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = s.fields.includes(f.id);
+        cb.dataset.focusKey = `chip:${s.model}:${f.id}`;
+        // a section needs at least one field, else the player would skip the whole configurator — so the
+        // last remaining checked field can't be unchecked.
+        if (cb.checked && s.fields.length <= 1) { cb.disabled = true; chip.title = 'een sectie toont minstens één veld'; }
+        cb.addEventListener('change', () => commit(toggleSectionField(doc, s.model, f.id)));
+        chip.append(cb, el('span', undefined, f.label));
+        chips.append(chip);
+      }
+      card.append(chips);
+      sec.append(card);
+    });
     return sec;
   }
 

@@ -1,0 +1,49 @@
+{
+  "id": "voertuig",
+  "title": "Voertuig",
+  "doc": "Kies uw auto: merk en model bepalen de cataloguswaarde. Een op zichzelf staande configurator; in het Autopakket voedt die cataloguswaarde ZOWEL de verzekeringspremie (via de waardeklasse) ALS het te financieren bedrag — de kritieke waardestroom van de reis. Zo is 'welke auto' één keuze, hergebruikt door meerdere producten (functionele decompositie).",
+  "locale": "nl",
+  "types": { "Vehicle": { "specializes": ["ordinary_physical_object"] } },
+  "collections": [
+    {
+      "id": "vehicles",
+      "semanticClass": "Vehicle",
+      "doc": "Het gekozen voertuig: merk/model in, cataloguswaarde uit.",
+      "properties": [
+        { "id": "merkModel", "valueType": { "k": "enum", "set": "merkModel" }, "source": "stored", "doc": "Merk en model van uw auto." },
+        { "id": "bouwjaar", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity", "constraint": { "min": 2005, "max": 2025 }, "doc": "Bouwjaar." },
+        { "id": "catalogValue", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Cataloguswaarde volgens merk en model.", "formula": { "op": "lookup", "table": "priceTable", "key": { "op": "field", "id": "merkModel" } } }
+      ],
+      "tables": {
+        "priceTable": { "kind": "1d", "of": { "k": "money" }, "map": {
+          "polo": { "t": "money", "minor": 2200000, "ccy": "EUR", "scale": 2 },
+          "golf": { "t": "money", "minor": 3200000, "ccy": "EUR", "scale": 2 },
+          "id3": { "t": "money", "minor": 3800000, "ccy": "EUR", "scale": 2 },
+          "xc40": { "t": "money", "minor": 4600000, "ccy": "EUR", "scale": 2 },
+          "model3": { "t": "money", "minor": 5200000, "ccy": "EUR", "scale": 2 }
+        } }
+      }
+    }
+  ],
+  "l10n": { "nl": { "merkModel": "Merk & model", "bouwjaar": "Bouwjaar", "catalogValue": "Cataloguswaarde" } },
+  "enums": {
+    "merkModel": [
+      { "id": "polo", "label": "Volkswagen Polo" },
+      { "id": "golf", "label": "Volkswagen Golf" },
+      { "id": "id3", "label": "Volkswagen ID.3" },
+      { "id": "xc40", "label": "Volvo XC40" },
+      { "id": "model3", "label": "Tesla Model 3" }
+    ]
+  },
+  "journey": {
+    "field": "step",
+    "steps": [
+      { "id": "voertuig", "label": "Voertuig", "fields": ["merkModel", "bouwjaar", "catalogValue"] }
+    ],
+    "summary": { "total": "catalogValue", "per": "cataloguswaarde", "lines": [] }
+  },
+  "seed": [
+    { "coll": "vehicles", "row": "v-1", "values": { "merkModel": { "t": "enum", "set": "merkModel", "v": "polo" }, "bouwjaar": { "t": "num", "v": 2021 } } }
+  ],
+  "example": { "merkModel": { "t": "enum", "set": "merkModel", "v": "polo" }, "bouwjaar": { "t": "num", "v": 2021 } }
+}

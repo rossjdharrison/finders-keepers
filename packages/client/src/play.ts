@@ -33,11 +33,12 @@ const app = document.querySelector<HTMLElement>('#app')!;
 // which cassette? ?cassette=<id>, else the first in the catalogue. A journey <id> is a cross-cassette L2
 // doc — compiled on the fly into one composed cassette. Unknown id → a small chooser.
 const wantId = new URLSearchParams(location.search).get('cassette') ?? CATALOGUE[0]?.id;
-const journeyDoc = wantId ? JOURNEYS[wantId] : undefined;
+// Object.hasOwn guards against a crafted ?cassette=toString reading an inherited prototype member.
+const journeyDoc = wantId && Object.hasOwn(JOURNEYS, wantId) ? JOURNEYS[wantId] : undefined;
 // a journey compiles its EFFECTIVE doc: a composition edited + saved in the Loom (localStorage) wins
 // over the shipped doc, so the player runs the edited journey through the same sealed core.
 const journeyEdited = journeyDoc ? hasJourneyOverride(wantId!) : false;
-const shipped = journeyDoc ? compileJourney(loadJourneyDoc(wantId!, journeyDoc).doc, REGISTRY) : wantId ? REGISTRY[wantId] : undefined;
+const shipped = journeyDoc ? compileJourney(loadJourneyDoc(wantId!, journeyDoc).doc, REGISTRY) : wantId && Object.hasOwn(REGISTRY, wantId) ? REGISTRY[wantId] : undefined;
 if (!shipped) {
   app.innerHTML = `<main class="mount"><div class="empty" style="padding:40px">Onbekende cassette. <a href="/catalogue.html">Naar de catalogus →</a></div></main>`;
   throw new Error(`unknown cassette: ${wantId}`);
