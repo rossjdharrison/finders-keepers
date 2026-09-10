@@ -145,6 +145,23 @@
     "driverOf": { "parentColl": "applications", "childColl": "drivers", "childField": "app" },
     "coverOf": { "parentColl": "applications", "childColl": "covers", "childField": "app" }
   },
+  "journey": {
+    "field": "step",
+    "steps": [
+      { "id": "vehicle", "label": "Voertuig", "collection": "vehicles", "fields": ["plate", "vehicleDesc", "vehicleValue"] },
+      { "id": "driver", "label": "Bestuurder", "collection": "drivers", "fields": ["postcode", "city", "age", "schadevrijeJaren", "annualKm", "usage"] },
+      { "id": "cover", "label": "Dekking", "collection": "covers", "fields": ["cover", "optLegalAid", "optPassenger", "optRoadside"] }
+    ],
+    "summary": {
+      "total": "premium",
+      "per": "per maand",
+      "lines": [
+        { "field": "vehicleSub", "label": "Voertuig" },
+        { "field": "driverSub", "label": "Bestuurder" },
+        { "field": "coverSub", "label": "Dekking" }
+      ]
+    }
+  },
   "seed": [
     { "coll": "applications", "row": "app-1", "values": { "paymentTerm": { "t": "enum", "set": "paymentTerm", "v": "monthly" } } },
     { "coll": "vehicles", "row": "veh-1", "values": { "app": { "t": "ref", "collection": "applications", "id": "app-1" }, "plate": { "t": "text", "v": "99-XYZ-1" } } },

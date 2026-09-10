@@ -65,7 +65,15 @@ export interface ViewConfig {
   refs?: Record<string, { collection: string; labelField: string }>; // ref field -> parent collection + its label field
   groupField?: string;
   columns?: string[];
-  journey?: { field: string; steps: { id: string; label?: string; fields?: string[]; gate?: string }[] }; // the wizard: each step's fields; gate = a computed-bool field that unlocks the section (progressive disclosure)
+  // the wizard / journey. A step's optional `collection` names the configurator whose row it edits
+  // (absent = the view's own collection = flat; present = a composed section joined by a relation).
+  // gate = a computed-bool field unlocking the section. `summary` declares the rail: the headline
+  // total field, a per-period suffix, and the breakdown lines (spine fields, e.g. rollup subtotals).
+  journey?: {
+    field: string;
+    steps: { id: string; label?: string; collection?: string; fields?: string[]; gate?: string }[];
+    summary?: { total: string; per?: string; lines?: { field: string; label?: string }[] };
+  };
 }
 export interface ViewDoc {
   id: string;

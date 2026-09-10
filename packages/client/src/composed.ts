@@ -126,21 +126,35 @@ if (modelIsEdited) recomputeAll(host, collections);
 const store = createHostStore(host, collections);
 
 const mount = app.querySelector<HTMLElement>('#mount')!;
-const labels = pres.l10n?.[locale] ?? {};
+// presentation: prefer the composed cassette's own l10n, else borrow the flat cassette's (same brand)
+const labels = model.l10n?.[locale] ?? pres.l10n?.[locale] ?? {};
+
+// The journey is DATA: sections (each with its configurator collection) and the rail come from the
+// cassette's journey block — nothing about vehicles/drivers/covers is hardcoded here anymore. The
+// spine is derived generically as the relation graph's parent (the collection that is a parent and
+// never a child), so any composed cassette drives this same renderer.
+const journey = model.journey;
+const rels = Object.values(model.relations ?? {});
+const childColls = new Set(rels.map((r) => r.childColl));
+const spine = rels.map((r) => r.parentColl).find((p) => !childColls.has(p)) ?? collections[0].id;
+// the join field per section is the relation's OWN childField (not a literal), so a composed cassette
+// whose children ref the spine through a differently-named field still resolves.
+const childFieldOf = (coll: string): string => rels.find((r) => r.childColl === coll && r.parentColl === spine)?.childField ?? 'app';
+const sections = (journey?.steps ?? [])
+  .filter((s): s is typeof s & { collection: string } => !!s.collection)
+  .map((s) => ({ id: s.id, label: s.label ?? s.id, collection: s.collection, childField: childFieldOf(s.collection), fields: s.fields ?? [] }));
+
 mountComposedJourney(mount, {
   workspace: store,
-  appColl: 'applications',
-  sections: [
-    { id: 'vehicle', label: 'Voertuig', collection: 'vehicles', fields: ['plate', 'vehicleDesc', 'vehicleValue'] },
-    { id: 'driver', label: 'Bestuurder', collection: 'drivers', fields: ['postcode', 'city', 'age', 'schadevrijeJaren', 'annualKm', 'usage'] },
-    { id: 'cover', label: 'Dekking', collection: 'covers', fields: ['cover', 'optLegalAid', 'optPassenger', 'optRoadside'] },
-  ],
+  appColl: spine,
+  sections,
+  summary: journey?.summary,
   collections,
   types: model.types as Record<string, { specializes: string[] }>,
   vocab: coreVocabulary(),
   overrides: [],
   labels,
-  enums: pres.enums ?? {},
+  enums: model.enums ?? pres.enums ?? {},
   title: `${brand.product ?? 'Aanvraag'} — aanvraag`,
 });
 
