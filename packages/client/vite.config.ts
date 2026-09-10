@@ -10,6 +10,7 @@ export default defineConfig({
       input: {
         index: resolve(import.meta.dirname, 'index.html'),
         cassette: resolve(import.meta.dirname, 'cassette.html'),
+        composed: resolve(import.meta.dirname, 'composed.html'),
       },
     },
   },
