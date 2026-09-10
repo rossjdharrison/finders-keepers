@@ -9,6 +9,7 @@
 // products (edited via their own Loom), so this view is READ-ONLY over the composition itself.
 
 import type { JourneyDoc } from '../compile-journey.ts';
+import { mountCanvas } from './canvas.ts';
 
 export interface JBox {
   alias: string;
@@ -130,33 +131,62 @@ export function renderJourneyGraph(mount: HTMLElement, jg: JourneyGraph, opts: R
   const svg = svgEl('svg', { class: 'lm-jgraph-svg', viewBox: `0 0 ${width} ${height}`, width, height, role: 'group' });
   svg.setAttribute('aria-label', 'Compositiegrafiek van het pakket: modellen als blokken, bindingen als verbindingen');
 
-  // wires
-  const wireLayer = svgEl('g', { class: 'lm-jwires' });
-  for (const w of jg.wires) {
-    const a = pos.get(w.from);
-    const b = pos.get(w.to);
-    if (!a || !b) continue;
+  // several bindings can run between the SAME two products (e.g. the individual feeds age/no-claim/km/usage
+  // to the insurance). Their wires + labels would stack at one midpoint and become unreadable, so FAN each
+  // parallel wire and STAGGER its label by its index within the pair.
+  const pairTotal = new Map<string, number>();
+  for (const w of jg.wires) { const k = `${w.from}->${w.to}`; pairTotal.set(k, (pairTotal.get(k) ?? 0) + 1); }
+  const pairSeen = new Map<string, number>();
+
+  interface WireEls { w: JWire; j: number; n: number; path: SVGPathElement; label: SVGTextElement }
+  const FAN = 13; // vertical fan between parallel wires
+  const LABEL_STAGGER = 9; // extra label separation on top of the fan
+  const geom = (we: WireEls): { d: string; lx: number; ly: number } => {
+    const a = pos.get(we.w.from)!;
+    const b = pos.get(we.w.to)!;
+    const off = (we.j - (we.n - 1) / 2) * FAN;
     const x1 = a.x + BOX_W;
-    const y1 = a.y + BOX_H / 2;
+    const y1 = a.y + BOX_H / 2 + off;
     const x2 = b.x;
-    const y2 = b.y + BOX_H / 2;
+    const y2 = b.y + BOX_H / 2 + off;
     const dx = Math.max(40, (x2 - x1) / 2);
-    const path = svgEl('path', { class: `lm-jwire ${w.critical ? 'lm-jwire-critical' : ''}`, d: `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}` });
+    return {
+      d: `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`,
+      lx: (x1 + x2) / 2,
+      ly: (y1 + y2) / 2 - 7 + (we.j - (we.n - 1) / 2) * LABEL_STAGGER,
+    };
+  };
+
+  const wireLayer = svgEl('g', { class: 'lm-jwires' });
+  const byBox = new Map<string, WireEls[]>(); // alias → the wires touching it (re-routed on drag)
+  for (const w of jg.wires) {
+    if (!pos.get(w.from) || !pos.get(w.to)) continue;
+    const key = `${w.from}->${w.to}`;
+    const j = pairSeen.get(key) ?? 0;
+    pairSeen.set(key, j + 1);
+    const path = svgEl('path', { class: `lm-jwire ${w.critical ? 'lm-jwire-critical' : ''}` });
     const t = svgEl('title');
     t.textContent = `${w.info}: ${w.provides} → ${w.requires}${w.critical ? ' (kritieke waardestroom)' : ''}`;
     path.append(t);
-    wireLayer.append(path);
-    // mid-wire label: WHAT information is passed (the provided value), not a generic "binding"
-    const mx = (x1 + x2) / 2;
-    const my = (y1 + y2) / 2 - 7;
-    const lbl = svgEl('text', { class: `lm-jwire-label ${w.critical ? 'lm-jwire-label-critical' : ''}`, x: mx, y: my, 'text-anchor': 'middle' });
-    lbl.textContent = truncate(w.info, 20);
-    wireLayer.append(lbl);
+    // mid-wire label: WHAT information is passed (the provided value); its full text on hover (it is truncated in place)
+    const lbl = svgEl('text', { class: `lm-jwire-label ${w.critical ? 'lm-jwire-label-critical' : ''}`, 'text-anchor': 'middle' });
+    lbl.textContent = truncate(w.info, 18);
+    const lt = svgEl('title');
+    lt.textContent = w.info;
+    lbl.append(lt);
+    const we: WireEls = { w, j, n: pairTotal.get(key) ?? 1, path, label: lbl };
+    const gg = geom(we);
+    path.setAttribute('d', gg.d);
+    lbl.setAttribute('x', String(gg.lx));
+    lbl.setAttribute('y', String(gg.ly));
+    wireLayer.append(path, lbl);
+    for (const alias of [w.from, w.to]) { const arr = byBox.get(alias) ?? []; arr.push(we); byBox.set(alias, arr); }
   }
   svg.append(wireLayer);
 
   // boxes (links)
   const boxLayer = svgEl('g', { class: 'lm-jboxes' });
+  const boxEls = new Map<string, SVGAElement>();
   for (const b of jg.boxes) {
     const p = pos.get(b.alias)!;
     const a = svgEl('a', { class: `lm-jbox ${b.isSpine ? 'lm-jbox-spine' : ''}`, href: opts.loomHref(b.ref), transform: `translate(${p.x}, ${p.y})` });
@@ -178,6 +208,7 @@ export function renderJourneyGraph(mount: HTMLElement, jg: JourneyGraph, opts: R
     t.textContent = `Open het Loom-model van ${b.label}`;
     a.append(t);
     boxLayer.append(a);
+    boxEls.set(b.alias, a);
   }
   svg.append(boxLayer);
 
@@ -185,6 +216,26 @@ export function renderJourneyGraph(mount: HTMLElement, jg: JourneyGraph, opts: R
   scroller.className = 'lm-graph-scroll';
   scroller.append(svg);
   mount.append(scroller);
+
+  // pan / zoom / drag: drag a product box to spread the composition out (re-routing its wires + labels), and
+  // zoom the canvas (toolbar + ctrl/⌘-wheel) — so overlapping seams and the values they carry become readable.
+  const setPos = (alias: string, x: number, y: number): void => {
+    pos.set(alias, { x, y });
+    boxEls.get(alias)!.setAttribute('transform', `translate(${x}, ${y})`);
+    for (const we of byBox.get(alias) ?? []) {
+      const gg = geom(we);
+      we.path.setAttribute('d', gg.d);
+      we.label.setAttribute('x', String(gg.lx));
+      we.label.setAttribute('y', String(gg.ly));
+    }
+  };
+  mountCanvas(scroller, svg, {
+    baseWidth: width,
+    baseHeight: height,
+    nodes: jg.boxes.map((b) => ({ key: b.alias, el: boxEls.get(b.alias)! })),
+    getPos: (k) => pos.get(k)!,
+    setPos,
+  });
 
   // the fold: surfaced lines + combined total
   const fold = document.createElement('div');

@@ -235,6 +235,10 @@ tabs.push({
           const res = editing.save(); // validate + persist the shared cassette (no-op persist if invalid)
           return { ok: res.ok, error: res.error, premium: res.premium };
         },
+        onSetFormula: (collId, propId, formula) => {
+          const res = editing.trySetFormula(collId, propId, formula); // validates a bad AST before it commits
+          return { ok: res.ok, error: res.error, premium: res.premium };
+        },
         openRules: () => activate('regels'),
       });
       renderGraph(holder, g, { onSelect: (node) => inspector.show(node) });

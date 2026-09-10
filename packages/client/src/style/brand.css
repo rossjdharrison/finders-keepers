@@ -65,6 +65,26 @@
   /* the Beheer link carries a dot when the live aanvraag is running edited (not shipped) rules */
   .bank-edited { color: var(--accent); font-weight: 700; }
 
+  /* header nav — one consistent ghost-pill treatment for every tool link/button (was: underlined muted
+     text for the links + a differently-tokened box for the theme toggle), themed with the current palette */
+  .bank-tools .cc-btn {
+    display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 13px;
+    border: 1px solid transparent; border-radius: var(--radius-pill);
+    font: inherit; font-size: 12.5px; font-weight: 600; line-height: 1; text-decoration: none; cursor: pointer;
+    color: var(--ink-muted); background: transparent;
+    transition: background .12s ease, color .12s ease, border-color .12s ease;
+  }
+  .bank-tools .cc-btn:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); border-color: transparent; text-decoration: none; }
+  .bank-tools .cc-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .bank-tools .theme-toggle {
+    display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0;
+    border: 1px solid var(--border); border-radius: var(--radius-pill);
+    color: var(--ink-muted); background: transparent; cursor: pointer; font-size: 13px; line-height: 1;
+    transition: background .12s ease, color .12s ease, border-color .12s ease;
+  }
+  .bank-tools .theme-toggle:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .bank-tools .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
   /* The premium figure (quote rail) and the field styles live in the journey layer now; the reserved
    * gold is applied there via var(--emphasis). Here we only keep the primary CTA's on-fill text +
    * hover, which must sit in the brand layer to win over the journey base. */

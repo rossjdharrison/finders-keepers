@@ -57,41 +57,64 @@ mount.append(hero);
 
 const shapeLabel = (s: CassetteMeta['shape']): string => (s === 'journey' ? 'Pakket' : s === 'composed' ? 'Samengesteld' : 'Eén pagina');
 
-// group by HQDM class (the taxonomy the models themselves declare)
-const byClass = new Map<string, CassetteMeta[]>();
-for (const m of CATALOGUE) (byClass.get(m.klass) ?? byClass.set(m.klass, []).get(m.klass)!).push(m);
-
-for (const [klass, metas] of byClass) {
-  const section = el('section', 'cat-section');
-  section.append(el('h2', 'cat-section-head', klass));
+const renderCard = (m: CassetteMeta): HTMLElement => {
+  const card = el('div', 'cat-card');
+  const main = el('a', 'cat-card-main') as HTMLAnchorElement;
+  main.href = `/play.html?cassette=${encodeURIComponent(m.id)}`;
+  const top = el('div', 'cat-card-top');
+  top.append(el('span', 'cat-card-title', m.title));
+  top.append(el('span', `cat-badge cat-badge-${m.shape}`, shapeLabel(m.shape)));
+  main.append(top);
+  if (m.doc) main.append(el('p', 'cat-card-doc', m.doc));
+  const vitals = el('div', 'cat-vitals');
+  vitals.append(el('span', 'cat-vital', `${m.collections} ${m.collections === 1 ? 'collectie' : 'collecties'}`));
+  if (m.hasSteps) vitals.append(el('span', 'cat-vital', 'stapsgewijze journey'));
+  vitals.append(el('span', 'cat-vital cat-mono', m.id));
+  main.append(vitals);
+  main.append(el('span', 'cat-go', 'Openen →'));
+  card.append(main);
+  // second entry: the Loom (view the structure + graph, alter the rules) — a journey opens by ?journey=
+  const foot = el('div', 'cat-card-foot');
+  const loom = el('a', 'cat-card-loom') as HTMLAnchorElement;
+  loom.href = `/loom.html?${m.shape === 'journey' ? 'journey' : 'cassette'}=${encodeURIComponent(m.id)}`;
+  loom.textContent = '⚙ Model & regels';
+  foot.append(loom);
+  card.append(foot);
+  return card;
+};
+const gridOf = (metas: CassetteMeta[]): HTMLElement => {
   const grid = el('div', 'cat-grid');
-  for (const m of metas) {
-    const card = el('div', 'cat-card');
-    const main = el('a', 'cat-card-main') as HTMLAnchorElement;
-    main.href = `/play.html?cassette=${encodeURIComponent(m.id)}`;
-    const top = el('div', 'cat-card-top');
-    top.append(el('span', 'cat-card-title', m.title));
-    top.append(el('span', `cat-badge cat-badge-${m.shape}`, shapeLabel(m.shape)));
-    main.append(top);
-    if (m.doc) main.append(el('p', 'cat-card-doc', m.doc));
-    const vitals = el('div', 'cat-vitals');
-    vitals.append(el('span', 'cat-vital', `${m.collections} ${m.collections === 1 ? 'collectie' : 'collecties'}`));
-    if (m.hasSteps) vitals.append(el('span', 'cat-vital', 'stapsgewijze journey'));
-    vitals.append(el('span', 'cat-vital cat-mono', m.id));
-    main.append(vitals);
-    main.append(el('span', 'cat-go', 'Openen →'));
-    card.append(main);
-    // second entry: the Loom (view the structure + graph, alter the rules) — a journey opens by ?journey=
-    const foot = el('div', 'cat-card-foot');
-    const loom = el('a', 'cat-card-loom') as HTMLAnchorElement;
-    loom.href = `/loom.html?${m.shape === 'journey' ? 'journey' : 'cassette'}=${encodeURIComponent(m.id)}`;
-    loom.textContent = '⚙ Model & regels';
-    foot.append(loom);
-    card.append(foot);
-    grid.append(card);
-  }
-  section.append(grid);
+  for (const m of metas) grid.append(renderCard(m));
+  return grid;
+};
+
+// A composed product/journey (more than one collection) is a whole assembled process; a single-collection
+// cassette is a reusable building block. Lead with the assembled ones, then the components they are made of.
+const journeys = CATALOGUE.filter((m) => m.collections > 1);
+const components = CATALOGUE.filter((m) => m.collections <= 1);
+
+if (journeys.length) {
+  const section = el('section', 'cat-section');
+  section.append(el('h2', 'cat-section-head', 'Reizen & pakketten'));
+  section.append(el('p', 'cat-section-sub', 'Samengestelde configuratoren — meerdere producten, gekoppeld via getypte L2-naden tot één reis.'));
+  section.append(gridOf(journeys));
   mount.append(section);
+}
+
+if (components.length) {
+  const section = el('section', 'cat-section');
+  section.append(el('h2', 'cat-section-head', 'Componenten'));
+  section.append(el('p', 'cat-section-sub', 'Losse, herbruikbare bouwstenen — elk een op zichzelf staand model, gegroepeerd naar hun HQDM-klasse.'));
+  mount.append(section);
+  // within the components, keep the HQDM-class taxonomy the models themselves declare
+  const byClass = new Map<string, CassetteMeta[]>();
+  for (const m of components) (byClass.get(m.klass) ?? byClass.set(m.klass, []).get(m.klass)!).push(m);
+  for (const [klass, metas] of byClass) {
+    const sub = el('section', 'cat-subsection');
+    sub.append(el('h3', 'cat-subsection-head', klass));
+    sub.append(gridOf(metas));
+    mount.append(sub);
+  }
 }
 
 if (!CATALOGUE.length) mount.append(el('div', 'empty', 'Geen cassettes gevonden.'));

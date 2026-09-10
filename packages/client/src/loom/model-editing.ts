@@ -9,7 +9,7 @@
 // cassette, so nothing unsaved is ever lost, whichever tab persists.
 
 import type { Cassette } from '@app/core-runtime';
-import { setTableCell, setFormulaLiteral, previewCassette, type FormulaPath, type PreviewResult } from '../model-edit.ts';
+import { setTableCell, setFormulaLiteral, setFormula, previewCassette, previewField, type FormulaPath, type PreviewResult } from '../model-edit.ts';
 
 export interface ModelEditing {
   readonly key: string; // the localStorage key the player reads
@@ -17,6 +17,9 @@ export interface ModelEditing {
   /** batch edits — mutate the shared cassette + mark dirty; persistence happens via save() */
   applyTableCell(collId: string, tableId: string, key: string, minor: number): void;
   applyLiteral(collId: string, propId: string, path: FormulaPath, raw: number): void;
+  /** structural edit: validate a whole-formula replacement in a throwaway core and, ONLY if it is valid,
+   * commit + persist it. Returns the preview result; on failure the shared cassette is left untouched. */
+  trySetFormula(collId: string, propId: string, formula: unknown): PreviewResult;
   preview(): PreviewResult; // validate the current cassette + a sample output (never persists)
   dirty(): boolean; // are there edits not yet persisted?
   saved(): boolean; // is there a persisted override (vs. shipped defaults)?
@@ -38,21 +41,34 @@ export function createModelEditing(shipped: Cassette): ModelEditing {
   let isDirty = false;
   const subs: (() => void)[] = [];
   const notify = (): void => { for (const cb of subs) cb(); };
+  const commit = (): void => {
+    try { localStorage.setItem(key, JSON.stringify(cass)); } catch { /* private mode / quota — durability is best-effort */ }
+    isDirty = false;
+    notify();
+  };
 
   return {
     key,
     cass: () => cass,
     applyTableCell: (c, t, k, m) => { cass = setTableCell(cass, c, t, k, m); isDirty = true; },
     applyLiteral: (c, p, path, raw) => { cass = setFormulaLiteral(cass, c, p, path, raw); isDirty = true; },
+    trySetFormula: (c, p, formula) => {
+      const candidate = setFormula(cass, c, p, formula);
+      const res = previewCassette(candidate); // load + typecheck + the OUTPUT field is not an error
+      if (!res.ok) return res;
+      const fieldRes = previewField(candidate, c, p); // the EDITED field itself: not an error, type unchanged
+      if (!fieldRes.ok) return fieldRes;
+      cass = candidate;
+      commit();
+      return res;
+    },
     preview: () => previewCassette(cass),
     dirty: () => isDirty,
     saved: () => { try { return !!localStorage.getItem(key); } catch { return false; } },
     save: () => {
       const res = previewCassette(cass);
       if (!res.ok) return res; // never persist an invalid cassette
-      try { localStorage.setItem(key, JSON.stringify(cass)); } catch { /* private mode / quota — durability is best-effort */ }
-      isDirty = false;
-      notify();
+      commit();
       return res;
     },
     revert: () => {
