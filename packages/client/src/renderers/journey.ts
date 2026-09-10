@@ -93,7 +93,9 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, workspace
   // resolve a step's field context: which store/row/plan its fields come from. A step with a collection
   // edits that collection's CHILD row (joined to the spine); otherwise it edits the spine itself.
   const resolveStep = (step: { collection?: string }, spineRow: Row, spineByField: ByField): StepCtx | null => {
-    if (!step.collection) return { fstore: store, row: spineRow, byField: spineByField };
+    // a step with no collection, OR one naming the spine's OWN collection (a section that edits the spine
+    // itself, e.g. the downstream product in a compiled L2 journey), edits the spine row directly.
+    if (!step.collection || step.collection === store.id) return { fstore: store, row: spineRow, byField: spineByField };
     const cs = workspace.collection(step.collection);
     const cd = model.collections.find((c) => c.id === step.collection);
     if (!cs || !cd) return null;
@@ -207,9 +209,13 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, workspace
     return bar;
   };
 
+  // a journey is a stepped WIZARD only when it has a step field driving >1 step; otherwise (a calculator,
+  // or a composed journey with no step machine) it is a single page — no stepper, no stepped/single toggle.
+  const hasStepper = !!stepField && steps.length > 1;
+
   return effect(() => {
     const rows = store.rows.value;
-    const mode = layout.value;
+    const mode = hasStepper ? layout.value : 'single';
     const ae = document.activeElement as HTMLInputElement | null;
     const keepId = ae && ae.id && wrap.contains(ae) ? ae.id : null;
     const keepVal = keepId ? ae!.value : null;
@@ -219,7 +225,7 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, workspace
     const announceParts: string[] = [];
     const nowVisible = new Set<string>();
     let modeAnnounced = false;
-    if (steps.length > 1) wrap.append(buildToggle(mode));
+    if (hasStepper) wrap.append(buildToggle(mode));
     if (focusToggle) {
       focusToggle = false;
       modeAnnounced = true;
@@ -326,26 +332,31 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, workspace
           section.append(grid);
           main.append(section);
         }
-        const lastStepId = steps[steps.length - 1]?.id;
-        if (stepVal === lastStepId) {
-          const done = el('div', 'jc-complete');
-          done.append(el('span', 'jc-complete-mark', '✓'), el('span', 'jc-complete-text', 'Uw aanvraag is afgerond.'));
-          main.append(done);
-          announceParts.push('Uw aanvraag is afgerond');
-        } else {
-          const navBar = el('div', 'journey-nav');
-          navBar.setAttribute('role', 'group');
-          navBar.setAttribute('aria-label', 'Aanvraag afronden');
-          const submit = el('button', 'j-btn j-next', 'Aanvraag afronden →') as HTMLButtonElement;
-          submit.type = 'button';
-          const ok = readyToSubmit(spineRow);
-          submit.dataset.state = ok ? 'ready' : 'blocked';
-          submit.disabled = !ok;
-          submit.setAttribute('aria-disabled', String(!ok));
-          if (!ok) submit.title = confirmField ? 'Vul alle stappen in en accepteer de voorwaarden' : 'Bevestig elke sectie';
-          submit.addEventListener('click', () => ok && walkToEnd(spineRow.id, stepVal ?? steps[0]?.id ?? ''));
-          navBar.append(submit);
-          main.append(navBar);
+        // the terminal (done / submit) belongs only to a real WIZARD — a journey with a step machine
+        // driving >1 step. A step-field-less journey (a compiled L2 pakket, or a single-step calculator)
+        // is a live form: no submit, no false "afgerond" — the rail already shows the result.
+        if (hasStepper) {
+          const lastStepId = steps[steps.length - 1]?.id;
+          if (stepVal === lastStepId) {
+            const done = el('div', 'jc-complete');
+            done.append(el('span', 'jc-complete-mark', '✓'), el('span', 'jc-complete-text', 'Uw aanvraag is afgerond.'));
+            main.append(done);
+            announceParts.push('Uw aanvraag is afgerond');
+          } else {
+            const navBar = el('div', 'journey-nav');
+            navBar.setAttribute('role', 'group');
+            navBar.setAttribute('aria-label', 'Aanvraag afronden');
+            const submit = el('button', 'j-btn j-next', 'Aanvraag afronden →') as HTMLButtonElement;
+            submit.type = 'button';
+            const ok = readyToSubmit(spineRow);
+            submit.dataset.state = ok ? 'ready' : 'blocked';
+            submit.disabled = !ok;
+            submit.setAttribute('aria-disabled', String(!ok));
+            if (!ok) submit.title = confirmField ? 'Vul alle stappen in en accepteer de voorwaarden' : 'Bevestig elke sectie';
+            submit.addEventListener('click', () => ok && walkToEnd(spineRow.id, stepVal ?? steps[0]?.id ?? ''));
+            navBar.append(submit);
+            main.append(navBar);
+          }
         }
       }
 

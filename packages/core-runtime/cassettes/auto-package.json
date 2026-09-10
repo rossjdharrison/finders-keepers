@@ -1,0 +1,32 @@
+{
+  "kind": "journey",
+  "id": "auto-package",
+  "title": "Autopakket",
+  "doc": "Verzekering én financiering voor uw auto in één maandbedrag. De cataloguswaarde uit de verzekeringscassette wordt GEBONDEN aan het te financieren bedrag — de cross-cassette L2-naad die twee losse producten samenstelt, gecomponeerd via relaties + rollup in dezelfde verzegelde @core.",
+  "locale": "nl",
+  "models": [
+    { "ref": "car-insurance", "as": "ins" },
+    { "ref": "financing", "as": "fin" }
+  ],
+  "spine": "fin",
+  "bindings": [
+    {
+      "id": "valToPrincipal",
+      "from": "ins",
+      "to": "fin",
+      "contract": {
+        "provides": [{ "as": "vval", "source": "output:vehicleValue" }],
+        "requires": [{ "name": "vval", "target": "field:principal" }]
+      },
+      "mapping": [{ "to": "principal", "from": { "op": "field", "id": "vval" } }]
+    }
+  ],
+  "surface": [
+    { "as": "insPremium", "from": "ins", "field": "premium", "label": "Verzekering p/m" }
+  ],
+  "total": { "field": "combinedMonthly", "of": ["insPremium", "finMonthly"], "label": "Maandbedrag", "per": "per maand" },
+  "sections": [
+    { "model": "ins", "label": "Verzekering", "fields": ["plate", "vehicleDesc", "vehicleValue", "cover", "optLegalAid", "premium"] },
+    { "model": "fin", "label": "Financiering", "fields": ["principal", "downPayment", "termMonths", "annualRate", "finMonthly"] }
+  ]
+}

@@ -13,31 +13,30 @@
 
 import './style/index.css';
 import logoSvg from './assets/rowblaa-logo.svg?raw';
-import carInsurance from './cassettes/car-insurance.json';
-import composedCassette from './cassettes/car-insurance-composed.json';
 import type { Cassette, Collection } from '@app/core-runtime';
 import { applyTheme, initialMode, type ThemeMode } from './theme.ts';
 import { setLocale, format } from './format.ts';
 import { buildEditableFormula } from './renderers/formula-edit.ts';
 import { setTableCell, tableCellMinor, setFormulaLiteral, previewCassette } from './model-edit.ts';
+import { REGISTRY, presentationDonor } from './cassette-registry.ts';
 
-// the two journeys this one editor can edit. The composed cassette carries no theme/l10n of its own —
-// it reuses the flat cassette's presentation (as its player does), so those are the fallback here.
-const flat = carInsurance as unknown as Cassette;
-const MODELS: Record<string, { cassette: Cassette; player: string; label: string }> = {
-  'car-insurance': { cassette: flat, player: '/play.html?cassette=car-insurance', label: 'Enkele pagina' },
-  'car-insurance-composed': { cassette: composedCassette as unknown as Cassette, player: '/play.html?cassette=car-insurance-composed', label: 'Composed' },
-};
-const rawModel = new URLSearchParams(location.search).get('model') ?? 'car-insurance';
-const modelId = MODELS[rawModel] ? rawModel : 'car-insurance'; // normalize: an unknown ?model= resolves to flat AND marks its tab active
+// registry-driven: this ONE editor can edit ANY product cassette (chosen by ?model=<id>). A cassette
+// carrying no theme/l10n of its own (e.g. the composed variant) borrows a donor's presentation.
+const MODELS: Record<string, { cassette: Cassette; player: string; label: string }> = Object.fromEntries(
+  Object.values(REGISTRY).map((c) => [c.id, { cassette: c, player: `/play.html?cassette=${c.id}`, label: c.id }]),
+);
+const ids = Object.keys(MODELS);
+const rawModel = new URLSearchParams(location.search).get('model') ?? (MODELS['car-insurance'] ? 'car-insurance' : ids[0]);
+const modelId = MODELS[rawModel] ? rawModel : MODELS['car-insurance'] ? 'car-insurance' : ids[0]; // normalize unknown → default
 const active = MODELS[modelId];
 const shipped = active.cassette;
 const MODEL_KEY = `fk-cassette-model-${shipped.id}`;
 const locale = shipped.locale ?? 'nl';
 setLocale(locale);
-const theme = shipped.theme ?? flat.theme; // composed reuses the flat brand/palette
+const pres = presentationDonor(shipped);
+const theme = shipped.theme ?? pres.theme; // a lean cassette borrows a donor's brand/palette
 const brand = theme?.brand ?? {};
-const labels = { ...(flat.l10n?.[locale] ?? {}), ...(shipped.l10n?.[locale] ?? {}) };
+const labels = { ...(pres.l10n?.[locale] ?? {}), ...(shipped.l10n?.[locale] ?? {}) };
 // friendly names for the composed collections (the flat cassette has a single, unnamed collection)
 const COLL_LABELS: Record<string, string> = { applications: 'Aanvraag', vehicles: 'Voertuig', drivers: 'Bestuurder', covers: 'Dekking' };
 const collLabel = (coll: Collection): string => labels[coll.id] ?? COLL_LABELS[coll.id] ?? coll.id;
