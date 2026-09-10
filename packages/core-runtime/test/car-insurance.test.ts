@@ -34,6 +34,16 @@ test('the aanvragen premium is an additive money breakdown, vehicle + region fro
   assert.equal(minor(row.doc.premium), 2550); // 26.50 − 1.50 + 0.50 (monthly billing) = 25.50
 });
 
+test('no spurious charge before there are enough details — the premium stays BLANK, not €5', () => {
+  const core = createCore(mockExterns());
+  core.load(cassette);
+  // only a plate entered (vehicle resolves) — no driver/cover inputs yet
+  const [row] = core.apply('applications', [{ op: 'insert', row: 'p', values: { step: en('step', 'vehicle'), plate: text('99-XYZ-1') } }]);
+  assert.equal(row.doc.premium?.t, 'blank'); // no premium until the pricing inputs are present
+  assert.equal(row.doc.noClaimDiscount?.t, 'blank'); // NOT ncDiscount[max]=€5 from a blank schadevrijeJaren
+  assert.equal(row.doc.ageSurcharge?.t, 'blank'); // NOT ageRate[senior] from a blank age
+});
+
 test('extern-only egress: the core reaches the world only through the RDW + region mocks', () => {
   const ext = mockExterns();
   const core = createCore(ext);
