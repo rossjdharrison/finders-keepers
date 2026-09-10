@@ -21,8 +21,8 @@ const elem = (tag: string, cls?: string, text?: string): HTMLElement => {
 const CMP: Record<string, string> = { eq: '=', ne: '≠', lt: '<', lte: '≤', gt: '>', gte: '≥', add: '+', sub: '−', mul: '×', div: '÷' };
 
 // A formula AST -> a compact, readable expression. This is the derived "mechanism":
-// it is READ from the stored formula, never typed by a doc author.
-function describeFormula(node: unknown): string {
+// it is READ from the stored formula, never typed by a doc author. Exported for the admin rules view.
+export function describeFormula(node: unknown): string {
   const n = node as { op?: string; id?: string; value?: import('@core/values').Value; args?: unknown[]; via?: string; agg?: string; of?: unknown; table?: string; key?: unknown; key2?: unknown; cmp?: unknown; observable?: unknown; threshold?: unknown; pred?: unknown; evidence?: unknown; fn?: string; path?: string[] };
   if (!n || typeof n !== 'object') return String(node);
   switch (n.op) {

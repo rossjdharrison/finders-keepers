@@ -30,7 +30,22 @@ import { RENDERERS } from './registry.ts';
 import { coreVocabulary } from './resolve.ts';
 import type { CollectionDoc, ModelBundle, ViewDoc } from './types.ts';
 
-const cass = carInsurance as unknown as Cassette;
+// the model is DATA: if the admin (/admin.html) has saved edited rules for this cassette, the player
+// loads those instead of the shipped JSON — that is how a rule change reaches the live aanvraag.
+let modelIsEdited = false;
+const cass: Cassette = ((): Cassette => {
+  const shipped = carInsurance as unknown as Cassette;
+  try {
+    const ov = localStorage.getItem(`fk-cassette-model-${shipped.id}`);
+    if (ov) {
+      modelIsEdited = true;
+      return JSON.parse(ov) as Cassette;
+    }
+  } catch {
+    /* fall back to shipped */
+  }
+  return shipped;
+})();
 setLocale(cass.locale ?? 'nl'); // money reads "€ 6.800,00" and numbers group per the cassette's locale
 const brand = cass.theme?.brand ?? {};
 if (cass.title) document.title = `${brand.name ?? 'Rowblaa Bank'} — ${brand.product ?? ''}`.trim();
@@ -53,6 +68,7 @@ app.innerHTML = `
         Beveiligd
       </span>
       ${cass.example ? '<button class="cc-btn cc-btn-quiet" id="fill-example" type="button">Voorbeeld invullen</button>' : ''}
+      <a class="cc-btn cc-btn-quiet" id="admin-link" href="/admin.html">Beheer${modelIsEdited ? ' <span class="bank-edited" title="Er zijn aangepaste regels actief">•</span>' : ''}</a>
       <button class="cc-btn cc-btn-quiet" id="cookie-prefs" type="button">Cookievoorkeuren</button>
       <button class="theme-toggle" id="theme" type="button" aria-label="Wissel tussen licht en donker thema"></button>
     </div>

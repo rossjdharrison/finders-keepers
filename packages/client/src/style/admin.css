@@ -1,0 +1,39 @@
+/* @layer request (reused) — the admin / rules editor. Keyed on Tier-1 tokens, so it themes. */
+@layer request {
+  .admin { max-width: 1080px; margin: 0 auto; }
+  .admin-cols { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 30px; align-items: start; }
+  @media (max-width: 900px) { .admin-cols { grid-template-columns: 1fr; } }
+
+  .adm-main {
+    background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 24px 26px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .adm-h { font-family: var(--font-brand); font-size: 20px; font-weight: 600; color: var(--ink); margin: 18px 0 0; }
+  .adm-h:first-child { margin-top: 0; }
+  .adm-sub { color: var(--ink-muted); font-size: 12.5px; line-height: 1.5; margin: 0 0 8px; max-width: 60ch; }
+
+  .adm-table { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border); }
+  .adm-table-title { font-family: var(--font-mono); font-size: 12px; letter-spacing: .02em; color: var(--role-relation-ink); font-weight: 600; margin: 0; }
+  .adm-rates { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 14px; }
+  .adm-rate { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; }
+  .adm-rate-key { font-size: 12.5px; color: var(--ink-muted); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; }
+  .adm-rate-cur { color: var(--ink-faint); font-size: 13px; }
+  .adm-rate-input { max-width: 96px; text-align: right; font-variant-numeric: tabular-nums; }
+  .admin .cell-input { background: var(--surface-sunken); color: var(--ink); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 9px; font: inherit; font-size: 13.5px; }
+  .admin .cell-input:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+  .admin .cell-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); background: var(--surface-raised); }
+
+  .adm-formulas { display: flex; flex-direction: column; gap: 0; }
+  .adm-formula { display: grid; grid-template-columns: 180px 1fr; gap: 14px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--border); }
+  .adm-formula-id { font-size: 12.5px; color: var(--ink); font-weight: 500; }
+  .adm-formula-body { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-muted); line-height: 1.5; overflow-wrap: anywhere; }
+
+  .adm-preview { position: sticky; top: 20px; }
+  .adm-preview .quote { gap: 12px; }
+  .adm-status { font-size: 12.5px; font-weight: 600; }
+  .adm-status[data-state="positive"] { color: var(--state-positive); }
+  .adm-status[data-state="error"] { color: var(--state-error); font-weight: 500; font-size: 12px; overflow-wrap: anywhere; }
+  .adm-actions { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .adm-actions .j-btn { width: 100%; text-align: center; }
+  .adm-saved { font-size: 11.5px; color: var(--ink-muted); }
+}
