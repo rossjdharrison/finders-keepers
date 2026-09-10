@@ -5,6 +5,12 @@
  *    role inks + a CLOSED state ramp (data-state's codomain). A theme rebinds ONLY these.
  * Back-compat aliases map the old variable names onto the tiers at identical values, so the
  * legacy chrome/table/board/self-portrait/doc CSS keeps working byte-for-byte. */
+
+/* The `hidden` attribute must always win over a component's own display (drawers/dialogs/backdrops
+ * toggle `el.hidden`, but their .class sets display:flex/block, which would otherwise override the
+ * UA [hidden] rule). Unlayered + !important so it beats every component rule. */
+[hidden] { display: none !important; }
+
 :root {
   color-scheme: dark;
   /* type + shape tokens — the model's theme.fonts / theme.radius rebind these (fallback residue here) */
