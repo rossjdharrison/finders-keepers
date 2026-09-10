@@ -1,0 +1,161 @@
+/* @layer request (reused) — the Loom: view a cassette/journey's structure + dependency graph, and
+ * alter its rules. Keyed entirely on Tier-1 semantic tokens, so it themes (light/dark) with the brand. */
+@layer request {
+  .lm { max-width: 1120px; margin: 0 auto; }
+
+  /* source-role inks (shared by structure badges, graph nodes, legend) */
+  .lm {
+    --lm-stored: var(--ink-faint);
+    --lm-computed: var(--accent);
+    --lm-extern: var(--state-pending);
+    --lm-rollup: var(--emphasis);
+  }
+
+  /* --- hero --------------------------------------------------------------------------------- */
+  .lm-hero { padding: 6px 0 18px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+  .lm-hero-badge {
+    display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: var(--radius-pill); margin-bottom: 10px;
+  }
+  .lm-badge-flat { color: var(--role-relation-ink); background: color-mix(in srgb, var(--role-relation-ink) 12%, transparent); }
+  .lm-badge-composed { color: var(--on-accent, #fff); background: var(--accent); }
+  .lm-badge-journey { color: var(--on-accent, #fff); background: var(--state-positive, #2f855a); }
+  .lm-hero-title { font-family: var(--font-brand); font-size: 27px; font-weight: 600; letter-spacing: -.02em; color: var(--ink); margin: 0 0 6px; }
+  .lm-hero-doc { color: var(--ink-muted); font-size: 13.5px; line-height: 1.6; margin: 0; max-width: 74ch; }
+
+  /* --- tabs --------------------------------------------------------------------------------- */
+  .lm-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .lm-tab {
+    appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    padding: 9px 15px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink-muted); cursor: pointer;
+    transition: color .12s ease, border-color .12s ease;
+  }
+  .lm-tab:hover { color: var(--ink); }
+  .lm-tab.is-active { color: var(--accent); border-bottom-color: var(--accent); }
+  .lm-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+  .lm-panel-intro { color: var(--ink-muted); font-size: 12.5px; line-height: 1.55; margin: 0 0 16px; max-width: 78ch; }
+
+  /* --- structure --------------------------------------------------------------------------- */
+  .lm-structure { display: flex; flex-direction: column; gap: 16px; }
+  .lm-coll { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
+  .lm-coll-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 4px; }
+  .lm-coll-title-wrap { display: flex; align-items: baseline; gap: 10px; }
+  .lm-coll-title { font-family: var(--font-brand); font-size: 18px; font-weight: 600; color: var(--ink); }
+  .lm-coll-id { font-size: 11.5px; color: var(--ink-faint); }
+  .lm-coll-counts { display: flex; gap: 12px; }
+  .lm-coll-count { font-size: 11.5px; color: var(--ink-faint); }
+  .lm-count-computed { color: var(--lm-computed); }
+  .lm-coll-class { display: flex; flex-direction: column; gap: 1px; padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+  .lm-cls-name { font-family: var(--font-mono); font-size: 12px; color: var(--role-relation-ink); font-weight: 600; }
+  .lm-chain { font-size: 11px; color: var(--ink-faint); font-family: var(--font-mono); overflow-wrap: anywhere; }
+
+  .lm-fields { display: flex; flex-direction: column; }
+  .lm-field { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; padding: 9px 0; border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+  .lm-field:first-child { border-top: 0; }
+  .lm-src-badge {
+    display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-top: 1px;
+    border-radius: var(--radius-sm); font-size: 12px; font-weight: 700;
+    color: var(--lm-stored); background: color-mix(in srgb, var(--lm-stored) 12%, transparent);
+  }
+  .lm-src-computed .lm-src-badge { color: var(--lm-computed); background: color-mix(in srgb, var(--lm-computed) 14%, transparent); }
+  .lm-src-extern .lm-src-badge { color: var(--lm-extern); background: color-mix(in srgb, var(--lm-extern) 16%, transparent); }
+  .lm-field-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .lm-field-line { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+  .lm-field-label { font-size: 13.5px; font-weight: 500; color: var(--ink); }
+  .lm-field-type { font-size: 11px; color: var(--ink-faint); }
+  .lm-tag { font-size: 10px; font-weight: 600; letter-spacing: .02em; padding: 1px 7px; border-radius: var(--radius-pill); text-transform: uppercase; }
+  .lm-tag-gated { color: var(--state-pending); background: color-mix(in srgb, var(--state-pending) 15%, transparent); }
+  .lm-tag-live { color: var(--role-relation-ink); background: color-mix(in srgb, var(--role-relation-ink) 12%, transparent); }
+  .lm-field-formula { font-size: 11.5px; color: var(--ink-muted); line-height: 1.7; overflow-wrap: anywhere; }
+  .lm-src-computed .lm-field-formula { color: var(--ink); }
+  .lm-eq { color: var(--lm-computed); font-weight: 700; }
+  .lm-field-ground { font-size: 10.5px; color: var(--ink-faint); font-family: var(--font-mono); overflow-wrap: anywhere; }
+
+  .lm-relations .lm-coll-head { margin-bottom: 10px; }
+  .lm-relation { display: grid; grid-template-columns: minmax(90px, auto) minmax(120px, auto) 1fr; gap: 14px; align-items: baseline; padding: 8px 0; border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+  .lm-rel-via { font-size: 12px; color: var(--role-relation-ink); }
+  .lm-rel-edge { display: inline-flex; align-items: baseline; gap: 7px; }
+  .lm-rel-node { font-family: var(--font-mono); font-size: 12px; color: var(--ink); }
+  .lm-rel-arrow { color: var(--lm-rollup); font-weight: 700; }
+  .lm-rel-prose { font-size: 12px; color: var(--ink-muted); }
+
+  /* --- dependency graph -------------------------------------------------------------------- */
+  .lm-graph-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--surface-sunken) 40%, var(--surface)); padding: 8px; }
+  .lm-graph-svg, .lm-jgraph-svg { display: block; max-width: none; }
+
+  .lm-wire { fill: none; stroke-width: 1.5; transition: opacity .12s ease, stroke-width .12s ease; }
+  .lm-wire-dep { stroke: color-mix(in srgb, var(--role-relation-ink) 55%, var(--border)); }
+  .lm-wire-ref { stroke: var(--ink-faint); stroke-dasharray: 4 3; }
+  .lm-wire-rollup { stroke: var(--lm-rollup); stroke-width: 2; }
+  .lm-graph-svg.is-hovering .lm-wire { opacity: .12; }
+  .lm-graph-svg.is-hovering .lm-wire.is-lit { opacity: 1; stroke-width: 2.4; }
+
+  .lm-node { cursor: default; }
+  .lm-node:focus-visible { outline: none; }
+  .lm-node-box { fill: var(--surface-raised); stroke: var(--border); stroke-width: 1; transition: opacity .12s ease; }
+  .lm-node-badge { font-size: 12px; font-weight: 700; fill: var(--lm-stored); }
+  .lm-node-label { font-size: 12px; font-weight: 600; fill: var(--ink); }
+  .lm-node-sub { font-size: 9.5px; fill: var(--ink-faint); font-family: var(--font-mono); }
+  .lm-node-computed .lm-node-box { stroke: color-mix(in srgb, var(--lm-computed) 45%, var(--border)); }
+  .lm-node-computed .lm-node-badge { fill: var(--lm-computed); }
+  .lm-node-extern .lm-node-box { stroke: color-mix(in srgb, var(--lm-extern) 45%, var(--border)); }
+  .lm-node-extern .lm-node-badge { fill: var(--lm-extern); }
+  .lm-node-output .lm-node-box { stroke: var(--lm-rollup); stroke-width: 2; fill: color-mix(in srgb, var(--lm-rollup) 8%, var(--surface-raised)); }
+  .lm-node-cyclic .lm-node-box { stroke: var(--state-error); stroke-width: 2; }
+  .lm-node:focus-visible .lm-node-box { stroke: var(--accent); stroke-width: 2.4; }
+  .lm-graph-svg.is-hovering .lm-node.is-dim { opacity: .3; }
+
+  .lm-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; font-size: 11.5px; color: var(--ink-muted); }
+  .lm-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .lm-legend-glyph { font-weight: 700; }
+  .lm-l-stored .lm-legend-glyph { color: var(--lm-stored); }
+  .lm-l-computed .lm-legend-glyph { color: var(--lm-computed); }
+  .lm-l-extern .lm-legend-glyph { color: var(--lm-extern); }
+  .lm-l-dep .lm-legend-glyph { color: color-mix(in srgb, var(--role-relation-ink) 70%, var(--border)); }
+  .lm-l-rollup .lm-legend-glyph { color: var(--lm-rollup); }
+  .lm-l-cyclic .lm-legend-glyph { color: var(--state-error); }
+
+  /* --- journey composition graph ----------------------------------------------------------- */
+  .lm-jwire { fill: none; stroke: var(--lm-rollup); stroke-width: 2; }
+  .lm-jwire-label { font-size: 10px; fill: var(--ink-faint); font-family: var(--font-mono); }
+  .lm-jbox-box { fill: var(--surface-raised); stroke: var(--border); stroke-width: 1; transition: stroke .12s ease; }
+  .lm-jbox:hover .lm-jbox-box, .lm-jbox:focus-visible .lm-jbox-box { stroke: var(--accent); stroke-width: 2; }
+  .lm-jbox-spine .lm-jbox-box { stroke: color-mix(in srgb, var(--lm-rollup) 55%, var(--border)); }
+  .lm-jbox-role { font-size: 9.5px; fill: var(--ink-faint); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .03em; }
+  .lm-jbox-name { font-size: 14px; font-weight: 600; fill: var(--ink); font-family: var(--font-brand); }
+  .lm-jbox-alias { font-size: 10px; fill: var(--ink-faint); font-family: var(--font-mono); }
+  .lm-jbox-drill { font-size: 11px; fill: var(--accent); font-weight: 600; }
+  .lm-jbox { text-decoration: none; }
+
+  .lm-jfold { margin-top: 16px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 20px; }
+  .lm-jfold-lines { display: flex; flex-direction: column; gap: 6px; }
+  .lm-jfold-line { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; font-size: 13px; color: var(--ink-muted); }
+  .lm-jfold-src { font-size: 11px; color: var(--ink-faint); }
+  .lm-jfold-total { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 14px; font-weight: 600; color: var(--ink); }
+  .lm-jfold-total .lm-mono { color: var(--lm-rollup); font-weight: 600; }
+
+  /* --- journey seams (view-only) + edit-through -------------------------------------------- */
+  .lm-seams { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+  .lm-seam { display: grid; grid-template-columns: minmax(110px, auto) 1fr auto; gap: 14px; align-items: center; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 11px 15px; }
+  .lm-seam-id { font-size: 12px; color: var(--role-relation-ink); }
+  .lm-seam-flow { display: inline-flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .lm-seam-node { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink); }
+  .lm-seam-lock { font-size: 11px; color: var(--lm-rollup); white-space: nowrap; }
+
+  .lm-edit-through { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 20px; }
+  .lm-edit-through-head { font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; margin-bottom: 10px; }
+  .lm-edit-link { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 10px 0; border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); text-decoration: none; color: inherit; }
+  .lm-edit-link:first-of-type { border-top: 0; }
+  .lm-edit-link-name { font-size: 14px; font-weight: 600; color: var(--ink); }
+  .lm-edit-link:hover .lm-edit-link-name { color: var(--accent); }
+  .lm-edit-link-go { font-size: 12.5px; font-weight: 600; color: var(--accent); }
+
+  .lm-mono { font-family: var(--font-mono); }
+  .lm-empty { color: var(--ink-muted); font-size: 14px; padding: 20px; }
+
+  @media (max-width: 640px) {
+    .lm-relation { grid-template-columns: 1fr; gap: 4px; }
+    .lm-seam { grid-template-columns: 1fr; gap: 6px; }
+  }
+}

@@ -29,4 +29,12 @@
   .cat-vital { font-size: 11.5px; color: var(--ink-faint); }
   .cat-vital.cat-mono { font-family: var(--font-mono); }
   .cat-go { font-size: 13px; font-weight: 600; color: var(--accent); }
+
+  /* the card now holds two entries: the player (main) and the Loom (foot) */
+  .cat-card-main { display: flex; flex-direction: column; gap: 10px; flex: 1; text-decoration: none; color: inherit; min-width: 0; }
+  .cat-card-main:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--radius-sm); }
+  .cat-card-foot { padding-top: 12px; border-top: 1px solid var(--border); }
+  .cat-card-loom { font-size: 12.5px; font-weight: 600; color: var(--ink-muted); text-decoration: none; }
+  .cat-card-loom:hover { color: var(--accent); }
+  .cat-card-loom:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
 }
