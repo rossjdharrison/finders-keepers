@@ -141,11 +141,16 @@ export function compileJourney(doc: JourneyDoc, registry: Record<string, Cassett
       const seamField = `__seam_${b.id}_${target}`;
       child.properties.push({ id: seamField, valueType: tprop.valueType, source: 'computed', formula: expr } as Collection['properties'][number]);
       // turn the bound input into a live, non-editable computed rollup over the 1-row relation = the value.
-      // sum for money/num; min for any OTHER type (enum/text/bool/date) — over a single child row min/sum
-      // both return that one value unchanged (the reduce/compare never fires), so ANY typed value crosses
-      // the seam, cascade-live, with no engine change. This is what lets a categorical output (a region
-      // class) flow between configurators — the crux of composable functional decomposition.
-      const agg = tprop.valueType.k === 'money' || tprop.valueType.k === 'num' ? 'sum' : 'min';
+      // Over a single PRESENT child row every agg returns that one value unchanged, so ANY typed value crosses
+      // the seam, cascade-live, with no engine change (the crux of composable decomposition). The agg matters
+      // only in the EMPTY/blank case, and there 'min' is the safe choice for EVERY type: aggregate() filters
+      // blanks first, so a cleared upstream field rolls up to BLANK (not a fabricated zero). 'sum' would return
+      // num(0) instead — and num(0) is NOT harmless: it slips past the pervasive `if(eq(field, blank), blank,
+      // lookup(…))` guards (num(0) ≠ blank), landing in an extreme band → a SILENT MISPRICE (a cleared age
+      // reads as the youngest/highest surcharge; a cleared km as the lowest), and for a money target it hits a
+      // runtime "compare num vs money" #TYPE downstream. BLANK is caught by those guards and orderable without
+      // #TYPE, so a cleared input yields the standalone cassette's own 'incomplete' semantics, not a wrong price.
+      const agg = 'min';
       tprop.source = 'computed';
       (tprop as { formula?: unknown }).formula = { op: 'rollup', via: rel, agg, of: { op: 'field', id: seamField } };
       // it's a computed rollup now — drop the input-only metadata it no longer carries (a stale extern
@@ -174,7 +179,12 @@ export function compileJourney(doc: JourneyDoc, registry: Record<string, Cassett
       rel = `rel_surface_${s.as}`;
       relations[rel] = { parentColl: spine.id, childColl: child.id, childField };
     }
-    spine.properties.push({ id: s.as, valueType: { k: 'money' }, source: 'computed', category: 'amount_of_money', formula: { op: 'rollup', via: rel, agg: 'sum', of: { op: 'field', id: s.field } } } as Collection['properties'][number]);
+    // 'min' over the cardinality-1 surface relation, for the SAME reason as the value-binding rollup above:
+    // it returns the single present value unchanged, but an EMPTY/blank child field rolls up to BLANK rather
+    // than num(0). A num(0) here would flow into the spine total's `add(insPremium, finMonthly)` and, because
+    // one term is num and the other money, raise a "#TYPE add(num, money)" at the journey's headline total —
+    // whereas BLANK propagates cleanly through add() (a partial total shows as incomplete, not as an error).
+    spine.properties.push({ id: s.as, valueType: { k: 'money' }, source: 'computed', category: 'amount_of_money', formula: { op: 'rollup', via: rel, agg: 'min', of: { op: 'field', id: s.field } } } as Collection['properties'][number]);
   }
 
   // 4. total: the combined figure on the spine
