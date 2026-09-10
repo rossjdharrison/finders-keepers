@@ -2,10 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import type { Cassette } from '@app/core-runtime';
+import { createCore, mockExterns } from '@app/core-runtime';
 import { compileJourney, type JourneyDoc } from '../compile-journey.ts';
 import { projectStructure } from './structure.ts';
 import { buildGraph } from './graph.ts';
 import { buildJourneyGraph } from './journey-graph.ts';
+import { addBinding, removeBinding, setBindingMapping, setBindingCondition, setTotalOf, removeSurface, removeModel, previewJourney } from './journey-edit.ts';
 
 const read = (f: string): Cassette => JSON.parse(readFileSync(new URL('../../../core-runtime/cassettes/' + f, import.meta.url), 'utf8'));
 const id = (s: string): string => s;
@@ -89,16 +91,129 @@ test('buildGraph: a compiled journey draws the L2 binding seam as a rollup edge 
 
 // --- journey composition graph -------------------------------------------------------------------
 
-test('buildJourneyGraph: models become boxes, the spine sits downstream, the binding is a wire', () => {
+test('buildJourneyGraph: models become boxes, the spine sits downstream, every binding is a wire', () => {
   const jg = buildJourneyGraph(journeyDoc(), { label: id });
   assert.equal(jg.boxes.length, 2, 'two member products');
   const fin = jg.boxes.find((b) => b.alias === 'fin')!;
   const ins = jg.boxes.find((b) => b.alias === 'ins')!;
   assert.equal(fin.isSpine, true, 'the spine carries the total');
   assert.ok(fin.rank > ins.rank, 'the downstream spine sits right of its upstream supplier');
-  assert.equal(jg.wires.length, 1, 'one binding');
-  assert.equal(jg.wires[0].from, 'ins');
-  assert.equal(jg.wires[0].to, 'fin');
+  assert.equal(jg.wires.length, 2, 'two bindings (value→principal and no-claim→loyalty)');
+  for (const w of jg.wires) {
+    assert.equal(w.from, 'ins');
+    assert.equal(w.to, 'fin');
+  }
   assert.equal(jg.total.field, 'combinedMonthly');
   assert.ok(jg.surface.length >= 1, 'the surfaced insurance premium line is present');
+});
+
+// --- compile-journey: multiple bindings between the same pair, + conditional bindings --------------
+
+const num = (v: unknown): number => Number((v as { v?: unknown })?.v ?? v);
+
+test('compileJourney: two bindings between the same pair share ONE ref/seed row; the loyalty rate flows', () => {
+  const registry = { 'car-insurance': carInsurance(), financing: read('financing.json') };
+  const compiled = compileJourney(journeyDoc(), registry as never);
+  // exactly one __to_fin ref field on the child (not one per binding), and one seed row per model
+  const child = compiled.collections.find((c) => c.id === 'ins__applications')!;
+  const toRefs = child.properties.filter((p) => p.id === '__to_fin');
+  assert.equal(toRefs.length, 1, 'the shared parent ref is declared once, not per binding');
+  const insSeeds = compiled.seed!.filter((s) => s.row === 'ins-1');
+  assert.equal(insSeeds.length, 1, 'the child is seeded once even though it binds twice');
+
+  const core = createCore(mockExterns());
+  core.load(compiled);
+  for (const s of compiled.seed!) core.apply(s.coll, [{ op: 'insert', row: s.row, values: s.values }]);
+  const fin = core.read('fin__financings')[0];
+  // schadevrijeJaren example = 6 → loyaltyYears bound to 6 → loyaltyDiscount 0.005 → annualRate = 0.079 − 0.005
+  assert.equal(num(fin.doc.loyaltyYears), 6, 'loyaltyYears bound from the insurance no-claim years');
+  assert.equal(num(fin.doc.loyaltyDiscount), 0.005, 'a 0.5% loyalty discount at 6 years');
+  assert.ok(Math.abs(num(fin.doc.annualRate) - 0.074) < 1e-9, 'effective rate = base 0.079 − loyalty 0.005');
+});
+
+test('compileJourney: a conditional binding takes a typed zero when its condition is false', () => {
+  const registry = { 'car-insurance': carInsurance(), financing: read('financing.json') };
+  const gated = structuredClone(journeyDoc());
+  // gate the loyalty binding on an impossible threshold (example schadevrijeJaren = 6) → never applies
+  (gated.bindings[1] as { condition?: unknown }).condition = { op: 'gte', args: [{ op: 'field', id: 'schadevrijeJaren' }, { op: 'lit', value: { t: 'num', v: 100 } }] };
+  const compiled = compileJourney(gated, registry as never);
+  const core = createCore(mockExterns());
+  core.load(compiled);
+  for (const s of compiled.seed!) core.apply(s.coll, [{ op: 'insert', row: s.row, values: s.values }]);
+  const fin = core.read('fin__financings')[0];
+  assert.equal(num(fin.doc.loyaltyYears), 0, 'gated-off binding yields the typed zero, not the provided 6');
+  assert.equal(num(fin.doc.loyaltyDiscount), 0, 'so no loyalty discount applies');
+  assert.ok(Math.abs(num(fin.doc.annualRate) - 0.079) < 1e-9, 'the effective rate is the base rate');
+});
+
+// --- journey-edit ops (each validated by recompile, exactly as the editor does) ------------------
+
+const registry = (): Record<string, Cassette> => ({ 'car-insurance': carInsurance(), financing: read('financing.json') });
+const minor = (v: unknown): number => Number((v as { minor?: unknown })?.minor);
+
+test('journey-edit: previewJourney compiles + totals the shipped journey', () => {
+  const res = previewJourney(journeyDoc(), registry());
+  assert.equal(res.ok, true, res.error);
+  assert.ok(res.total && res.total.t === 'money', 'a sample combined total is produced');
+});
+
+test('journey-edit: editing a binding mapping (finance half the car) lowers the combined total', () => {
+  const base = previewJourney(journeyDoc(), registry());
+  const edited = setBindingMapping(journeyDoc(), 'valToPrincipal', { op: 'mul', args: [{ op: 'field', id: 'vval' }, { op: 'lit', value: { t: 'num', v: 0.5 } }] });
+  const res = previewJourney(edited, registry());
+  assert.equal(res.ok, true, res.error);
+  assert.ok(minor(res.total) < minor(base.total), 'financing half the catalogue value cuts the monthly');
+});
+
+test('journey-edit: removing a binding still compiles (target reverts to a stored input)', () => {
+  const res = previewJourney(removeBinding(journeyDoc(), 'noClaimToLoyalty'), registry());
+  assert.equal(res.ok, true, res.error);
+});
+
+test('journey-edit: addBinding is proven by recompile — a bad target fails cleanly, not by throwing', () => {
+  const bad = addBinding(journeyDoc(), { from: 'ins', to: 'fin', fromField: 'premium', toField: 'doesNotExist' });
+  const res = previewJourney(bad, registry());
+  assert.equal(res.ok, false, 'an unknown target is rejected as data, not an exception');
+  assert.ok(res.error && /doesNotExist/.test(res.error), 'the error names the offending target');
+});
+
+test('journey-edit: removeModel refuses to orphan the spine (no-op)', () => {
+  assert.deepEqual(removeModel(journeyDoc(), 'fin'), journeyDoc(), 'removing the spine is refused');
+});
+
+// --- review fixes: conditional money binding, financed clamp, empty total, surface/total consistency ---
+
+test('compile: a MONEY conditional binding compiles (ccy-neutral zero, not "branches disagree money vs money")', () => {
+  // gate the money binding valToPrincipal on a child field; the else-branch zero must unify with the mapped money
+  const gated = setBindingCondition(journeyDoc(), 'valToPrincipal', { op: 'gte', args: [{ op: 'field', id: 'schadevrijeJaren' }, { op: 'lit', value: { t: 'num', v: 0 } }] });
+  const res = previewJourney(gated, registry());
+  assert.equal(res.ok, true, res.error); // previously threw at load: branches disagree: money vs money
+  assert.ok(res.total && res.total.t === 'money');
+});
+
+test('financing: financed clamps at zero when down-payment exceeds the principal (no negative monthly)', () => {
+  const core = createCore(mockExterns());
+  core.load(read('financing.json'));
+  const [row] = core.apply('financings', [{ op: 'insert', row: 'f', values: {
+    principal: { t: 'money', minor: '4100000', ccy: 'EUR', scale: 2 },
+    downPayment: { t: 'money', minor: '5000000', ccy: 'EUR', scale: 2 },
+    tradeIn: { t: 'money', minor: '0', ccy: 'EUR', scale: 2 },
+    termMonths: { t: 'enum', set: 'term', v: 't48' },
+    loyaltyYears: { t: 'num', v: 0 },
+  } }]);
+  assert.equal(minor(row.doc.financed), 0, 'financed clamped to 0, never negative');
+  assert.equal(minor(row.doc.finMonthly), 0, 'and the monthly payment is 0, not below zero');
+});
+
+test('journey-edit: clearing every total line compiles to a €0 total, not a reduce-of-empty crash', () => {
+  const res = previewJourney(setTotalOf(journeyDoc(), []), registry());
+  assert.equal(res.ok, true, res.error);
+  assert.equal(minor(res.total), 0, 'no lines → €0 total');
+});
+
+test('journey-edit: removeSurface also drops the line from total.of (stays self-consistent + compilable)', () => {
+  const edited = removeSurface(journeyDoc(), 'insPremium');
+  assert.ok(!edited.total.of.includes('insPremium'), 'the surfaced id is stripped from total.of');
+  const res = previewJourney(edited, registry());
+  assert.equal(res.ok, true, res.error);
 });

@@ -1,21 +1,26 @@
 {
   "id": "financing",
   "title": "Autofinanciering",
-  "doc": "Een aparte financieringsproduct-cassette: financier een bedrag over een looptijd tegen een looptijd-afhankelijke rente, en zie de maandtermijn. Op zichzelf een compleet model; in het Autopakket wordt het financieringsbedrag GEBONDEN aan de cataloguswaarde uit de verzekeringscassette (de L2-naad).",
+  "doc": "Een aparte financieringsproduct-cassette: financier een bedrag over een looptijd tegen een looptijd-afhankelijke rente (met een loyaliteitskorting op de rente), en zie de maandtermijn. Aanbetaling én inruil verlagen het te financieren bedrag. Op zichzelf een compleet model; in het Autopakket worden het financieringsbedrag én de loyaliteitsjaren GEBONDEN aan de verzekeringscassette (de L2-naden).",
   "locale": "nl",
   "types": { "Financing": { "specializes": ["agreement"] } },
   "collections": [
     {
       "id": "financings",
       "semanticClass": "Financing",
-      "doc": "Een financieringsovereenkomst — een contract. Bedrag + looptijd in, maandtermijn uit.",
+      "doc": "Een financieringsovereenkomst — een contract. Bedrag − aanbetaling − inruil in, maandtermijn uit; de rente krijgt een loyaliteitskorting op basis van het aantal schadevrije/klantjaren.",
       "properties": [
         { "id": "principal", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Het te financieren bedrag (bijv. de cataloguswaarde van het voertuig)." },
         { "id": "downPayment", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Aanbetaling — verlaagt het te financieren bedrag." },
+        { "id": "tradeIn", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Inruilwaarde van uw huidige auto — verlaagt, net als de aanbetaling, het te financieren bedrag." },
         { "id": "termMonths", "valueType": { "k": "enum", "set": "term" }, "source": "stored", "doc": "Looptijd van de financiering." },
         { "id": "termNum", "valueType": { "k": "num" }, "source": "computed", "formula": { "op": "lookup", "table": "termTable", "key": { "op": "field", "id": "termMonths" } } },
-        { "id": "annualRate", "valueType": { "k": "num" }, "source": "computed", "doc": "Jaarrente, afhankelijk van de looptijd.", "formula": { "op": "lookup", "table": "rateTable", "key": { "op": "field", "id": "termMonths" } } },
-        { "id": "financed", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Te financieren = bedrag − aanbetaling.", "formula": { "op": "sub", "args": [{ "op": "field", "id": "principal" }, { "op": "field", "id": "downPayment" }] } },
+        { "id": "loyaltyYears", "valueType": { "k": "num" }, "source": "stored", "doc": "Aantal loyaliteits-/schadevrije jaren. Meer jaren geven een korting op de rente. In het Autopakket gebonden aan de schadevrije jaren uit de verzekering." },
+        { "id": "baseRate", "valueType": { "k": "num" }, "source": "computed", "doc": "Basisjaarrente, afhankelijk van de looptijd.", "formula": { "op": "lookup", "table": "rateTable", "key": { "op": "field", "id": "termMonths" } } },
+        { "id": "loyaltyDiscount", "valueType": { "k": "num" }, "source": "computed", "doc": "Rentekorting op basis van loyaliteitsjaren: vanaf 5 jaar 0,5%, vanaf 10 jaar 1,0%.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "gte", "args": [{ "op": "field", "id": "loyaltyYears" }, { "op": "lit", "value": { "t": "num", "v": 10 } }] }, { "op": "lit", "value": { "t": "num", "v": 0.01 } }, { "op": "call", "fn": "if", "args": [{ "op": "gte", "args": [{ "op": "field", "id": "loyaltyYears" }, { "op": "lit", "value": { "t": "num", "v": 5 } }] }, { "op": "lit", "value": { "t": "num", "v": 0.005 } }, { "op": "lit", "value": { "t": "num", "v": 0 } }] }] } },
+        { "id": "annualRate", "valueType": { "k": "num" }, "source": "computed", "doc": "Effectieve jaarrente = basisrente − loyaliteitskorting.", "formula": { "op": "sub", "args": [{ "op": "field", "id": "baseRate" }, { "op": "field", "id": "loyaltyDiscount" }] } },
+        { "id": "financedRaw", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Bedrag − aanbetaling − inruil, vóór afkap op nul.", "formula": { "op": "sub", "args": [{ "op": "sub", "args": [{ "op": "field", "id": "principal" }, { "op": "field", "id": "downPayment" }] }, { "op": "field", "id": "tradeIn" }] } },
+        { "id": "financed", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Te financieren = bedrag − aanbetaling − inruil, afgekapt op nul (aanbetaling + inruil boven de prijs financiert niets).", "formula": { "op": "call", "fn": "if", "args": [{ "op": "lt", "args": [{ "op": "field", "id": "financedRaw" }, { "op": "mul", "args": [{ "op": "field", "id": "financedRaw" }, { "op": "lit", "value": { "t": "num", "v": 0 } }] }] }, { "op": "mul", "args": [{ "op": "field", "id": "financedRaw" }, { "op": "lit", "value": { "t": "num", "v": 0 } }] }, { "op": "field", "id": "financedRaw" }] } },
         { "id": "financeCost", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Totale rentekosten over de looptijd = te financieren × jaarrente × jaren.", "formula": { "op": "mul", "args": [{ "op": "field", "id": "financed" }, { "op": "mul", "args": [{ "op": "field", "id": "annualRate" }, { "op": "div", "args": [{ "op": "field", "id": "termNum" }, { "op": "lit", "value": { "t": "num", "v": 12 } }] }] }] } },
         { "id": "finMonthly", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Maandtermijn = (te financieren + rentekosten) ÷ looptijd.", "formula": { "op": "div", "args": [{ "op": "add", "args": [{ "op": "field", "id": "financed" }, { "op": "field", "id": "financeCost" }] }, { "op": "field", "id": "termNum" }] } }
       ],
@@ -27,9 +32,9 @@
   ],
   "l10n": {
     "nl": {
-      "principal": "Financieringsbedrag", "downPayment": "Aanbetaling", "termMonths": "Looptijd",
-      "termNum": "Looptijd (maanden)", "annualRate": "Jaarrente", "financed": "Te financieren",
-      "financeCost": "Totale rentekosten", "finMonthly": "Maandtermijn"
+      "principal": "Financieringsbedrag", "downPayment": "Aanbetaling", "tradeIn": "Inruilwaarde", "termMonths": "Looptijd",
+      "termNum": "Looptijd (maanden)", "loyaltyYears": "Loyaliteitsjaren", "baseRate": "Basisrente", "loyaltyDiscount": "Loyaliteitskorting",
+      "annualRate": "Jaarrente", "financedRaw": "Bruto te financieren", "financed": "Te financieren", "financeCost": "Totale rentekosten", "finMonthly": "Maandtermijn"
     }
   },
   "enums": {
@@ -41,12 +46,12 @@
   "journey": {
     "field": "step",
     "steps": [
-      { "id": "financiering", "label": "Financiering", "fields": ["principal", "downPayment", "termMonths", "annualRate", "financed", "financeCost"] }
+      { "id": "financiering", "label": "Financiering", "fields": ["principal", "downPayment", "tradeIn", "termMonths", "loyaltyYears", "baseRate", "loyaltyDiscount", "annualRate", "financed", "financeCost"] }
     ],
     "summary": { "total": "finMonthly", "per": "per maand", "lines": [{ "field": "financed", "label": "Te financieren" }, { "field": "financeCost", "label": "Rentekosten" }] }
   },
   "seed": [
-    { "coll": "financings", "row": "fin-1", "values": { "principal": { "t": "money", "minor": 4100000, "ccy": "EUR", "scale": 2 }, "downPayment": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "termMonths": { "t": "enum", "set": "term", "v": "t48" } } }
+    { "coll": "financings", "row": "fin-1", "values": { "principal": { "t": "money", "minor": 4100000, "ccy": "EUR", "scale": 2 }, "downPayment": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "tradeIn": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "termMonths": { "t": "enum", "set": "term", "v": "t48" }, "loyaltyYears": { "t": "num", "v": 0 } } }
   ],
-  "example": { "principal": { "t": "money", "minor": 4100000, "ccy": "EUR", "scale": 2 }, "downPayment": { "t": "money", "minor": 500000, "ccy": "EUR", "scale": 2 }, "termMonths": { "t": "enum", "set": "term", "v": "t48" } }
+  "example": { "principal": { "t": "money", "minor": 4100000, "ccy": "EUR", "scale": 2 }, "downPayment": { "t": "money", "minor": 500000, "ccy": "EUR", "scale": 2 }, "tradeIn": { "t": "money", "minor": 250000, "ccy": "EUR", "scale": 2 }, "termMonths": { "t": "enum", "set": "term", "v": "t48" }, "loyaltyYears": { "t": "num", "v": 6 } }
 }

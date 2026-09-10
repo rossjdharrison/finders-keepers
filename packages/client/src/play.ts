@@ -25,6 +25,7 @@ import { RENDERERS } from './registry.ts';
 import { coreVocabulary } from './resolve.ts';
 import { REGISTRY, JOURNEYS, CATALOGUE, presentationDonor } from './cassette-registry.ts';
 import { compileJourney } from './compile-journey.ts';
+import { loadJourneyDoc, hasJourneyOverride } from './loom/journey-edit.ts';
 import type { CollectionDoc, ModelBundle, ViewDoc } from './types.ts';
 
 const app = document.querySelector<HTMLElement>('#app')!;
@@ -33,7 +34,10 @@ const app = document.querySelector<HTMLElement>('#app')!;
 // doc — compiled on the fly into one composed cassette. Unknown id → a small chooser.
 const wantId = new URLSearchParams(location.search).get('cassette') ?? CATALOGUE[0]?.id;
 const journeyDoc = wantId ? JOURNEYS[wantId] : undefined;
-const shipped = journeyDoc ? compileJourney(journeyDoc, REGISTRY) : wantId ? REGISTRY[wantId] : undefined;
+// a journey compiles its EFFECTIVE doc: a composition edited + saved in the Loom (localStorage) wins
+// over the shipped doc, so the player runs the edited journey through the same sealed core.
+const journeyEdited = journeyDoc ? hasJourneyOverride(wantId!) : false;
+const shipped = journeyDoc ? compileJourney(loadJourneyDoc(wantId!, journeyDoc).doc, REGISTRY) : wantId ? REGISTRY[wantId] : undefined;
 if (!shipped) {
   app.innerHTML = `<main class="mount"><div class="empty" style="padding:40px">Onbekende cassette. <a href="/catalogue.html">Naar de catalogus →</a></div></main>`;
   throw new Error(`unknown cassette: ${wantId}`);
@@ -76,7 +80,7 @@ app.innerHTML = `
       </span>
       <a class="cc-btn cc-btn-quiet" href="/catalogue.html">Catalogus</a>
       ${cass.example ? '<button class="cc-btn cc-btn-quiet" id="fill-example" type="button">Voorbeeld invullen</button>' : ''}
-      <a class="cc-btn cc-btn-quiet" id="loom-link" href="${journeyDoc ? `/loom.html?journey=${encodeURIComponent(journeyDoc.id)}` : `/loom.html?cassette=${cass.id}`}">Model${!journeyDoc && modelIsEdited ? ' <span class="bank-edited" title="Er zijn aangepaste regels actief">•</span>' : ''}</a>
+      <a class="cc-btn cc-btn-quiet" id="loom-link" href="${journeyDoc ? `/loom.html?journey=${encodeURIComponent(journeyDoc.id)}` : `/loom.html?cassette=${cass.id}`}">Model${(journeyDoc ? journeyEdited : modelIsEdited) ? ' <span class="bank-edited" title="Er zijn aangepaste regels of een aangepaste compositie actief">•</span>' : ''}</a>
       <button class="cc-btn cc-btn-quiet" id="cookie-prefs" type="button">Cookievoorkeuren</button>
       <button class="theme-toggle" id="theme" type="button" aria-label="Wissel tussen licht en donker thema"></button>
     </div>
