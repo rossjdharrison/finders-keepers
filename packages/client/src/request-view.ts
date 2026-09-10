@@ -42,7 +42,11 @@ export function buildRequest(doc: Record<string, Value>, o: RequestOpts): HTMLEl
   const wrap = el('div', 'req');
   let any = false;
   const shown = new Set<string>([o.stepField ?? '']); // don't list the raw step marker as a line
+  const premiumReady = isReal(doc.premium);
   for (const step of o.steps) {
+    // hide the premium breakdown (the section carrying `premium`, incl. its €0 add-on lines) until
+    // there are enough details to actually quote — no premium content before the premium exists.
+    if ((step.fields ?? []).includes('premium') && !premiumReady) continue;
     const fields = (step.fields ?? []).filter((f) => !shown.has(f) && isReal(doc[f]) && fmt(f));
     for (const f of fields) shown.add(f);
     if (!fields.length) continue;
