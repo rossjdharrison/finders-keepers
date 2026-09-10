@@ -1,9 +1,10 @@
 // The COMPOSED cassette player — the viewable/workable prototype of the journey-as-composed-
 // configurators thesis. It boots car-insurance-composed (four collections: applications = the
 // activity spine, vehicles/drivers/covers = configurators) into the SAME sealed wasm core, and
-// renders it as one journey via the composed-journey renderer. The premium composes across the
-// collections through the engine's relations + rollup — no engine change. Presentation (theme,
-// labels, enums) is reused from the flat cassette so the two players look identical.
+// renders it through the SAME registered journey renderer as the flat player (RENDERERS['journey'])
+// — the renderer is collection-aware, so a step with a `collection` edits that child. The premium
+// composes across the collections through the engine's relations + rollup — no engine change.
+// Presentation (theme, labels, enums) is reused from the flat cassette so the two players look identical.
 
 import './style/index.css';
 import { effect } from '@preact/signals-core';
@@ -24,8 +25,8 @@ import { applyTheme, initialMode, type ThemeMode } from './theme.ts';
 import { initConsent } from './consent.ts';
 import { setLocale } from './format.ts';
 import { coreVocabulary } from './resolve.ts';
-import { mountComposedJourney } from './renderers/composed-journey.ts';
-import type { CollectionDoc } from './types.ts';
+import { RENDERERS } from './registry.ts';
+import type { CollectionDoc, ModelBundle, ViewDoc } from './types.ts';
 
 // the model is DATA: if the admin (/admin.html?model=car-insurance-composed) saved edited rules, run
 // those instead of the shipped JSON — same override seam as the flat player (cassette.ts).
@@ -129,43 +130,33 @@ const mount = app.querySelector<HTMLElement>('#mount')!;
 // presentation: borrow the flat cassette's labels (same brand), with the composed cassette's own l10n
 // merged OVER them (so it can name its journey-specific fields, e.g. the confirm checkbox)
 const labels = { ...(pres.l10n?.[locale] ?? {}), ...(model.l10n?.[locale] ?? {}) };
-
-// The journey is DATA: sections (each with its configurator collection) and the rail come from the
-// cassette's journey block — nothing about vehicles/drivers/covers is hardcoded here anymore. The
-// spine is derived generically as the relation graph's parent (the collection that is a parent and
-// never a child), so any composed cassette drives this same renderer.
-const journey = model.journey;
+// the spine is the relation graph's parent (a collection that is a parent and never a child), so any
+// composed cassette drives the SAME registered journey renderer as the flat one.
 const rels = Object.values(model.relations ?? {});
 const childColls = new Set(rels.map((r) => r.childColl));
 const spine = rels.map((r) => r.parentColl).find((p) => !childColls.has(p)) ?? collections[0].id;
-// the join field per section is the relation's OWN childField (not a literal), so a composed cassette
-// whose children ref the spine through a differently-named field still resolves.
-const childFieldOf = (coll: string): string => rels.find((r) => r.childColl === coll && r.parentColl === spine)?.childField ?? 'app';
-// the full ordered journey (sections + any terminal step) — the stepper + gating read it; sections
-// carry their child collection's join field so the renderer resolves each section's row generically.
-const steps = (journey?.steps ?? []).map((s) => ({
-  id: s.id,
-  label: s.label ?? s.id,
-  collection: s.collection,
-  childField: s.collection ? childFieldOf(s.collection) : undefined,
-  gate: s.gate,
-  fields: s.fields ?? [],
-}));
 
-mountComposedJourney(mount, {
-  workspace: store,
-  appColl: spine,
-  stepField: journey?.field,
-  steps,
-  summary: journey?.summary,
+// route through the SAME views-are-data path as the flat player: build a ModelBundle + a journey ViewDoc
+// and hand them to RENDERERS['journey']. The renderer reads the journey block (steps with a collection,
+// the summary rail) and joins each section's child row via the relation's childField — no bespoke call.
+const bundle: ModelBundle = {
   collections,
-  types: model.types as Record<string, { specializes: string[] }>,
-  vocab: coreVocabulary(),
-  overrides: [],
-  labels,
-  enums: model.enums ?? pres.enums ?? {},
+  relations: (model.relations ?? {}) as ModelBundle['relations'],
+  types: model.types as ModelBundle['types'],
+  docRecords: [],
+  presentation: (model.presentation ?? []) as ModelBundle['presentation'],
+  seedOps: [],
+};
+const view: ViewDoc = {
+  id: spine,
+  collection: spine,
   title: `${brand.product ?? 'Aanvraag'} — aanvraag`,
-});
+  renderer: 'journey',
+  query: { coll: spine },
+  visibleProps: [],
+  config: { labels, enums: model.enums ?? pres.enums ?? {}, journey: model.journey },
+};
+RENDERERS[view.renderer!](mount, { store: store.collection(spine)!, view, workspace: store, model: bundle, vocab: coreVocabulary(), viewer: { canWrite: true } });
 
 // --- RDW auto-fill on the vehicles configurator (plate → vehicleDesc/vehicleValue) ---
 const vehStore = store.collection('vehicles')!;
