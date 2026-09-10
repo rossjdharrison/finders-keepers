@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
 
-// Two entries: index.html (the finders-keepers model over the DO) and cassette.html (the
-// client-only cassette player over the in-browser engine — no server). Dev proxy forwards the
-// DO surface for index.html; the cassette player needs no proxy.
+// Entries: index.html (the finders-keepers model over the DO — needs the dev proxy below), the
+// client-only surfaces catalogue.html (the cassette index) + play.html (the one player, ?cassette=<id>)
+// + admin.html (the rules editor), all over the in-browser engine with no server/proxy.
 export default defineConfig({
   build: {
     rollupOptions: {

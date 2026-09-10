@@ -2,11 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "cassette",
+      "name": "catalogue",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "-w", "@app/client"],
       "port": 5173,
-      "url": "http://localhost:5173/cassette.html"
+      "url": "http://localhost:5173/catalogue.html"
     }
   ]
 }
