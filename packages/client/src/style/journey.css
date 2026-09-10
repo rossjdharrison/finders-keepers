@@ -4,9 +4,11 @@
 @layer journey {
   .journey { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
 
-  /* the card is a LAYOUT: a form column beside a sticky quote rail (stacks on narrow screens) */
-  .journey-card { display: grid; grid-template-columns: minmax(0, 1fr) 322px; gap: 30px; align-items: start; }
-  @media (max-width: 900px) { .journey-card { grid-template-columns: 1fr; } }
+  /* single column now — the premium lives in the collapsible quote pane (request-view), not a rail */
+  .journey-card { display: block; }
+  /* the composed prototype still uses an in-card rail — keep its two-pane layout */
+  .composed-card { display: grid; grid-template-columns: minmax(0, 1fr) 322px; gap: 30px; align-items: start; }
+  @media (max-width: 900px) { .composed-card { grid-template-columns: 1fr; } }
 
   .jc-main {
     background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg);

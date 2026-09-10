@@ -1,56 +1,60 @@
-/* @layer request — the live request preview: a subtle floating trigger, a slide-over drawer during
- * the journey, and a full-screen takeover at the end. Keyed only on Tier-1 tokens, so it themes. */
+/* @layer request — the ONE collapsible right-hand pane. Three states on `.qp[data-state]`:
+ *   collapsed → a compact premium card docked top-right (the only thing shown at first);
+ *   expanded  → the full "uw aanvraag" request, docked to its side position;
+ *   full      → the whole screen (at the terminal step).
+ * Keyed only on Tier-1 tokens, so it themes. */
 @layer request {
-  /* subtle floating trigger */
-  .req-trigger {
-    position: fixed; right: 20px; bottom: 20px; z-index: 40;
-    display: inline-flex; align-items: center; gap: 8px;
-    font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-muted);
-    background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-pill);
-    padding: 9px 15px; cursor: pointer;
-    box-shadow: 0 1px 2px color-mix(in srgb, var(--brand) 10%, transparent), 0 8px 22px color-mix(in srgb, var(--brand) 10%, transparent);
-  }
-  .req-trigger:hover { color: var(--ink); border-color: var(--accent); }
-  .req-trigger-ic { color: var(--accent); font-size: 14px; line-height: 1; }
+  /* reserve the right column for the collapsed card on wide screens (fixed pane overlays it) */
+  @media (min-width: 960px) { body { padding-right: 264px; } }
 
-  .req-backdrop {
-    position: fixed; inset: 0; z-index: 45;
-    background: color-mix(in srgb, var(--brand) 30%, transparent);
-    backdrop-filter: blur(1.5px);
+  .qp-backdrop { position: fixed; inset: 0; z-index: 45; background: color-mix(in srgb, var(--brand) 30%, transparent); backdrop-filter: blur(1.5px); }
+
+  .qp { position: fixed; z-index: 50; font: inherit; }
+
+  /* --- collapsed: a compact premium card docked top-right --- */
+  .qp[data-state="collapsed"] { top: 78px; right: 20px; width: 224px; }
+  .qp-collapsed {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; text-align: left;
+    font: inherit; cursor: pointer; background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 16px 18px;
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--brand) 8%, transparent), 0 12px 30px color-mix(in srgb, var(--brand) 10%, transparent);
+  }
+  .qp-collapsed:hover { border-color: var(--accent); }
+  .qp-eyebrow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; }
+  .qp-amount { font-size: 30px; font-weight: 700; letter-spacing: -.02em; color: var(--emphasis); font-variant-numeric: tabular-nums; line-height: 1.05; }
+  .qp-per { font-size: 12.5px; color: var(--ink-muted); }
+  .qp-empty { font-size: 12.5px; color: var(--ink-muted); line-height: 1.45; }
+  .qp-open { margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--accent); }
+  .qp[data-state="collapsed"] .qp-expanded { display: none; }
+
+  /* --- expanded / full: the request panel docked full-height --- */
+  .qp[data-state="expanded"], .qp[data-state="full"] { top: 0; right: 0; bottom: 0; }
+  .qp[data-state="expanded"] { width: min(440px, 100%); }
+  .qp[data-state="full"] { width: 100%; }
+  .qp[data-state="expanded"] .qp-collapsed, .qp[data-state="full"] .qp-collapsed { display: none; }
+
+  .qp-expanded {
+    display: flex; flex-direction: column; height: 100%; background: var(--surface-raised);
+    border-left: 1px solid var(--border); box-shadow: -12px 0 40px color-mix(in srgb, var(--brand) 16%, transparent);
+    animation: qp-slide .2s ease;
+  }
+  .qp[data-state="full"] .qp-expanded { border-left: none; }
+  .qp[data-state="full"] .qp-head, .qp[data-state="full"] .qp-body > .req { max-width: 760px; margin-inline: auto; width: 100%; }
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes qp-slide { from { transform: translateX(16px); opacity: .6; } to { transform: none; opacity: 1; } }
   }
 
-  /* slide-over drawer */
-  .req-drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
-    width: min(440px, 100%); display: flex; flex-direction: column;
-    background: var(--surface-raised); border-left: 1px solid var(--border);
-    box-shadow: -12px 0 40px color-mix(in srgb, var(--brand) 16%, transparent);
-  }
-  /* full-screen takeover at the terminal step */
-  .req-drawer--full {
-    width: 100%; inset: 0; border-left: none;
-  }
-  .req-drawer--full .req-head, .req-drawer--full .req-body > .req { max-width: 760px; margin-inline: auto; width: 100%; }
-  .req-drawer--full .req-head { padding-inline: 0; }
+  .qp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface-raised); }
+  .qp-title { font-family: var(--font-brand); font-size: 17px; font-weight: 600; color: var(--ink); margin: 0; }
+  .qp-collapse { font: inherit; font-size: 17px; line-height: 1; color: var(--ink-muted); background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); width: 32px; height: 32px; cursor: pointer; }
+  .qp-collapse:hover { color: var(--ink); border-color: var(--accent); }
+  .qp-body { overflow: auto; padding: 18px 20px 28px; }
 
-  .req-head {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 16px 20px; border-bottom: 1px solid var(--border); position: sticky; top: 0;
-    background: var(--surface-raised);
-  }
-  .req-drawer-title { font-family: var(--font-brand); font-size: 17px; font-weight: 600; color: var(--ink); margin: 0; }
-  .req-close {
-    font: inherit; font-size: 15px; line-height: 1; color: var(--ink-muted);
-    background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm);
-    width: 32px; height: 32px; cursor: pointer;
-  }
-  .req-close:hover { color: var(--ink); border-color: var(--accent); }
-
-  .req-body { overflow: auto; padding: 18px 20px 28px; }
+  /* the request document (buildRequest) */
   .req { display: flex; flex-direction: column; gap: 18px; }
   .req-empty { color: var(--ink-muted); font-size: 13.5px; margin: 0; }
   .req-sec { display: flex; flex-direction: column; gap: 8px; }
-  .req-sec-title { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; margin: 0; }
+  .req-sec-title { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-muted); font-weight: 700; margin: 0; }
   .req-list { display: flex; flex-direction: column; gap: 0; margin: 0; }
   .req-row { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--border); }
   .req-row:first-child { border-top: none; }
@@ -58,16 +62,14 @@
   .req-row dd { margin: 0; color: var(--ink); font-size: 13.5px; font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
 
   .req-json { margin-top: 6px; border-top: 1px solid var(--border); padding-top: 12px; }
-  .req-json summary { font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; cursor: pointer; }
-  .req-json pre {
-    margin: 10px 0 0; padding: 12px 14px; overflow: auto; max-height: 320px;
-    background: var(--surface-sunken); border: 1px solid var(--border); border-radius: var(--radius-sm);
-    font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5; color: var(--ink-muted);
-  }
-  .req-drawer--full .req-json pre { max-height: none; }
+  .req-json summary { font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; cursor: pointer; }
+  .req-json pre { margin: 10px 0 0; padding: 12px 14px; overflow: auto; max-height: 320px; background: var(--surface-sunken); border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5; color: var(--ink-muted); }
+  .qp[data-state="full"] .req-json pre { max-height: none; }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .req-drawer { animation: req-slide .22s ease; }
-    @keyframes req-slide { from { transform: translateX(20px); opacity: .6; } to { transform: none; opacity: 1; } }
+  /* mobile: no reserved column; the collapsed card is a full-width bottom bar */
+  @media (max-width: 959px) {
+    .qp[data-state="collapsed"] { top: auto; bottom: 12px; right: 12px; left: 12px; width: auto; }
+    .qp[data-state="collapsed"] .qp-collapsed { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
+    .qp[data-state="collapsed"] .qp-open { margin-top: 0; }
   }
 }

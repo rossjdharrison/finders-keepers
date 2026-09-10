@@ -77,72 +77,74 @@ export function buildRequest(doc: Record<string, Value>, o: RequestOpts): HTMLEl
 }
 
 /**
- * Mount the request drawer: a subtle floating trigger + a slide-over that renders the live request,
- * expanding to full screen at the terminal step. Accessible (dialog, Escape, focus restore).
+ * Mount the ONE collapsible right-hand pane. Collapsed it is a compact premium card (the only thing
+ * shown at first); clicking it expands to the full "uw aanvraag" request in its side position; it goes
+ * full-screen at the terminal step, and can collapse back. Accessible (Escape, focus restore).
  */
 export function initRequestDrawer(app: HTMLElement, store: CollectionStore, o: RequestOpts, isDone: (doc: Record<string, Value>) => boolean): void {
-  const trigger = el('button', 'req-trigger') as HTMLButtonElement;
-  trigger.type = 'button';
-  trigger.setAttribute('aria-haspopup', 'dialog');
-  trigger.setAttribute('aria-expanded', 'false');
-  trigger.setAttribute('aria-controls', 'req-drawer');
-  trigger.innerHTML = '<span class="req-trigger-ic" aria-hidden="true">▤</span><span class="req-trigger-tx">Aanvraag</span>';
-
-  const backdrop = el('div', 'req-backdrop');
+  const label = (f: string): string => o.labels[f] ?? f;
+  const backdrop = el('div', 'qp-backdrop');
   backdrop.hidden = true;
-  const drawer = el('aside', 'req-drawer') as HTMLElement;
-  drawer.id = 'req-drawer';
-  drawer.setAttribute('role', 'dialog');
-  drawer.setAttribute('aria-modal', 'true');
-  drawer.setAttribute('aria-label', 'Uw aanvraag');
-  drawer.hidden = true;
-  const head = el('div', 'req-head');
-  head.append(el('h2', 'req-drawer-title', o.title));
-  const close = el('button', 'req-close') as HTMLButtonElement;
-  close.type = 'button';
-  close.setAttribute('aria-label', 'Sluiten');
-  close.textContent = '✕';
-  head.append(close);
-  const body = el('div', 'req-body');
-  drawer.append(head, body);
-  app.append(trigger, backdrop, drawer);
 
-  let open = false;
-  let autoOpened = false;
+  const pane = el('aside', 'qp');
+  pane.setAttribute('aria-label', 'Premie en aanvraag');
+  // collapsed: a compact premium card, click to expand (filled reactively below)
+  const collapsed = el('button', 'qp-collapsed') as HTMLButtonElement;
+  collapsed.type = 'button';
+  collapsed.setAttribute('aria-expanded', 'false');
+  // expanded / full: the full request
+  const panel = el('div', 'qp-expanded');
+  panel.setAttribute('role', 'region');
+  panel.setAttribute('aria-label', 'Uw aanvraag');
+  const head = el('div', 'qp-head');
+  head.append(el('h2', 'qp-title', o.title));
+  const collapseBtn = el('button', 'qp-collapse') as HTMLButtonElement;
+  collapseBtn.type = 'button';
+  collapseBtn.setAttribute('aria-label', 'Inklappen');
+  collapseBtn.textContent = '›';
+  head.append(collapseBtn);
+  const body = el('div', 'qp-body');
+  panel.append(head, body);
+  pane.append(collapsed, panel);
+  app.append(backdrop, pane);
+
+  type State = 'collapsed' | 'expanded' | 'full';
+  let state: State = 'collapsed';
+  let autoFull = false;
   let lastFocus: HTMLElement | null = null;
-
-  const setOpen = (v: boolean): void => {
-    open = v;
-    drawer.hidden = !v;
-    backdrop.hidden = !v;
-    trigger.setAttribute('aria-expanded', String(v));
-    if (v) {
+  const setState = (s: State): void => {
+    const opening = state === 'collapsed' && s !== 'collapsed';
+    const closing = state !== 'collapsed' && s === 'collapsed';
+    state = s;
+    pane.dataset.state = s;
+    backdrop.hidden = s === 'collapsed';
+    collapsed.setAttribute('aria-expanded', String(s !== 'collapsed'));
+    if (opening) {
       lastFocus = document.activeElement as HTMLElement;
-      close.focus();
-    } else {
-      lastFocus?.focus?.();
+      collapseBtn.focus();
+    } else if (closing) {
+      if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+      else collapsed.focus();
     }
   };
-  trigger.addEventListener('click', () => setOpen(!open));
-  close.addEventListener('click', () => setOpen(false));
-  backdrop.addEventListener('click', () => setOpen(false));
-  drawer.addEventListener('keydown', (e) => {
-    if ((e as KeyboardEvent).key === 'Escape' && !drawer.classList.contains('req-drawer--full')) setOpen(false);
-  });
+  setState('collapsed');
+  collapsed.addEventListener('click', () => setState('expanded'));
+  collapseBtn.addEventListener('click', () => setState(state === 'full' ? 'expanded' : 'collapsed')); // full → side → collapsed
+  backdrop.addEventListener('click', () => { if (state !== 'full') setState('collapsed'); });
+  pane.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Escape' && state === 'expanded') setState('collapsed'); });
 
-  // live: re-render the request whenever the core recomputes; auto-open full at the terminal step.
+  // live: re-render the premium card + the request whenever the core recomputes; full at the terminal step.
   effect(() => {
-    const row = store.rows.value[0];
-    const doc = row?.doc ?? {};
+    const doc = store.rows.value[0]?.doc ?? {};
+    collapsed.replaceChildren();
+    collapsed.append(el('span', 'qp-eyebrow', label('premium')));
+    const prem = doc.premium;
+    if (prem && prem.t === 'money') collapsed.append(el('span', 'qp-amount', format(prem)), el('span', 'qp-per', 'per maand'));
+    else collapsed.append(el('span', 'qp-empty', 'Verschijnt zodra u genoeg gegevens invult.'));
+    collapsed.append(el('span', 'qp-open', 'Aanvraag bekijken ›'));
     body.replaceChildren(buildRequest(doc, o));
     const done = isDone(doc);
-    drawer.classList.toggle('req-drawer--full', done);
-    backdrop.classList.toggle('req-backdrop--full', done);
-    trigger.hidden = done && open; // once full-screen, the trigger is redundant
-    if (done && !autoOpened) {
-      autoOpened = true;
-      setOpen(true); // the whole-screen request at the end
-    }
-    if (!done) autoOpened = false; // allow re-auto-open if they go back then finish again
+    if (done && !autoFull) { autoFull = true; setState('full'); }
+    if (!done) autoFull = false;
   });
 }

@@ -154,44 +154,11 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
     return cell;
   };
 
-  // --- the sticky quote rail (used by both layouts) ---
-  const buildRail = (row: Row, byField: Map<string, ReturnType<typeof resolvePlan>['fields'][number]>, announceParts: string[]): HTMLElement => {
-    const rail = el('aside', 'jc-rail');
-    rail.setAttribute('aria-label', 'Premieoverzicht');
-    const quote = el('div', 'quote');
-    quote.append(el('div', 'quote-eyebrow', labelOf('premium')));
-    const premium = row.doc.premium;
-    if (isMoney(premium)) {
-      const value = format(premium);
-      const heroWrap = el('div', 'quote-hero');
-      heroWrap.append(el('span', 'quote-amount', value), el('span', 'quote-per', 'per maand'));
-      quote.append(heroWrap);
-      const lines = el('dl', 'quote-lines');
-      const line = (f: string): void => {
-        const v = row.doc[f];
-        if (!isMoney(v)) return;
-        const sign = byField.get(f)?.role === 'deduction' ? '− ' : '';
-        const r2 = el('div', 'quote-line');
-        r2.append(el('dt', undefined, labelOf(f)), el('dd', undefined, `${sign}${format(v)}`));
-        lines.append(r2);
-      };
-      line('gross');
-      line('noClaimDiscount');
-      if (lines.children.length) quote.append(lines);
-      announceParts.push(`${labelOf('premium')}: ${value}`);
-    } else {
-      quote.append(el('p', 'quote-empty', 'Uw premie verschijnt hier zodra u een dekking kiest.'));
-    }
-    const desc = row.doc.vehicleDesc;
-    const plate = row.doc.plate;
-    if (desc?.t === 'text' && desc.v) {
-      const veh = el('div', 'quote-vehicle');
-      veh.append(el('span', 'qv-name', desc.v));
-      if (plate?.t === 'text' && plate.v) veh.append(el('span', 'qv-plate', plate.v));
-      quote.append(veh);
-    }
-    rail.append(quote);
-    return rail;
+  // The premium now lives in the single collapsible quote pane (request-view.ts), not a rail. The
+  // journey only announces a computed premium for screen-reader users.
+  const announcePremium = (row: Row, announceParts: string[]): void => {
+    const p = row.doc.premium;
+    if (isMoney(p)) announceParts.push(`${labelOf('premium')}: ${format(p)}`);
   };
 
   const buildToggle = (mode: Layout): HTMLElement => {
@@ -370,7 +337,7 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, vocab, vi
         }
       }
 
-      card.append(buildRail(row, byField, announceParts));
+      announcePremium(row, announceParts);
       wrap.append(card);
     }
 
