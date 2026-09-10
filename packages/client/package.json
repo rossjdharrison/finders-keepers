@@ -24,6 +24,7 @@
     "prebuild": "node ../../scripts/bundle-model.mjs",
     "build": "vite build",
     "preview": "vite preview",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name=rowblaa-autoverzekering --branch=main",
     "test": "node --test \"src/**/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json"
   }

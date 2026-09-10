@@ -1,0 +1,3 @@
+# Serve the demo landing at the root (200 = rewrite, no URL change). The DO-backed index.html
+# stays reachable at /index.html but needs a server, so it is not the public entry.
+/    /landing.html    200

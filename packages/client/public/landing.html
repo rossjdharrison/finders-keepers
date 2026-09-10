@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rowblaa Bank — Autoverzekering (demo)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #f6f8fb; --panel: #ffffff; --line: #dbe2ec; --ink: #101a2e; --muted: #566175;
+        --brand: #0a1e4d; --accent: #1e4fd6; --on-accent: #ffffff; --gold: #9a6b12; --tile: #efe9d8;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root { --bg: #0a1120; --panel: #111b30; --line: #22304a; --ink: #eaf0fb; --muted: #a7b2c6;
+          --brand: #9db4e8; --accent: #6e97ff; --on-accent: #0a1120; --gold: #e0b457; --tile: #efe9d8; }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        background: var(--bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif;
+        display: grid; place-items: center; padding: 32px; line-height: 1.5;
+      }
+      .card {
+        max-width: 620px; width: 100%; background: var(--panel); border: 1px solid var(--line);
+        border-radius: 18px; padding: 40px 40px 34px;
+        box-shadow: 0 1px 2px color-mix(in srgb, var(--brand) 8%, transparent), 0 24px 60px color-mix(in srgb, var(--brand) 12%, transparent);
+      }
+      .id { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+      .mark { width: 40px; height: 40px; display: grid; place-items: center; background: var(--tile); border-radius: 10px; padding: 4px; }
+      .mark svg { width: 100%; height: 100%; display: block; }
+      .name { font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+      .since { font-size: 12px; color: var(--muted); padding-left: 11px; border-left: 1px solid var(--line); }
+      h1 { font-family: 'Source Serif 4', Georgia, serif; font-size: 27px; line-height: 1.2; margin: 0 0 12px; letter-spacing: -.015em; text-wrap: balance; }
+      p.lede { color: var(--muted); font-size: 15px; margin: 0 0 26px; max-width: 52ch; }
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+      .btn { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 14.5px; font-weight: 600; text-decoration: none; border-radius: 10px; padding: 12px 20px; border: 1px solid var(--line); }
+      .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+      .btn-primary:hover { filter: brightness(.95); }
+      .btn-ghost { background: transparent; color: var(--muted); }
+      .btn-ghost:hover { color: var(--ink); border-color: var(--accent); }
+      .facts { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 28px 0 0; padding-top: 20px; border-top: 1px solid var(--line); list-style: none; }
+      .facts li { font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 7px; }
+      .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+      .foot { margin-top: 18px; font-size: 11.5px; color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="id">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><path fill="#14183B" d="M 142,90 Q 256,81 370,90 Q 404,90 404,122 L 404,266 C 404,356 352,422 256,452 C 160,422 108,356 108,266 L 108,122 Q 108,90 142,90 Z"/><g fill="#E7D3A1"><rect x="194" y="165" width="28" height="157"/><rect x="182" y="165" width="52" height="13"/><rect x="182" y="309" width="52" height="13"/><path d="M 214,165 L 264,165 C 318,165 344,196 344,231 C 344,268 316,290 266,290 L 214,290 Z"/><path d="M 234.1,290.9 L 269.9,269.1 L 337.4,385.6 L 306.6,404.4 Z"/></g><path fill="#14183B" d="M 228,188 L 264,188 C 300,188 318,206 318,231 C 318,256 300,270 264,270 L 228,270 Z"/></svg>
+        </span>
+        <span class="name">Rowblaa Bank</span>
+        <span class="since">Vertrouwd sinds 1977</span>
+      </div>
+      <h1>Een autoverzekering-offerte die volledig in uw browser draait.</h1>
+      <p class="lede">Geen server. Het verzekeringsmodel speelt af op een verzegelde WASM-kern in dit tabblad; kenteken en adres worden live opgezocht bij de gratis open data van <strong>RDW</strong> en <strong>PDOK</strong>. Een prototype — reacties welkom.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="/cassette.html">Start de aanvraag →</a>
+        <a class="btn btn-ghost" href="/composed.html">Bekijk het composed-prototype</a>
+      </div>
+      <ul class="facts">
+        <li><span class="dot"></span> Client-only · QuickJS WASM</li>
+        <li><span class="dot"></span> Live RDW-kenteken + PDOK-adres</li>
+        <li><span class="dot"></span> Licht/donker · toegankelijk</li>
+      </ul>
+      <p class="foot">Prototype · fictieve bank · geen echte polis. Uw invoer verlaat uw browser niet, behalve de openbare RDW/PDOK-opvragingen.</p>
+    </main>
+  </body>
+</html>
