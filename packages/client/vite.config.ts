@@ -9,9 +9,9 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: resolve(import.meta.dirname, 'index.html'),
-        cassette: resolve(import.meta.dirname, 'cassette.html'),
-        composed: resolve(import.meta.dirname, 'composed.html'),
         admin: resolve(import.meta.dirname, 'admin.html'),
+        play: resolve(import.meta.dirname, 'play.html'),
+        catalogue: resolve(import.meta.dirname, 'catalogue.html'),
       },
     },
   },

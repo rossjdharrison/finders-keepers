@@ -1,0 +1,31 @@
+/* @layer request (reused) — the cassette catalogue. Keyed on Tier-1 tokens, so it themes with the brand. */
+@layer request {
+  .cat { max-width: 1000px; margin: 0 auto; }
+  .cat-hero { padding: 8px 0 22px; border-bottom: 1px solid var(--border); margin-bottom: 26px; }
+  .cat-title { font-family: var(--font-brand); font-size: 30px; font-weight: 600; letter-spacing: -.02em; color: var(--ink); margin: 0 0 6px; }
+  .cat-sub { color: var(--ink-muted); font-size: 14px; line-height: 1.6; margin: 0; max-width: 64ch; }
+
+  .cat-section { margin: 0 0 30px; }
+  .cat-section-head { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--role-relation-ink); font-weight: 600; margin: 0 0 12px; }
+  .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+  .cat-card {
+    display: flex; flex-direction: column; gap: 10px; text-decoration: none;
+    background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 18px 20px; color: inherit; transition: border-color .14s ease, box-shadow .14s ease, transform .14s ease;
+  }
+  .cat-card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); box-shadow: 0 10px 28px -18px rgba(0, 0, 0, .5); transform: translateY(-2px); }
+  .cat-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .cat-card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .cat-card-title { font-family: var(--font-brand); font-size: 18px; font-weight: 600; color: var(--ink); line-height: 1.2; }
+  .cat-badge { flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; }
+  .cat-badge-flat { color: var(--role-relation-ink); background: color-mix(in srgb, var(--role-relation-ink) 12%, transparent); }
+  .cat-badge-composed { color: var(--on-accent, #fff); background: var(--accent); }
+
+  .cat-card-doc { color: var(--ink-muted); font-size: 13px; line-height: 1.55; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .cat-vitals { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: auto; padding-top: 6px; }
+  .cat-vital { font-size: 11.5px; color: var(--ink-faint); }
+  .cat-vital.cat-mono { font-family: var(--font-mono); }
+  .cat-go { font-size: 13px; font-weight: 600; color: var(--accent); }
+}

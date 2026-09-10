@@ -25,8 +25,8 @@ import { setTableCell, tableCellMinor, setFormulaLiteral, previewCassette } from
 // it reuses the flat cassette's presentation (as its player does), so those are the fallback here.
 const flat = carInsurance as unknown as Cassette;
 const MODELS: Record<string, { cassette: Cassette; player: string; label: string }> = {
-  'car-insurance': { cassette: flat, player: '/cassette.html', label: 'Enkele pagina' },
-  'car-insurance-composed': { cassette: composedCassette as unknown as Cassette, player: '/composed.html', label: 'Composed' },
+  'car-insurance': { cassette: flat, player: '/play.html?cassette=car-insurance', label: 'Enkele pagina' },
+  'car-insurance-composed': { cassette: composedCassette as unknown as Cassette, player: '/play.html?cassette=car-insurance-composed', label: 'Composed' },
 };
 const rawModel = new URLSearchParams(location.search).get('model') ?? 'car-insurance';
 const modelId = MODELS[rawModel] ? rawModel : 'car-insurance'; // normalize: an unknown ?model= resolves to flat AND marks its tab active
