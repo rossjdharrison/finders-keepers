@@ -1,18 +1,20 @@
-// The RULES editor — the "change the rules" surface, extracted from admin.ts so the Loom hosts it as
-// its third tab (the unified view+alter canvas). It is unchanged in behaviour: it loads the SAME
-// cassette the player runs (rules are DATA), edits a rate cell or an in-formula threshold/fee, VALIDATES
-// each edit by try-loading a throwaway core (previewCassette — never the live one), shows the effect on
-// a sample quote live, and SAVES the edited cassette to localStorage (`fk-cassette-model-<id>`) — which
-// the player then loads instead of the shipped JSON. Only VALUE literals are editable; the tree shape /
-// types stay fixed, so buildPrepared cannot start throwing (previewCassette is the backstop regardless).
+// The RULES editor — the "change the rules" surface, hosted as the Loom's Regels tab. It edits a rate cell
+// or an in-formula threshold/fee, shows the effect on a sample quote live, and SAVES to the localStorage the
+// player reads. Only VALUE literals are editable; the tree shape / types stay fixed, so buildPrepared cannot
+// start throwing (the shared editor's preview() is the backstop regardless).
+//
+// State lives in a SHARED ModelEditing session (loom/model-editing.ts), not here: the Grafiek formula
+// inspector edits the SAME cassette through the same session, so neither tab can silently discard the
+// other's unsaved edits. This editor batches (edit → Save); the inspector auto-saves; both over one cassette.
 
-import type { Cassette, Collection } from '@app/core-runtime';
+import type { Collection } from '@app/core-runtime';
 import { format } from '../format.ts';
 import { buildEditableFormula } from '../renderers/formula-edit.ts';
-import { setTableCell, tableCellMinor, setFormulaLiteral, previewCassette } from '../model-edit.ts';
+import { tableCellMinor } from '../model-edit.ts';
+import type { ModelEditing } from './model-editing.ts';
 
 export interface RulesEditorOpts {
-  shipped: Cassette; // the shipped (unedited) cassette — revert target + storage key source
+  editing: ModelEditing; // the shared edited-cassette session (owns load / dirty / save / revert)
   labels: Record<string, string>; // merged l10n
   collLabels?: Record<string, string>; // friendly names for composed collections
 }
@@ -25,26 +27,12 @@ const el = (tag: string, cls?: string, text?: string): HTMLElement => {
 };
 
 /** Mount the rate-table + formula-threshold editor into `mount`, with a live preview and Save/revert.
- * Self-contained: owns its edited-cassette state, its localStorage key, and its own re-render. */
+ * Reads and writes the shared ModelEditing session; its own re-render is driven by that session's state. */
 export function renderRulesEditor(mount: HTMLElement, opts: RulesEditorOpts): void {
-  const { shipped } = opts;
-  const MODEL_KEY = `fk-cassette-model-${shipped.id}`;
+  const { editing } = opts;
   const labels = opts.labels;
   const label = (id: string): string => labels[id] ?? id;
   const collLabel = (coll: Collection): string => labels[coll.id] ?? opts.collLabels?.[coll.id] ?? coll.id;
-
-  const loadCassette = (): Cassette => {
-    try {
-      const ov = localStorage.getItem(MODEL_KEY);
-      if (ov) return JSON.parse(ov) as Cassette;
-    } catch {
-      /* fall back to shipped */
-    }
-    return structuredClone(shipped);
-  };
-
-  let cass = loadCassette();
-  let dirty = false;
 
   const previewPremium = el('div', 'adm-premium', '—');
   const previewStatus = el('div', 'adm-status');
@@ -55,37 +43,23 @@ export function renderRulesEditor(mount: HTMLElement, opts: RulesEditorOpts): vo
   const savedNote = el('div', 'adm-saved');
 
   const refreshPreview = (): void => {
-    const res = previewCassette(cass);
+    const res = editing.preview();
     previewPremium.textContent = res.ok && res.premium ? format(res.premium) : '—';
     previewStatus.textContent = res.ok ? '✓ Regels geldig' : `✗ ${res.error ?? 'ongeldig'}`;
     previewStatus.dataset.state = res.ok ? 'positive' : 'error';
-    saveBtn.disabled = !res.ok || !dirty;
-    savedNote.textContent = dirty
+    saveBtn.disabled = !res.ok || !editing.dirty();
+    savedNote.textContent = editing.dirty()
       ? 'Niet-opgeslagen wijzigingen'
-      : localStorage.getItem(MODEL_KEY)
+      : editing.saved()
         ? 'Opgeslagen — de aanvraag gebruikt deze regels.'
         : 'Standaardregels.';
   };
 
   saveBtn.addEventListener('click', () => {
-    const res = previewCassette(cass);
-    if (!res.ok) return; // never persist an invalid cassette
-    try {
-      localStorage.setItem(MODEL_KEY, JSON.stringify(cass));
-    } catch {
-      /* private mode */
-    }
-    dirty = false;
-    refreshPreview();
+    if (editing.save().ok) refreshPreview(); // save() persists + notifies sibling tabs; never persists if invalid
   });
   revertBtn.addEventListener('click', () => {
-    try {
-      localStorage.removeItem(MODEL_KEY);
-    } catch {
-      /* ignore */
-    }
-    cass = structuredClone(shipped);
-    dirty = false;
+    editing.revert(); // clears the override + notifies sibling tabs
     render();
   });
 
@@ -108,8 +82,7 @@ export function renderRulesEditor(mount: HTMLElement, opts: RulesEditorOpts): vo
       }
       committedMinor = Math.round(euros * 100);
       input.value = (committedMinor / 100).toFixed(2);
-      cass = setTableCell(cass, collId, tableId, key, committedMinor);
-      dirty = true;
+      editing.applyTableCell(collId, tableId, key, committedMinor);
       refreshPreview();
     });
     cell.append(el('span', 'adm-rate-cur', '€'), input);
@@ -118,6 +91,7 @@ export function renderRulesEditor(mount: HTMLElement, opts: RulesEditorOpts): vo
 
   function render(): void {
     mount.replaceChildren();
+    const cass = editing.cass();
     const cols = el('div', 'adm-cols');
     const left = el('div', 'adm-main');
     const multi = cass.collections.length > 1;
@@ -155,8 +129,7 @@ export function renderRulesEditor(mount: HTMLElement, opts: RulesEditorOpts): vo
         const { el: body, count } = buildEditableFormula(p.formula, {
           subject: label(p.id),
           onEdit: (path, raw) => {
-            cass = setFormulaLiteral(cass, coll.id, p.id, path, raw);
-            dirty = true;
+            editing.applyLiteral(coll.id, p.id, path, raw);
             refreshPreview();
           },
         });
