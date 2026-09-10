@@ -93,7 +93,9 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, workspace
   // resolve a step's field context: which store/row/plan its fields come from. A step with a collection
   // edits that collection's CHILD row (joined to the spine); otherwise it edits the spine itself.
   const resolveStep = (step: { collection?: string }, spineRow: Row, spineByField: ByField): StepCtx | null => {
-    if (!step.collection) return { fstore: store, row: spineRow, byField: spineByField };
+    // a step with no collection, OR one naming the spine's OWN collection (a section that edits the spine
+    // itself, e.g. the downstream product in a compiled L2 journey), edits the spine row directly.
+    if (!step.collection || step.collection === store.id) return { fstore: store, row: spineRow, byField: spineByField };
     const cs = workspace.collection(step.collection);
     const cd = model.collections.find((c) => c.id === step.collection);
     if (!cs || !cd) return null;
@@ -207,9 +209,13 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, workspace
     return bar;
   };
 
+  // a journey is a stepped WIZARD only when it has a step field driving >1 step; otherwise (a calculator,
+  // or a composed journey with no step machine) it is a single page — no stepper, no stepped/single toggle.
+  const hasStepper = !!stepField && steps.length > 1;
+
   return effect(() => {
     const rows = store.rows.value;
-    const mode = layout.value;
+    const mode = hasStepper ? layout.value : 'single';
     const ae = document.activeElement as HTMLInputElement | null;
     const keepId = ae && ae.id && wrap.contains(ae) ? ae.id : null;
     const keepVal = keepId ? ae!.value : null;
@@ -219,7 +225,7 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, workspace
     const announceParts: string[] = [];
     const nowVisible = new Set<string>();
     let modeAnnounced = false;
-    if (steps.length > 1) wrap.append(buildToggle(mode));
+    if (hasStepper) wrap.append(buildToggle(mode));
     if (focusToggle) {
       focusToggle = false;
       modeAnnounced = true;

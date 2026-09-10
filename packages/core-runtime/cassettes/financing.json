@@ -1,0 +1,52 @@
+{
+  "id": "financing",
+  "title": "Autofinanciering",
+  "doc": "Een aparte financieringsproduct-cassette: financier een bedrag over een looptijd tegen een looptijd-afhankelijke rente, en zie de maandtermijn. Op zichzelf een compleet model; in het Autopakket wordt het financieringsbedrag GEBONDEN aan de cataloguswaarde uit de verzekeringscassette (de L2-naad).",
+  "locale": "nl",
+  "types": { "Financing": { "specializes": ["agreement"] } },
+  "collections": [
+    {
+      "id": "financings",
+      "semanticClass": "Financing",
+      "doc": "Een financieringsovereenkomst — een contract. Bedrag + looptijd in, maandtermijn uit.",
+      "properties": [
+        { "id": "principal", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Het te financieren bedrag (bijv. de cataloguswaarde van het voertuig)." },
+        { "id": "downPayment", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Aanbetaling — verlaagt het te financieren bedrag." },
+        { "id": "termMonths", "valueType": { "k": "enum", "set": "term" }, "source": "stored", "doc": "Looptijd van de financiering." },
+        { "id": "termNum", "valueType": { "k": "num" }, "source": "computed", "formula": { "op": "lookup", "table": "termTable", "key": { "op": "field", "id": "termMonths" } } },
+        { "id": "annualRate", "valueType": { "k": "num" }, "source": "computed", "doc": "Jaarrente, afhankelijk van de looptijd.", "formula": { "op": "lookup", "table": "rateTable", "key": { "op": "field", "id": "termMonths" } } },
+        { "id": "financed", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Te financieren = bedrag − aanbetaling.", "formula": { "op": "sub", "args": [{ "op": "field", "id": "principal" }, { "op": "field", "id": "downPayment" }] } },
+        { "id": "financeCost", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Totale rentekosten over de looptijd = te financieren × jaarrente × jaren.", "formula": { "op": "mul", "args": [{ "op": "field", "id": "financed" }, { "op": "mul", "args": [{ "op": "field", "id": "annualRate" }, { "op": "div", "args": [{ "op": "field", "id": "termNum" }, { "op": "lit", "value": { "t": "num", "v": 12 } }] }] }] } },
+        { "id": "finMonthly", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Maandtermijn = (te financieren + rentekosten) ÷ looptijd.", "formula": { "op": "div", "args": [{ "op": "add", "args": [{ "op": "field", "id": "financed" }, { "op": "field", "id": "financeCost" }] }, { "op": "field", "id": "termNum" }] } }
+      ],
+      "tables": {
+        "termTable": { "kind": "1d", "of": { "k": "num" }, "map": { "t12": { "t": "num", "v": 12 }, "t24": { "t": "num", "v": 24 }, "t36": { "t": "num", "v": 36 }, "t48": { "t": "num", "v": 48 }, "t60": { "t": "num", "v": 60 } } },
+        "rateTable": { "kind": "1d", "of": { "k": "num" }, "default": { "t": "num", "v": 0.079 }, "map": { "t12": { "t": "num", "v": 0.049 }, "t24": { "t": "num", "v": 0.059 }, "t36": { "t": "num", "v": 0.069 }, "t48": { "t": "num", "v": 0.079 }, "t60": { "t": "num", "v": 0.089 } } }
+      }
+    }
+  ],
+  "l10n": {
+    "nl": {
+      "principal": "Financieringsbedrag", "downPayment": "Aanbetaling", "termMonths": "Looptijd",
+      "termNum": "Looptijd (maanden)", "annualRate": "Jaarrente", "financed": "Te financieren",
+      "financeCost": "Totale rentekosten", "finMonthly": "Maandtermijn"
+    }
+  },
+  "enums": {
+    "term": [
+      { "id": "t12", "label": "12 maanden" }, { "id": "t24", "label": "24 maanden" },
+      { "id": "t36", "label": "36 maanden" }, { "id": "t48", "label": "48 maanden" }, { "id": "t60", "label": "60 maanden" }
+    ]
+  },
+  "journey": {
+    "field": "step",
+    "steps": [
+      { "id": "financiering", "label": "Financiering", "fields": ["principal", "downPayment", "termMonths", "annualRate", "financed", "financeCost"] }
+    ],
+    "summary": { "total": "finMonthly", "per": "per maand", "lines": [{ "field": "financed", "label": "Te financieren" }, { "field": "financeCost", "label": "Rentekosten" }] }
+  },
+  "seed": [
+    { "coll": "financings", "row": "fin-1", "values": { "principal": { "t": "money", "minor": 4100000, "ccy": "EUR", "scale": 2 }, "downPayment": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "termMonths": { "t": "enum", "set": "term", "v": "t48" } } }
+  ],
+  "example": { "principal": { "t": "money", "minor": 4100000, "ccy": "EUR", "scale": 2 }, "downPayment": { "t": "money", "minor": 500000, "ccy": "EUR", "scale": 2 }, "termMonths": { "t": "enum", "set": "term", "v": "t48" } }
+}

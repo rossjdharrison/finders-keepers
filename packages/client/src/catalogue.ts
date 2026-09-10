@@ -55,7 +55,7 @@ hero.append(el('h1', 'cat-title', 'Catalogus'));
 hero.append(el('p', 'cat-sub', 'Elke kaart is een cassette — een model dat volledig in de browser draait op de verzegelde @core. Ze laden allemaal in dezelfde speler; er verandert geen code, alleen de cassette.'));
 mount.append(hero);
 
-const shapeLabel = (s: CassetteMeta['shape']): string => (s === 'composed' ? 'Samengesteld' : 'Eén pagina');
+const shapeLabel = (s: CassetteMeta['shape']): string => (s === 'journey' ? 'Pakket' : s === 'composed' ? 'Samengesteld' : 'Eén pagina');
 
 // group by HQDM class (the taxonomy the models themselves declare)
 const byClass = new Map<string, CassetteMeta[]>();

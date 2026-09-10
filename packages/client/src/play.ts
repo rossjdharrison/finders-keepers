@@ -23,14 +23,17 @@ import { initConsent } from './consent.ts';
 import { setLocale } from './format.ts';
 import { RENDERERS } from './registry.ts';
 import { coreVocabulary } from './resolve.ts';
-import { REGISTRY, CATALOGUE, presentationDonor } from './cassette-registry.ts';
+import { REGISTRY, JOURNEYS, CATALOGUE, presentationDonor } from './cassette-registry.ts';
+import { compileJourney } from './compile-journey.ts';
 import type { CollectionDoc, ModelBundle, ViewDoc } from './types.ts';
 
 const app = document.querySelector<HTMLElement>('#app')!;
 
-// which cassette? ?cassette=<id>, else the first in the catalogue. Unknown id → a small chooser.
+// which cassette? ?cassette=<id>, else the first in the catalogue. A journey <id> is a cross-cassette L2
+// doc — compiled on the fly into one composed cassette. Unknown id → a small chooser.
 const wantId = new URLSearchParams(location.search).get('cassette') ?? CATALOGUE[0]?.id;
-const shipped = wantId ? REGISTRY[wantId] : undefined;
+const journeyDoc = wantId ? JOURNEYS[wantId] : undefined;
+const shipped = journeyDoc ? compileJourney(journeyDoc, REGISTRY) : wantId ? REGISTRY[wantId] : undefined;
 if (!shipped) {
   app.innerHTML = `<main class="mount"><div class="empty" style="padding:40px">Onbekende cassette. <a href="/catalogue.html">Naar de catalogus →</a></div></main>`;
   throw new Error(`unknown cassette: ${wantId}`);
