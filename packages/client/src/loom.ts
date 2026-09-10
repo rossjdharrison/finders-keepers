@@ -39,8 +39,9 @@ const qs = new URLSearchParams(location.search);
 const cassId = qs.get('cassette');
 const journeyId = qs.get('journey');
 
-// resolve the subject: a journey doc (compiled to a composed cassette for view/graph) or a product cassette
-const journeyDoc: JourneyDoc | undefined = journeyId ? JOURNEYS[journeyId] : undefined;
+// resolve the subject: a journey doc (compiled to a composed cassette for view/graph) or a product cassette.
+// Object.hasOwn guards against a crafted ?journey=toString reading an inherited prototype member.
+const journeyDoc: JourneyDoc | undefined = journeyId && Object.hasOwn(JOURNEYS, journeyId) ? JOURNEYS[journeyId] : undefined;
 let shipped: Cassette | undefined;
 let compileError: string | undefined;
 if (journeyDoc) {
@@ -53,7 +54,7 @@ if (journeyDoc) {
   }
 } else {
   const wantId = cassId ?? (REGISTRY['car-insurance'] ? 'car-insurance' : Object.keys(REGISTRY)[0]);
-  shipped = wantId ? REGISTRY[wantId] : undefined;
+  shipped = wantId && Object.hasOwn(REGISTRY, wantId) ? REGISTRY[wantId] : undefined;
 }
 
 const app = document.querySelector<HTMLElement>('#app')!;
@@ -132,6 +133,14 @@ const mount = app.querySelector<HTMLElement>('#mount')!;
 
 // hero
 const hero = el('div', 'lm-hero');
+// arrived here by drilling from a journey's composition? offer a way back to it.
+const fromJourney = qs.get('from');
+if (!journeyDoc && fromJourney && Object.hasOwn(JOURNEYS, fromJourney)) {
+  const back = el('a', 'lm-back') as HTMLAnchorElement;
+  back.href = `/loom.html?journey=${encodeURIComponent(fromJourney)}#compositie`;
+  back.append(el('span', 'lm-back-arrow', '←'), document.createTextNode(` Terug naar ${JOURNEYS[fromJourney].title ?? fromJourney}`));
+  hero.append(back);
+}
 const badge = el('span', `lm-hero-badge lm-badge-${journeyDoc ? 'journey' : shipped.collections.length > 1 ? 'composed' : 'flat'}`, journeyDoc ? 'Pakket' : shipped.collections.length > 1 ? 'Samengesteld' : 'Eén model');
 hero.append(badge);
 hero.append(el('h1', 'lm-hero-title', subjectTitle));
@@ -159,7 +168,8 @@ if (journeyDoc) {
         shippedDoc: journeyDoc,
         registry: REGISTRY,
         label: labelFor,
-        loomHref: (ref) => `/loom.html?cassette=${encodeURIComponent(ref)}`,
+        // drill into a configurator's GRAPH (its field breakdown), carrying `from` so it can offer a way back
+        loomHref: (ref) => `/loom.html?cassette=${encodeURIComponent(ref)}&from=${encodeURIComponent(journeyDoc.id)}#grafiek`,
         // a saved composition changes the compiled cassette — recompile it and evict the schema/graph
         // tabs so they rebuild from the new composition next time they are opened (no page reload).
         onSaved: () => {

@@ -117,8 +117,12 @@
   .lm-l-cyclic .lm-legend-glyph { color: var(--state-error); }
 
   /* --- journey composition graph ----------------------------------------------------------- */
-  .lm-jwire { fill: none; stroke: var(--lm-rollup); stroke-width: 2; }
-  .lm-jwire-label { font-size: 10px; fill: var(--ink-faint); font-family: var(--font-mono); }
+  /* a binding wire carries the value it passes as its label; the wires that feed the spine directly
+   * (the critical path to the combined total) are drawn boldest in the emphasis ink. */
+  .lm-jwire { fill: none; stroke: color-mix(in srgb, var(--role-relation-ink) 50%, var(--border)); stroke-width: 1.6; }
+  .lm-jwire-critical { stroke: var(--lm-rollup); stroke-width: 3; }
+  .lm-jwire-label { font-size: 10px; fill: var(--ink-muted); font-family: var(--font-mono); }
+  .lm-jwire-label-critical { fill: var(--lm-rollup); font-weight: 700; }
   .lm-jbox-box { fill: var(--surface-raised); stroke: var(--border); stroke-width: 1; transition: stroke .12s ease; }
   .lm-jbox:hover .lm-jbox-box, .lm-jbox:focus-visible .lm-jbox-box { stroke: var(--accent); stroke-width: 2; }
   .lm-jbox-spine .lm-jbox-box { stroke: color-mix(in srgb, var(--lm-rollup) 55%, var(--border)); }
@@ -195,6 +199,25 @@
   .lm-ce-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink); background: var(--surface-sunken); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 4px 11px; cursor: pointer; }
   .lm-ce-chip:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
   .lm-ce-total { color: var(--lm-rollup); }
+
+  /* back-to-journey link (shown when you drill into a configurator from a package) */
+  .lm-back { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--accent); text-decoration: none; margin-bottom: 12px; }
+  .lm-back:hover { text-decoration: underline; }
+  .lm-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+  .lm-back-arrow { font-size: 15px; line-height: 1; }
+
+  /* Stappen & secties editor (per-section step order + field selection) */
+  .lm-ce-section { padding: 11px 13px; background: var(--surface-sunken); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 8px; }
+  .lm-ce-section-head { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+  .lm-ce-moves { display: inline-flex; flex-direction: column; gap: 2px; flex: none; }
+  .lm-ce-move { appearance: none; background: var(--surface-raised); border: 1px solid var(--border); color: var(--ink-muted); width: 22px; height: 15px; line-height: 1; border-radius: 4px; cursor: pointer; font-size: 10px; padding: 0; }
+  .lm-ce-move:hover { border-color: var(--accent); color: var(--accent); }
+  .lm-ce-move:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .lm-ce-section-label { max-width: 170px; font-size: 12.5px; font-weight: 600; }
+  .lm-ce-section-model { font-size: 11px; color: var(--ink-faint); margin-left: auto; }
+  .lm-ce-fieldchips { display: flex; flex-wrap: wrap; gap: 5px 12px; }
+  .lm-ce-fieldchip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ink-muted); cursor: pointer; }
+  .lm-ce-fieldchip input { margin: 0; flex: none; }
 
   .lm-mono { font-family: var(--font-mono); }
   .lm-empty { color: var(--ink-muted); font-size: 14px; padding: 20px; }

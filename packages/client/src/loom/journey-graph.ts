@@ -23,6 +23,8 @@ export interface JWire {
   to: string; // alias
   provides: string; // e.g. "output:vehicleValue"
   requires: string; // e.g. "field:principal"
+  info: string; // the friendly name of the value carried (the provided field) — shown on the wire
+  critical: boolean; // carries a MONEY value — the primary value flow (vs a categorical/rate qualifier)
 }
 export interface JourneyGraph {
   boxes: JBox[];
@@ -33,8 +35,14 @@ export interface JourneyGraph {
 }
 
 export interface JourneyGraphOpts {
-  label: (id: string) => string; // resolves an alias/ref/field to a friendly label
+  label: (id: string) => string; // resolves a model ref to a friendly title
+  fieldLabel?: (id: string) => string; // resolves a field id to a friendly label (for wire labels)
+  /** does this binding carry a MONEY value into its target? (the primary value flow — the critical path).
+   * When omitted, falls back to "targets the spine". */
+  targetIsMoney?: (binding: JourneyDoc['bindings'][number]) => boolean;
 }
+
+const localId = (s: string): string => s.split(':')[1] ?? s;
 
 /** Build the composition graph for a journey doc. Pure — no DOM. Ranks models by the binding DAG
  * (a `to` sits one column right of its `from`); the spine is pinned to the last column. */
@@ -60,12 +68,18 @@ export function buildJourneyGraph(doc: JourneyDoc, opts: JourneyGraphOpts): Jour
     isSpine: m.as === doc.spine,
     rank: rank.get(m.as) ?? 0,
   }));
+  const fieldLabel = opts.fieldLabel ?? ((id: string): string => id);
   const wires: JWire[] = doc.bindings.map((b) => ({
     id: b.id,
     from: b.from,
     to: b.to,
     provides: b.contract.provides.map((p) => p.source).join(', '),
     requires: b.contract.requires.map((r) => r.target).join(', '),
+    // what information flows: the friendly name(s) of the provided value(s)
+    info: b.contract.provides.map((p) => fieldLabel(localId(p.source))).join(', '),
+    // the critical path = the MONEY value flow (e.g. the car value → premium AND → principal); a categorical
+    // (region) or rate (loyalty) binding is a qualifier, not the primary flow. Fall back to "feeds the spine".
+    critical: opts.targetIsMoney ? opts.targetIsMoney(b) : b.to === doc.spine,
   }));
   const surface = (doc.surface ?? []).map((s) => ({ as: s.as, from: s.from, label: s.label ?? s.as }));
   const total = { field: doc.total.field, label: doc.total.label ?? doc.total.field, per: doc.total.per, of: doc.total.of };
@@ -127,16 +141,16 @@ export function renderJourneyGraph(mount: HTMLElement, jg: JourneyGraph, opts: R
     const x2 = b.x;
     const y2 = b.y + BOX_H / 2;
     const dx = Math.max(40, (x2 - x1) / 2);
-    const path = svgEl('path', { class: 'lm-jwire', d: `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}` });
+    const path = svgEl('path', { class: `lm-jwire ${w.critical ? 'lm-jwire-critical' : ''}`, d: `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}` });
     const t = svgEl('title');
-    t.textContent = `${w.provides} → ${w.requires}`;
+    t.textContent = `${w.info}: ${w.provides} → ${w.requires}${w.critical ? ' (kritieke waardestroom)' : ''}`;
     path.append(t);
     wireLayer.append(path);
-    // mid-wire label (the seam)
+    // mid-wire label: WHAT information is passed (the provided value), not a generic "binding"
     const mx = (x1 + x2) / 2;
-    const my = (y1 + y2) / 2 - 8;
-    const lbl = svgEl('text', { class: 'lm-jwire-label', x: mx, y: my, 'text-anchor': 'middle' });
-    lbl.textContent = 'binding';
+    const my = (y1 + y2) / 2 - 7;
+    const lbl = svgEl('text', { class: `lm-jwire-label ${w.critical ? 'lm-jwire-label-critical' : ''}`, x: mx, y: my, 'text-anchor': 'middle' });
+    lbl.textContent = truncate(w.info, 20);
     wireLayer.append(lbl);
   }
   svg.append(wireLayer);
