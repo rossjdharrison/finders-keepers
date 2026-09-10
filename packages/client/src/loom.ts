@@ -22,8 +22,9 @@ import { REGISTRY, JOURNEYS, presentationDonor } from './cassette-registry.ts';
 import { compileJourney, type JourneyDoc } from './compile-journey.ts';
 import { projectStructure, renderStructure } from './loom/structure.ts';
 import { buildGraph, renderGraph } from './loom/graph.ts';
-import { buildJourneyGraph, renderJourneyGraph } from './loom/journey-graph.ts';
 import { renderRulesEditor } from './loom/rules-edit.ts';
+import { renderCompositionEditor } from './loom/composition-edit.ts';
+import { loadJourneyDoc } from './loom/journey-edit.ts';
 
 const COLL_LABELS: Record<string, string> = { applications: 'Aanvraag', vehicles: 'Voertuig', drivers: 'Bestuurder', covers: 'Dekking' };
 
@@ -44,7 +45,9 @@ let shipped: Cassette | undefined;
 let compileError: string | undefined;
 if (journeyDoc) {
   try {
-    shipped = compileJourney(journeyDoc, REGISTRY);
+    // compile the EFFECTIVE doc (a saved composition override, else the shipped one) so the Structuur
+    // and Grafiek tabs reflect edits saved in the Compositie tab (and by the player).
+    shipped = compileJourney(loadJourneyDoc(journeyDoc.id, journeyDoc).doc, REGISTRY);
   } catch (e) {
     compileError = e instanceof Error ? e.message : String(e);
   }
@@ -151,12 +154,20 @@ if (journeyDoc) {
     id: 'compositie',
     label: 'Compositie',
     build: (panel) => {
-      const intro = el('p', 'lm-panel-intro', 'De losse producten en de getypte bindingen die ze samenstellen. Elk blok opent zijn eigen waardemodel; de regels wonen in die producten.');
-      panel.append(intro);
-      const jg = buildJourneyGraph(journeyDoc, { label: (ref) => REGISTRY[ref]?.title ?? ref });
-      const holder = el('div');
-      renderJourneyGraph(holder, jg, { loomHref: (ref) => `/loom.html?cassette=${encodeURIComponent(ref)}` });
-      panel.append(holder);
+      panel.append(el('p', 'lm-panel-intro', 'De producten en de getypte bindingen die ze samenstellen, bewerkbaar. Voeg producten of bindingen toe, pas de mapping van een naad aan, en kies wat optelt tot het totaal. Elke wijziging wordt in de verzegelde core gevalideerd voordat u opslaat; de speler draait daarna deze compositie.'));
+      renderCompositionEditor(panel, {
+        shippedDoc: journeyDoc,
+        registry: REGISTRY,
+        label: labelFor,
+        loomHref: (ref) => `/loom.html?cassette=${encodeURIComponent(ref)}`,
+        // a saved composition changes the compiled cassette — recompile it and evict the schema/graph
+        // tabs so they rebuild from the new composition next time they are opened (no page reload).
+        onSaved: () => {
+          try { shipped = compileJourney(loadJourneyDoc(journeyDoc.id, journeyDoc).doc, REGISTRY); } catch { /* keep the last good compile */ }
+          built.delete('structuur');
+          built.delete('grafiek');
+        },
+      });
     },
   });
 }
@@ -238,6 +249,7 @@ const activate = (id: string): void => {
   for (const [tid, panel] of panelById) panel.hidden = tid !== id;
   const panel = panelById.get(id)!;
   if (!built.has(id)) {
+    panel.replaceChildren(); // clear first so a tab evicted from `built` (after a save) rebuilds cleanly
     tabs.find((t) => t.id === id)!.build(panel);
     built.add(id);
   }

@@ -19,6 +19,7 @@ export interface JourneyBinding {
   to: string; // downstream alias
   contract: { provides: { as: string; source: string }[]; requires: { name: string; target: string }[] };
   mapping?: { to: string; from: unknown }[]; // optional transform; absent = pass through the single provided value
+  condition?: unknown; // optional boolean gate (over provided vars / child fields): false → the target takes a typed zero
 }
 export interface JourneyDoc {
   kind: 'journey';
@@ -46,10 +47,21 @@ function substSeam(node: unknown, seamSrc: Record<string, string>): unknown {
   return out;
 }
 
-/** Fold a list of money fields into one `add` chain (the combined total). */
+/** Fold a list of money fields into one `add` chain (the combined total). An empty list folds to a
+ * money zero (rather than throwing on reduce-of-empty), so a total with no lines is €0, not a crash. */
 function sumFields(fields: string[]): unknown {
+  if (!fields.length) return { op: 'lit', value: { t: 'money', minor: 0, ccy: 'EUR', scale: 2 } };
   const terms: unknown[] = fields.map((f) => ({ op: 'field', id: f }));
   return terms.reduce((acc, t) => ({ op: 'add', args: [acc, t] }));
+}
+
+/** The value a conditional binding's target takes when the condition is false: `mapped − mapped` — a
+ * zero of the SAME inferred type as the mapped branch, so the `if`'s two branches unify. (A fixed
+ * `{t:'money', ccy:'EUR'}` zero literal would NOT unify with a ccy-agnostic `{k:'money'}` field, which
+ * is how every money field in these cassettes is declared.) money/num targets only. */
+function zeroLike(mapped: unknown, vt: { k?: string }): unknown {
+  if (vt.k === 'money' || vt.k === 'num') return { op: 'sub', args: [structuredClone(mapped), structuredClone(mapped)] };
+  throw new Error(`conditional binding: target type '${vt.k}' must be money or num`);
 }
 
 export function isJourneyDoc(x: unknown): x is JourneyDoc {
@@ -90,8 +102,13 @@ export function compileJourney(doc: JourneyDoc, registry: Record<string, Cassett
     const child = modelColl[b.from];
     const parent = modelColl[b.to];
     if (!child || !parent) throw new Error(`journey ${doc.id}: binding ${b.id} names an undeclared model`);
+    // the child names its parent through ONE stored ref per (from→to) pair; SEVERAL bindings between the
+    // same two models share that ref (and its relation join), so add it only once — a second binding must
+    // not re-declare `__to_<to>` (a duplicate property) or re-seed the child row.
     const childField = `__to_${b.to}`;
-    child.properties.push({ id: childField, valueType: { k: 'ref', collection: parent.id }, source: 'stored', category: 'association' } as Collection['properties'][number]);
+    if (!child.properties.some((p) => p.id === childField)) {
+      child.properties.push({ id: childField, valueType: { k: 'ref', collection: parent.id }, source: 'stored', category: 'association' } as Collection['properties'][number]);
+    }
     const rel = `rel_${b.id}`;
     relations[rel] = { parentColl: parent.id, childColl: child.id, childField };
 
@@ -100,9 +117,11 @@ export function compileJourney(doc: JourneyDoc, registry: Record<string, Cassett
     for (const r of b.contract.requires) {
       const target = localId(r.target);
       const map = (b.mapping ?? []).find((mm) => mm.to === target);
-      const expr = map ? substSeam(map.from, seamSrc) : { op: 'field', id: seamSrc[r.name] ?? r.name };
+      const mapped = map ? substSeam(map.from, seamSrc) : { op: 'field', id: seamSrc[r.name] ?? r.name };
       const tprop = parent.properties.find((p) => p.id === target);
       if (!tprop) throw new Error(`journey ${doc.id}: binding ${b.id} target field '${target}' not on model '${b.to}'`);
+      // optional condition: when false the target takes a typed zero (the seam field, and thus the sum, is 0)
+      const expr = b.condition ? { op: 'call', fn: 'if', args: [substSeam(b.condition, seamSrc), mapped, zeroLike(mapped, tprop.valueType)] } : mapped;
       const seamField = `__seam_${b.id}_${target}`;
       child.properties.push({ id: seamField, valueType: tprop.valueType, source: 'computed', formula: expr } as Collection['properties'][number]);
       // turn the bound input into a live, non-editable computed rollup (sum over the 1-row relation = the value)
@@ -142,17 +161,19 @@ export function compileJourney(doc: JourneyDoc, registry: Record<string, Cassett
     const stored = new Set(coll.properties.filter((p) => (p.source ?? 'stored') === 'stored').map((p) => p.id));
     return Object.fromEntries(Object.entries(example).filter(([k]) => stored.has(k)));
   };
+  // one seed row per model (`<alias>-1`), carrying its example INPUTS + one ref per parent it binds to.
+  // Order is best-effort parents-first; correctness does NOT depend on it — each row is inserted through
+  // the engine cascade, which resolves __to refs and re-rolls parents on recompute whatever the order.
   const seed: { coll: string; row: string; values: Record<string, Value> }[] = [];
   const spineCass = cassOf(doc.spine);
-  seed.push({ coll: spine.id, row: `${doc.spine}-1`, values: storedOnly(spine, spineCass.example ?? {}) });
-  for (const b of doc.bindings) {
-    const child = modelColl[b.from];
-    const childCass = cassOf(b.from);
-    seed.push({
-      coll: child.id,
-      row: `${b.from}-1`,
-      values: { ...storedOnly(child, childCass.example ?? {}), [`__to_${b.to}`]: { t: 'ref', collection: modelColl[b.to].id, id: `${b.to}-1` } as Value },
-    });
+  const toAliases = new Set(doc.bindings.map((b) => b.to));
+  const seedOrder = [...doc.models].sort((a, c) => (toAliases.has(c.as) ? 1 : 0) - (toAliases.has(a.as) ? 1 : 0));
+  for (const m of seedOrder) {
+    const coll = modelColl[m.as];
+    const mCass = cassOf(m.as);
+    const refs: Record<string, Value> = {};
+    for (const b of doc.bindings) if (b.from === m.as) refs[`__to_${b.to}`] = { t: 'ref', collection: modelColl[b.to].id, id: `${b.to}-1` } as Value;
+    seed.push({ coll: coll.id, row: `${m.as}-1`, values: { ...storedOnly(coll, mCass.example ?? {}), ...refs } });
   }
 
   return {

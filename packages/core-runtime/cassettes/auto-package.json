@@ -2,7 +2,7 @@
   "kind": "journey",
   "id": "auto-package",
   "title": "Autopakket",
-  "doc": "Verzekering én financiering voor uw auto in één maandbedrag. De cataloguswaarde uit de verzekeringscassette wordt GEBONDEN aan het te financieren bedrag — de cross-cassette L2-naad die twee losse producten samenstelt, gecomponeerd via relaties + rollup in dezelfde verzegelde @core.",
+  "doc": "De volledige autoreis bij Rowblaa Bank: verzekering én financiering in één maandbedrag. Twee getypte L2-naden binden de losse producten samen — de cataloguswaarde uit de verzekering wordt het te financieren bedrag, en uw schadevrije jaren geven een loyaliteitskorting op de rente. Aanbetaling en inruil verlagen het te financieren bedrag. Alles gecomponeerd via relaties + rollup in dezelfde verzegelde @core, zonder enige codewijziging.",
   "locale": "nl",
   "models": [
     { "ref": "car-insurance", "as": "ins" },
@@ -19,6 +19,16 @@
         "requires": [{ "name": "vval", "target": "field:principal" }]
       },
       "mapping": [{ "to": "principal", "from": { "op": "field", "id": "vval" } }]
+    },
+    {
+      "id": "noClaimToLoyalty",
+      "from": "ins",
+      "to": "fin",
+      "contract": {
+        "provides": [{ "as": "nc", "source": "output:schadevrijeJaren" }],
+        "requires": [{ "name": "nc", "target": "field:loyaltyYears" }]
+      },
+      "mapping": [{ "to": "loyaltyYears", "from": { "op": "field", "id": "nc" } }]
     }
   ],
   "surface": [
@@ -26,7 +36,7 @@
   ],
   "total": { "field": "combinedMonthly", "of": ["insPremium", "finMonthly"], "label": "Maandbedrag", "per": "per maand" },
   "sections": [
-    { "model": "ins", "label": "Verzekering", "fields": ["plate", "vehicleDesc", "vehicleValue", "cover", "optLegalAid", "premium"] },
-    { "model": "fin", "label": "Financiering", "fields": ["principal", "downPayment", "termMonths", "annualRate", "finMonthly"] }
+    { "model": "ins", "label": "Verzekering", "fields": ["plate", "vehicleDesc", "vehicleValue", "schadevrijeJaren", "cover", "optLegalAid", "premium"] },
+    { "model": "fin", "label": "Financiering", "fields": ["principal", "downPayment", "tradeIn", "termMonths", "loyaltyYears", "annualRate", "finMonthly"] }
   ]
 }
