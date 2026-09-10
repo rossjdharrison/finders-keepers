@@ -44,7 +44,7 @@
             ] }
           ] }
         },
-        { "id": "sub", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "bandRate", "key": { "op": "field", "id": "valueBand" } } }
+        { "id": "sub", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "vehicleValue" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "lookup", "table": "bandRate", "key": { "op": "field", "id": "valueBand" } }] } }
       ],
       "tables": {
         "bandRate": { "kind": "1d", "of": { "k": "money" }, "map": { "low": { "t": "money", "minor": 100, "ccy": "EUR", "scale": 2 }, "mid": { "t": "money", "minor": 300, "ccy": "EUR", "scale": 2 }, "high": { "t": "money", "minor": 600, "ccy": "EUR", "scale": 2 } } }
@@ -103,11 +103,11 @@
             ] }
           ] }
         },
-        { "id": "ageSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "ageRate", "key": { "op": "field", "id": "ageBand" } } },
-        { "id": "kmSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "kmRate", "key": { "op": "field", "id": "kmBand" } } },
+        { "id": "ageSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "age" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "lookup", "table": "ageRate", "key": { "op": "field", "id": "ageBand" } }] } },
+        { "id": "kmSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "annualKm" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "lookup", "table": "kmRate", "key": { "op": "field", "id": "kmBand" } }] } },
         { "id": "regionSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "regionRate", "key": { "op": "field", "id": "regionBand" } } },
         { "id": "usageSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "usageRate", "key": { "op": "field", "id": "usage" } } },
-        { "id": "noClaimDiscount", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "ncDiscount", "key": { "op": "field", "id": "sjBand" } } },
+        { "id": "noClaimDiscount", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "schadevrijeJaren" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "lookup", "table": "ncDiscount", "key": { "op": "field", "id": "sjBand" } }] } },
         { "id": "sub", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "sub", "args": [{ "op": "add", "args": [{ "op": "add", "args": [{ "op": "field", "id": "ageSurcharge" }, { "op": "field", "id": "kmSurcharge" }] }, { "op": "add", "args": [{ "op": "field", "id": "regionSurcharge" }, { "op": "field", "id": "usageSurcharge" }] }] }, { "op": "field", "id": "noClaimDiscount" }] } }
       ],
       "tables": {
