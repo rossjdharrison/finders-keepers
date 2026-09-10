@@ -59,7 +59,7 @@ export function mountComposedJourney(mount: HTMLElement, cfg: ComposedConfig): (
       return;
     }
 
-    const card = el('article', 'journey-card');
+    const card = el('article', 'journey-card composed-card');
     const main = el('div', 'jc-main');
     card.append(main);
     main.append(el('h2', 'jc-page-title', cfg.title));
