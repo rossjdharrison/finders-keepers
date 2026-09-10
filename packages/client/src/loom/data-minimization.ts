@@ -67,6 +67,20 @@ export function neededFields(doc: JourneyDoc, alias: string, registry: Record<st
   }
   for (const s of doc.surface ?? []) if (s.from === alias) exports.add(s.field);
   if (alias === doc.spine) for (const f of doc.total.of) if (byId.has(f)) exports.add(f); // the spine's OWN total terms
+  // author-declared COMPUTED readouts: a computed field the author lists in this model's section is a derived
+  // output they want displayed (e.g. an affordability verdict). Minimization here means "collect only what the
+  // DISPLAYED outputs provably need": a readout is itself derived (stores nothing), and the walk below pulls in
+  // exactly the stored inputs that readout DEPENDS ON — no more. Those inputs are genuinely needed (you cannot
+  // show the readout without them), so this never over-collects relative to what is shown. In this journey the
+  // readouts read only bound targets (income/obligations, provided upstream) + already-needed fields, so nothing
+  // NEW is collected on this side; a readout that read an unbound stored field WOULD (correctly) surface it as
+  // needed. Gated to source==='computed' (never extern auto-fills or stored inputs) and never a bound target, so
+  // it can never force-show a field a journey would otherwise hide (an extern's stored params, or a seam value).
+  const section = doc.sections.find((s) => s.model === alias);
+  if (section) for (const fid of section.fields) {
+    const p = byId.get(fid);
+    if (p && (p.source ?? 'stored') === 'computed' && !boundTargets.has(fid)) exports.add(fid);
+  }
 
   // walk each export down to the stored inputs it depends on, stopping at bound (provided) fields
   const needed = new Set<string>();

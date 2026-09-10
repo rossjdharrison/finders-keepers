@@ -20,7 +20,8 @@
         { "id": "nationality", "valueType": { "k": "text" }, "source": "stored", "doc": "Nationaliteit." },
         { "id": "maritalStatus", "valueType": { "k": "enum", "set": "maritalStatus" }, "source": "stored", "doc": "Burgerlijke staat." },
         { "id": "occupation", "valueType": { "k": "text" }, "source": "stored", "doc": "Beroep." },
-        { "id": "grossIncome", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Bruto jaarinkomen." },
+        { "id": "grossIncome", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Bruto jaarinkomen. Voor een financiering bepaalt dit — samen met uw vaste lasten — hoeveel u verantwoord kunt lenen." },
+        { "id": "monthlyObligations", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Bestaande maandelijkse verplichtingen (lopende leningen, alimentatie). Deze verlagen de ruimte die u maandelijks aan een autofinanciering kunt besteden." },
         { "id": "driversLicenceSince", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity", "doc": "Jaar rijbewijs behaald." },
         { "id": "schadevrijeJaren", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity", "constraint": { "min": 0, "max": 99 }, "doc": "Aantal schadevrije jaren." },
         { "id": "annualKm", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity", "constraint": { "min": 0, "max": 200000 }, "doc": "Kilometers per jaar." },
@@ -32,7 +33,7 @@
     "nl": {
       "firstName": "Voornaam", "lastName": "Achternaam", "dateOfBirth": "Geboortedatum", "age": "Leeftijd",
       "email": "E-mail", "phone": "Telefoon", "gender": "Geslacht", "nationality": "Nationaliteit",
-      "maritalStatus": "Burgerlijke staat", "occupation": "Beroep", "grossIncome": "Bruto jaarinkomen",
+      "maritalStatus": "Burgerlijke staat", "occupation": "Beroep", "grossIncome": "Bruto jaarinkomen", "monthlyObligations": "Maandelijkse verplichtingen",
       "driversLicenceSince": "Rijbewijs sinds", "schadevrijeJaren": "Schadevrije jaren", "annualKm": "Kilometers per jaar", "usage": "Gebruik"
     }
   },
@@ -50,7 +51,7 @@
   "journey": {
     "field": "step",
     "steps": [
-      { "id": "individu", "label": "Individu", "fields": ["firstName", "lastName", "dateOfBirth", "age", "email", "phone", "gender", "nationality", "maritalStatus", "occupation", "grossIncome", "driversLicenceSince", "schadevrijeJaren", "annualKm", "usage"] }
+      { "id": "individu", "label": "Individu", "fields": ["firstName", "lastName", "dateOfBirth", "age", "email", "phone", "gender", "nationality", "maritalStatus", "occupation", "grossIncome", "monthlyObligations", "driversLicenceSince", "schadevrijeJaren", "annualKm", "usage"] }
     ]
   },
   "seed": [
@@ -60,6 +61,7 @@
     "firstName": { "t": "text", "v": "Alex" }, "lastName": { "t": "text", "v": "Jansen" },
     "age": { "t": "num", "v": 40 }, "email": { "t": "text", "v": "alex@example.nl" },
     "gender": { "t": "enum", "set": "gender", "v": "x" }, "maritalStatus": { "t": "enum", "set": "maritalStatus", "v": "partner" },
+    "grossIncome": { "t": "money", "minor": 4500000, "ccy": "EUR", "scale": 2 }, "monthlyObligations": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 },
     "schadevrijeJaren": { "t": "num", "v": 6 }, "annualKm": { "t": "num", "v": 15000 }, "usage": { "t": "enum", "set": "usage", "v": "commute" }
   }
 }

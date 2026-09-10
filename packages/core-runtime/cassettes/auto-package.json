@@ -2,7 +2,7 @@
   "kind": "journey",
   "id": "auto-package",
   "title": "Autopakket",
-  "doc": "De volledige autoreis bij Rowblaa Bank, functioneel gedecomponeerd in vijf herbruikbare configurators — Voertuig, Adres, Individu, Verzekering en Financiering — samengesteld via getypte L2-naden. Voertuig kiest de auto (de cataloguswaarde voedt zowel de premie als het te financieren bedrag — de kritieke waardestroom). Adres levert de risicoregio. Individu is een rijk persoonsprofiel waarvan de reis alléén de benodigde velden gebruikt (leeftijd, schadevrije jaren, kilometers, gebruik) — met dataminimalisatie aan toont de reis uitsluitend die velden: privacy by design, afgeleid uit de compositie. De schadevrije jaren geven bovendien een loyaliteitskorting op de financieringsrente. Alles gecomponeerd via relaties + rollup in dezelfde verzegelde @core, zonder codewijziging.",
+  "doc": "De volledige autoreis bij Rowblaa Bank, functioneel gedecomponeerd in vijf herbruikbare configurators — Voertuig, Adres, Individu, Verzekering en Financiering — samengesteld via getypte L2-naden. Voertuig kiest de auto (de cataloguswaarde voedt zowel de premie als het te financieren bedrag — de kritieke waardestroom). Adres levert de risicoregio. Individu is een rijk persoonsprofiel waarvan de reis alléén de benodigde velden gebruikt — met dataminimalisatie aan toont de reis uitsluitend die velden: privacy by design, afgeleid uit de compositie. Doordat de financiering het inkomen en de vaste lasten nodig heeft (voor een verantwoord maximaal te financieren bedrag), verschijnen precies díe velden vanzelf in het Individu — de reis vraagt leeftijd, schadevrije jaren, kilometers, gebruik, bruto jaarinkomen en maandelijkse verplichtingen. De schadevrije jaren geven bovendien een loyaliteitskorting op de financieringsrente; het inkomen bepaalt of de gewenste financiering binnen uw budget past. Alles gecomponeerd via relaties + rollup in dezelfde verzegelde @core, zonder codewijziging.",
   "locale": "nl",
   "minimal": true,
   "models": [
@@ -53,6 +53,16 @@
       "id": "indToFinLoyalty", "from": "ind", "to": "fin",
       "contract": { "provides": [{ "as": "nc", "source": "output:schadevrijeJaren" }], "requires": [{ "name": "nc", "target": "field:loyaltyYears" }] },
       "mapping": [{ "to": "loyaltyYears", "from": { "op": "field", "id": "nc" } }]
+    },
+    {
+      "id": "indToFinIncome", "from": "ind", "to": "fin",
+      "contract": { "provides": [{ "as": "inc", "source": "output:grossIncome" }], "requires": [{ "name": "inc", "target": "field:grossAnnualIncome" }] },
+      "mapping": [{ "to": "grossAnnualIncome", "from": { "op": "field", "id": "inc" } }]
+    },
+    {
+      "id": "indToFinObligations", "from": "ind", "to": "fin",
+      "contract": { "provides": [{ "as": "obl", "source": "output:monthlyObligations" }], "requires": [{ "name": "obl", "target": "field:monthlyObligations" }] },
+      "mapping": [{ "to": "monthlyObligations", "from": { "op": "field", "id": "obl" } }]
     }
   ],
   "surface": [
@@ -62,8 +72,8 @@
   "sections": [
     { "model": "veh", "label": "Voertuig", "fields": ["merkModel", "bouwjaar", "catalogValue"] },
     { "model": "adr", "label": "Adres", "fields": ["postcode", "houseNumber", "street", "city", "regionBand"] },
-    { "model": "ind", "label": "Individu", "fields": ["firstName", "lastName", "dateOfBirth", "age", "email", "phone", "gender", "nationality", "maritalStatus", "occupation", "grossIncome", "driversLicenceSince", "schadevrijeJaren", "annualKm", "usage"] },
+    { "model": "ind", "label": "Individu", "fields": ["firstName", "lastName", "dateOfBirth", "age", "email", "phone", "gender", "nationality", "maritalStatus", "occupation", "grossIncome", "monthlyObligations", "driversLicenceSince", "schadevrijeJaren", "annualKm", "usage"] },
     { "model": "ins", "label": "Verzekering", "fields": ["vehicleValue", "regionBand", "age", "schadevrijeJaren", "annualKm", "usage", "cover", "optLegalAid", "optRoadside", "premium"] },
-    { "model": "fin", "label": "Financiering", "fields": ["principal", "downPayment", "tradeIn", "termMonths", "loyaltyYears", "annualRate", "finMonthly"] }
+    { "model": "fin", "label": "Financiering", "fields": ["principal", "downPayment", "tradeIn", "termMonths", "loyaltyYears", "annualRate", "finMonthly", "grossMonthly", "maxFinancing", "affordability", "financingShortfall"] }
   ]
 }
