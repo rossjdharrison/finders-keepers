@@ -12,8 +12,8 @@ import type { Cassette } from '@app/core-runtime';
 import type { Value } from '@core/values';
 import { applyTheme, initialMode, type ThemeMode } from './theme.ts';
 import { setLocale, format } from './format.ts';
-import { describeFormula } from './renderers/docs.ts';
-import { setTableCell, tableCellMinor, previewCassette } from './model-edit.ts';
+import { buildEditableFormula } from './renderers/formula-edit.ts';
+import { setTableCell, tableCellMinor, setFormulaLiteral, previewCassette } from './model-edit.ts';
 
 const shipped = carInsurance as unknown as Cassette;
 const MODEL_KEY = `fk-cassette-model-${shipped.id}`;
@@ -146,12 +146,17 @@ function render(): void {
       input.type = 'number';
       input.step = '0.01';
       input.min = '0';
-      input.value = (minor / 100).toFixed(2);
+      let committedMinor = minor; // last VALID minor this cell holds — reject reverts here
+      input.value = (committedMinor / 100).toFixed(2);
       input.setAttribute('aria-label', `${tableId} · ${key} (euro)`);
       input.addEventListener('change', () => {
-        const euros = Number(input.value);
-        if (!Number.isFinite(euros) || euros < 0) return;
-        cass = setTableCell(cass, appColl.id, tableId, key, euros * 100);
+        // valueAsNumber (NOT Number(value)) — it is NaN for an empty/invalid field; Number("") is 0,
+        // which would silently commit a cleared rate as €0,00 (and desync the display from the cassette).
+        const euros = input.valueAsNumber;
+        if (!Number.isFinite(euros) || euros < 0) { input.value = (committedMinor / 100).toFixed(2); return; }
+        committedMinor = Math.round(euros * 100);
+        input.value = (committedMinor / 100).toFixed(2);
+        cass = setTableCell(cass, appColl.id, tableId, key, committedMinor);
         dirty = true;
         refreshPreview();
       });
@@ -163,15 +168,27 @@ function render(): void {
     left.append(sec);
   }
 
-  // read-only: the computed formulas (the derived logic), projected from the model
-  left.append(el('h2', 'adm-h', 'Formules'));
-  left.append(el('p', 'adm-sub', 'De berekende velden en hun formule — afgeleid uit het model, alleen-lezen in deze eerste versie.'));
+  // the computed formulas (the derived logic), projected from the model. The numbers inside — band
+  // drempels (age < 23) and vaste bedragen (€ 3,00) — are inline-editable; every operator and branch
+  // stays fixed, so an edit can only change a value, never the shape. Purely derived formulas render read-only.
+  left.append(el('h2', 'adm-h', 'Formules & drempels'));
+  left.append(el('p', 'adm-sub', 'De berekende velden. De blauw omkaderde getallen — drempelwaarden en vaste bedragen — kunt u aanpassen; de overige velden zijn volledig afgeleid uit het model.'));
   const flist = el('div', 'adm-formulas');
   for (const p of appColl.properties) {
     if (p.source !== 'computed' || !p.formula) continue;
     const row = el('div', 'adm-formula');
     row.append(el('span', 'adm-formula-id', label(p.id)));
-    row.append(el('code', 'adm-formula-body', describeFormula(p.formula)));
+    const { el: body, count } = buildEditableFormula(p.formula, {
+      subject: label(p.id),
+      onEdit: (path, raw) => {
+        cass = setFormulaLiteral(cass, appColl.id, p.id, path, raw);
+        dirty = true;
+        refreshPreview();
+      },
+    });
+    body.classList.add('adm-formula-body');
+    if (count > 0) row.classList.add('adm-formula-editable');
+    row.append(body);
     flist.append(row);
   }
   left.append(flist);

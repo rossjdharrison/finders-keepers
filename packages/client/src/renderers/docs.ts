@@ -18,7 +18,8 @@ const elem = (tag: string, cls?: string, text?: string): HTMLElement => {
   return e;
 };
 
-const CMP: Record<string, string> = { eq: '=', ne: '≠', lt: '<', lte: '≤', gt: '>', gte: '≥', add: '+', sub: '−', mul: '×', div: '÷' };
+// operator glyphs, shared with the admin's inline-editable formula renderer (single source of truth)
+export const CMP: Record<string, string> = { eq: '=', ne: '≠', lt: '<', lte: '≤', gt: '>', gte: '≥', add: '+', sub: '−', mul: '×', div: '÷' };
 
 // A formula AST -> a compact, readable expression. This is the derived "mechanism":
 // it is READ from the stored formula, never typed by a doc author. Exported for the admin rules view.
