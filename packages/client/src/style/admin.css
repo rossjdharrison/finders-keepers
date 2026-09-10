@@ -11,6 +11,22 @@
   .adm-h { font-family: var(--font-brand); font-size: 20px; font-weight: 600; color: var(--ink); margin: 18px 0 0; }
   .adm-h:first-child { margin-top: 0; }
   .adm-sub { color: var(--ink-muted); font-size: 12.5px; line-height: 1.5; margin: 0 0 8px; max-width: 60ch; }
+  /* composed model: a collection sub-heading groups the tables/formulas of vehicles / drivers / covers */
+  .adm-coll-head {
+    font-family: var(--font-brand); font-size: 14px; font-weight: 600; color: var(--role-relation-ink);
+    margin: 16px 0 2px; padding-top: 10px; border-top: 2px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+    letter-spacing: .01em;
+  }
+
+  /* header model switcher (flat ↔ composed) — a small segmented control keyed on the brand tokens */
+  /* no overflow:hidden — it would clip the app-wide focus-visible outline (outset) on the tabs; round
+   * the end corners directly instead so a keyboard focus ring stays fully visible. */
+  .adm-modelswitch { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  .adm-modeltab { padding: 5px 11px; font-size: 12px; font-weight: 600; color: var(--ink-muted); text-decoration: none; background: var(--surface-sunken); border-left: 1px solid var(--border); }
+  .adm-modeltab:first-child { border-left: 0; border-radius: var(--radius-md) 0 0 var(--radius-md); }
+  .adm-modeltab:last-child { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+  .adm-modeltab:hover { color: var(--ink); background: color-mix(in srgb, var(--accent) 8%, var(--surface-sunken)); }
+  .adm-modeltab.is-active { color: var(--on-accent, #fff); background: var(--accent); }
 
   .adm-table { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border); }
   .adm-table-title { font-family: var(--font-mono); font-size: 12px; letter-spacing: .02em; color: var(--role-relation-ink); font-weight: 600; margin: 0; }
