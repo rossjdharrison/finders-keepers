@@ -142,7 +142,7 @@
     }
   ],
   "theme": {
-    "brand": { "name": "Rowblaa Bank", "product": "Autoverzekering", "tagline": "Vertrouwd sinds 1961" },
+    "brand": { "name": "Rowblaa Bank", "product": "Autoverzekering", "tagline": "Vertrouwd sinds 1977" },
     "fonts": {
       "ui": "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif",
       "brand": "'Source Serif 4', Georgia, 'Times New Roman', serif",
