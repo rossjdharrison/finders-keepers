@@ -126,8 +126,9 @@ if (modelIsEdited) recomputeAll(host, collections);
 const store = createHostStore(host, collections);
 
 const mount = app.querySelector<HTMLElement>('#mount')!;
-// presentation: prefer the composed cassette's own l10n, else borrow the flat cassette's (same brand)
-const labels = model.l10n?.[locale] ?? pres.l10n?.[locale] ?? {};
+// presentation: borrow the flat cassette's labels (same brand), with the composed cassette's own l10n
+// merged OVER them (so it can name its journey-specific fields, e.g. the confirm checkbox)
+const labels = { ...(pres.l10n?.[locale] ?? {}), ...(model.l10n?.[locale] ?? {}) };
 
 // The journey is DATA: sections (each with its configurator collection) and the rail come from the
 // cassette's journey block — nothing about vehicles/drivers/covers is hardcoded here anymore. The
@@ -140,14 +141,22 @@ const spine = rels.map((r) => r.parentColl).find((p) => !childColls.has(p)) ?? c
 // the join field per section is the relation's OWN childField (not a literal), so a composed cassette
 // whose children ref the spine through a differently-named field still resolves.
 const childFieldOf = (coll: string): string => rels.find((r) => r.childColl === coll && r.parentColl === spine)?.childField ?? 'app';
-const sections = (journey?.steps ?? [])
-  .filter((s): s is typeof s & { collection: string } => !!s.collection)
-  .map((s) => ({ id: s.id, label: s.label ?? s.id, collection: s.collection, childField: childFieldOf(s.collection), fields: s.fields ?? [] }));
+// the full ordered journey (sections + any terminal step) — the stepper + gating read it; sections
+// carry their child collection's join field so the renderer resolves each section's row generically.
+const steps = (journey?.steps ?? []).map((s) => ({
+  id: s.id,
+  label: s.label ?? s.id,
+  collection: s.collection,
+  childField: s.collection ? childFieldOf(s.collection) : undefined,
+  gate: s.gate,
+  fields: s.fields ?? [],
+}));
 
 mountComposedJourney(mount, {
   workspace: store,
   appColl: spine,
-  sections,
+  stepField: journey?.field,
+  steps,
   summary: journey?.summary,
   collections,
   types: model.types as Record<string, { specializes: string[] }>,

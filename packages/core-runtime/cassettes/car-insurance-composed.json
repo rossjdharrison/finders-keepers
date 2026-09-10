@@ -20,7 +20,16 @@
         { "id": "driverSub", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "rollup", "via": "driverOf", "agg": "sum", "of": { "op": "field", "id": "sub" } } },
         { "id": "coverSub", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "rollup", "via": "coverOf", "agg": "sum", "of": { "op": "field", "id": "sub" } } },
         { "id": "paymentSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "paymentTerm" }, { "op": "lit", "value": { "t": "enum", "set": "paymentTerm", "v": "monthly" } }] }, { "op": "lit", "value": { "t": "money", "minor": 50, "ccy": "EUR", "scale": 2 } }, { "op": "lit", "value": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 } }] } },
-        { "id": "premium", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "add", "args": [{ "op": "add", "args": [{ "op": "field", "id": "vehicleSub" }, { "op": "field", "id": "driverSub" }] }, { "op": "field", "id": "coverSub" }] }, { "op": "field", "id": "paymentSurcharge" }] } }
+        { "id": "premium", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "add", "args": [{ "op": "add", "args": [{ "op": "field", "id": "vehicleSub" }, { "op": "field", "id": "driverSub" }] }, { "op": "field", "id": "coverSub" }] }, { "op": "field", "id": "paymentSurcharge" }] } },
+        { "id": "step", "valueType": { "k": "enum", "set": "step" }, "source": "stored", "category": "class_of_state", "doc": "Waar de aanvraag staat in de journey." },
+        { "id": "vehicleReady", "valueType": { "k": "bool" }, "source": "computed", "doc": "Het voertuig is bevestigd — de journey mag door naar de bestuurder.", "formula": { "op": "gte", "args": [{ "op": "rollup", "via": "vehicleOf", "agg": "sum", "of": { "op": "field", "id": "confirmedNum" } }, { "op": "lit", "value": { "t": "num", "v": 1 } }] } },
+        { "id": "driverReady", "valueType": { "k": "bool" }, "source": "computed", "doc": "De bestuurder is bevestigd.", "formula": { "op": "gte", "args": [{ "op": "rollup", "via": "driverOf", "agg": "sum", "of": { "op": "field", "id": "confirmedNum" } }, { "op": "lit", "value": { "t": "num", "v": 1 } }] } },
+        { "id": "coverReady", "valueType": { "k": "bool" }, "source": "computed", "doc": "De dekking is bevestigd.", "formula": { "op": "gte", "args": [{ "op": "rollup", "via": "coverOf", "agg": "sum", "of": { "op": "field", "id": "confirmedNum" } }, { "op": "lit", "value": { "t": "num", "v": 1 } }] } }
+      ],
+      "transitions": [
+        { "id": "toDriver", "field": "step", "from": "vehicle", "to": "driver", "category": "event", "when": { "op": "field", "id": "vehicleReady" } },
+        { "id": "toCover", "field": "step", "from": "driver", "to": "cover", "category": "event", "when": { "op": "field", "id": "driverReady" } },
+        { "id": "toReview", "field": "step", "from": "cover", "to": "review", "category": "event", "when": { "op": "field", "id": "coverReady" } }
       ]
     },
     {
@@ -44,7 +53,9 @@
             ] }
           ] }
         },
-        { "id": "sub", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "vehicleValue" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "lookup", "table": "bandRate", "key": { "op": "field", "id": "valueBand" } }] } }
+        { "id": "sub", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "vehicleValue" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "lookup", "table": "bandRate", "key": { "op": "field", "id": "valueBand" } }] } },
+        { "id": "confirmed", "valueType": { "k": "bool" }, "source": "stored", "availableWhen": { "op": "ne", "args": [{ "op": "field", "id": "vehicleDesc" }, { "op": "lit", "value": { "t": "blank" } }] }, "doc": "Bevestig het voertuig om door te gaan." },
+        { "id": "confirmedNum", "valueType": { "k": "num" }, "source": "computed", "formula": { "op": "call", "fn": "if", "args": [{ "op": "field", "id": "confirmed" }, { "op": "lit", "value": { "t": "num", "v": 1 } }, { "op": "lit", "value": { "t": "num", "v": 0 } }] } }
       ],
       "tables": {
         "bandRate": { "kind": "1d", "of": { "k": "money" }, "map": { "low": { "t": "money", "minor": 100, "ccy": "EUR", "scale": 2 }, "mid": { "t": "money", "minor": 300, "ccy": "EUR", "scale": 2 }, "high": { "t": "money", "minor": 600, "ccy": "EUR", "scale": 2 } } }
@@ -108,7 +119,9 @@
         { "id": "regionSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "regionRate", "key": { "op": "field", "id": "regionBand" } } },
         { "id": "usageSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "usageRate", "key": { "op": "field", "id": "usage" } } },
         { "id": "noClaimDiscount", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "schadevrijeJaren" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "lookup", "table": "ncDiscount", "key": { "op": "field", "id": "sjBand" } }] } },
-        { "id": "sub", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "sub", "args": [{ "op": "add", "args": [{ "op": "add", "args": [{ "op": "field", "id": "ageSurcharge" }, { "op": "field", "id": "kmSurcharge" }] }, { "op": "add", "args": [{ "op": "field", "id": "regionSurcharge" }, { "op": "field", "id": "usageSurcharge" }] }] }, { "op": "field", "id": "noClaimDiscount" }] } }
+        { "id": "sub", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "sub", "args": [{ "op": "add", "args": [{ "op": "add", "args": [{ "op": "field", "id": "ageSurcharge" }, { "op": "field", "id": "kmSurcharge" }] }, { "op": "add", "args": [{ "op": "field", "id": "regionSurcharge" }, { "op": "field", "id": "usageSurcharge" }] }] }, { "op": "field", "id": "noClaimDiscount" }] } },
+        { "id": "confirmed", "valueType": { "k": "bool" }, "source": "stored", "availableWhen": { "op": "ne", "args": [{ "op": "field", "id": "age" }, { "op": "lit", "value": { "t": "blank" } }] }, "doc": "Bevestig de bestuurder om door te gaan." },
+        { "id": "confirmedNum", "valueType": { "k": "num" }, "source": "computed", "formula": { "op": "call", "fn": "if", "args": [{ "op": "field", "id": "confirmed" }, { "op": "lit", "value": { "t": "num", "v": 1 } }, { "op": "lit", "value": { "t": "num", "v": 0 } }] } }
       ],
       "tables": {
         "ageRate": { "kind": "1d", "of": { "k": "money" }, "default": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "map": { "young": { "t": "money", "minor": 400, "ccy": "EUR", "scale": 2 }, "standard": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "senior": { "t": "money", "minor": 150, "ccy": "EUR", "scale": 2 } } },
@@ -133,7 +146,9 @@
         { "id": "optPassengerFee", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "field", "id": "optPassenger" }, { "op": "lit", "value": { "t": "money", "minor": 150, "ccy": "EUR", "scale": 2 } }, { "op": "lit", "value": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 } }] } },
         { "id": "optRoadsideFee", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "field", "id": "optRoadside" }, { "op": "lit", "value": { "t": "money", "minor": 200, "ccy": "EUR", "scale": 2 } }, { "op": "lit", "value": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 } }] } },
         { "id": "optionsTotal", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "add", "args": [{ "op": "field", "id": "optLegalAidFee" }, { "op": "field", "id": "optPassengerFee" }] }, { "op": "field", "id": "optRoadsideFee" }] } },
-        { "id": "sub", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "field", "id": "coverBase" }, { "op": "field", "id": "optionsTotal" }] } }
+        { "id": "sub", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "field", "id": "coverBase" }, { "op": "field", "id": "optionsTotal" }] } },
+        { "id": "confirmed", "valueType": { "k": "bool" }, "source": "stored", "availableWhen": { "op": "ne", "args": [{ "op": "field", "id": "cover" }, { "op": "lit", "value": { "t": "blank" } }] }, "doc": "Bevestig de dekking om door te gaan." },
+        { "id": "confirmedNum", "valueType": { "k": "num" }, "source": "computed", "formula": { "op": "call", "fn": "if", "args": [{ "op": "field", "id": "confirmed" }, { "op": "lit", "value": { "t": "num", "v": 1 } }, { "op": "lit", "value": { "t": "num", "v": 0 } }] } }
       ],
       "tables": {
         "coverRate": { "kind": "1d", "of": { "k": "money" }, "map": { "wa": { "t": "money", "minor": 400, "ccy": "EUR", "scale": 2 }, "waplus": { "t": "money", "minor": 700, "ccy": "EUR", "scale": 2 }, "allrisk": { "t": "money", "minor": 1100, "ccy": "EUR", "scale": 2 } } }
@@ -145,12 +160,14 @@
     "driverOf": { "parentColl": "applications", "childColl": "drivers", "childField": "app" },
     "coverOf": { "parentColl": "applications", "childColl": "covers", "childField": "app" }
   },
+  "l10n": { "nl": { "confirmed": "Ik bevestig deze gegevens", "review": "Overzicht" } },
   "journey": {
     "field": "step",
     "steps": [
-      { "id": "vehicle", "label": "Voertuig", "collection": "vehicles", "fields": ["plate", "vehicleDesc", "vehicleValue"] },
-      { "id": "driver", "label": "Bestuurder", "collection": "drivers", "fields": ["postcode", "city", "age", "schadevrijeJaren", "annualKm", "usage"] },
-      { "id": "cover", "label": "Dekking", "collection": "covers", "fields": ["cover", "optLegalAid", "optPassenger", "optRoadside"] }
+      { "id": "vehicle", "label": "Voertuig", "collection": "vehicles", "fields": ["plate", "vehicleDesc", "vehicleValue", "confirmed"] },
+      { "id": "driver", "label": "Bestuurder", "collection": "drivers", "gate": "vehicleReady", "fields": ["postcode", "city", "age", "schadevrijeJaren", "annualKm", "usage", "confirmed"] },
+      { "id": "cover", "label": "Dekking", "collection": "covers", "gate": "driverReady", "fields": ["cover", "optLegalAid", "optPassenger", "optRoadside", "confirmed"] },
+      { "id": "review", "label": "Overzicht", "gate": "coverReady", "fields": [] }
     ],
     "summary": {
       "total": "premium",
@@ -163,7 +180,7 @@
     }
   },
   "seed": [
-    { "coll": "applications", "row": "app-1", "values": { "paymentTerm": { "t": "enum", "set": "paymentTerm", "v": "monthly" } } },
+    { "coll": "applications", "row": "app-1", "values": { "paymentTerm": { "t": "enum", "set": "paymentTerm", "v": "monthly" }, "step": { "t": "enum", "set": "step", "v": "vehicle" } } },
     { "coll": "vehicles", "row": "veh-1", "values": { "app": { "t": "ref", "collection": "applications", "id": "app-1" }, "plate": { "t": "text", "v": "99-XYZ-1" } } },
     { "coll": "drivers", "row": "drv-1", "values": { "app": { "t": "ref", "collection": "applications", "id": "app-1" }, "postcode": { "t": "text", "v": "1011 AB" }, "age": { "t": "num", "v": 40 }, "schadevrijeJaren": { "t": "num", "v": 6 }, "annualKm": { "t": "num", "v": 15000 }, "usage": { "t": "enum", "set": "usage", "v": "commute" } } },
     { "coll": "covers", "row": "cov-1", "values": { "app": { "t": "ref", "collection": "applications", "id": "app-1" }, "cover": { "t": "enum", "set": "coverLevel", "v": "allrisk" }, "optLegalAid": { "t": "bool", "v": true } } }
