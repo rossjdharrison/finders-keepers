@@ -13,6 +13,16 @@ export default defineConfig({
         play: resolve(import.meta.dirname, 'play.html'),
         catalogue: resolve(import.meta.dirname, 'catalogue.html'),
       },
+      output: {
+        // Keep the QuickJS/emscripten runtime in its OWN chunk. play.ts is now its sole consumer, so
+        // rollup would otherwise INLINE it into the play chunk — turning the loader's dynamic import
+        // into a same-chunk `Promise.resolve().then(() => <const>)` that hits a temporal-dead-zone
+        // ("Cannot access 'X' before initialization") when play's top-level await runs during init.
+        // A dedicated chunk keeps the import cross-chunk (a real lazy load), so it initializes first.
+        manualChunks(id) {
+          if (id.includes('quickjs') || id.includes('emscripten')) return 'quickjs';
+        },
+      },
     },
   },
   // Keep esbuild's dep pre-bundler away from the QuickJS emscripten glue: it uses
