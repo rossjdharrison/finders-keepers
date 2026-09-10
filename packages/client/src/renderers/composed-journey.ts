@@ -25,12 +25,19 @@ export interface ComposedSection {
   id: string;
   label: string;
   collection: string; // the configurator collection this section edits
+  childField: string; // the field on that collection's row that refs the spine (the relation's childField)
   fields: string[];
+}
+export interface ComposedSummary {
+  total: string; // the spine's headline money field (e.g. the rolled-up premium)
+  per?: string; // a per-period suffix shown beside the total (e.g. "per maand")
+  lines?: { field: string; label?: string }[]; // the breakdown (spine fields, e.g. rollup subtotals)
 }
 export interface ComposedConfig {
   workspace: WorkspaceStore;
-  appColl: string; // the spine collection (applications)
+  appColl: string; // the spine collection (the relations' parent)
   sections: ComposedSection[];
+  summary?: ComposedSummary; // the rail — headline total + breakdown, read from the cassette (not hardcoded)
   collections: CollectionDoc[]; // the model collections (for resolvePlan)
   types: Record<string, { specializes: string[] }>;
   vocab: RenderVocabulary;
@@ -68,8 +75,9 @@ export function mountComposedJourney(mount: HTMLElement, cfg: ComposedConfig): (
       const childStore = cfg.workspace.collection(section.collection);
       const collDoc = collById.get(section.collection);
       if (!childStore || !collDoc) continue;
-      // the configurator's row is the child of THIS application (resolved via the app relation)
-      const row = childStore.rows.value.find((r) => r.doc.app?.t === 'ref' && (r.doc.app as { id: string }).id === app.id);
+      // the configurator's row is the child of THIS application, joined via the relation's childField
+      const jf = section.childField;
+      const row = childStore.rows.value.find((r) => r.doc[jf]?.t === 'ref' && (r.doc[jf] as { id: string }).id === app.id);
       if (!row) continue;
       const plan = resolvePlan({ collection: collDoc, types: cfg.types, vocab: cfg.vocab, overrides, audience: { l10n }, row });
       const byField = new Map(plan.fields.map((f) => [f.node.slice(f.node.indexOf('.') + 1), f]));
@@ -117,30 +125,31 @@ export function mountComposedJourney(mount: HTMLElement, cfg: ComposedConfig): (
       main.append(sec);
     }
 
-    // the rail: the application's rolled-up premium composed from the configurators
+    // the rail: the spine's rolled-up total, composed from the configurators via relations + rollup in
+    // the sealed core. Both the headline field and the breakdown lines are read from the cassette's
+    // journey.summary — no hardcoded field ids, so any composed cassette renders its own rail.
+    const totalField = cfg.summary?.total ?? 'premium';
     const rail = el('aside', 'jc-rail');
-    rail.setAttribute('aria-label', 'Premieoverzicht');
+    rail.setAttribute('aria-label', labelOf(totalField));
     const quote = el('div', 'quote');
-    quote.append(el('div', 'quote-eyebrow', labelOf('premium')));
-    const premium = app.doc.premium;
-    if (isMoney(premium)) {
+    quote.append(el('div', 'quote-eyebrow', labelOf(totalField)));
+    const total = app.doc[totalField];
+    if (isMoney(total)) {
       const hero = el('div', 'quote-hero');
-      hero.append(el('span', 'quote-amount', format(premium)), el('span', 'quote-per', 'per maand'));
+      hero.append(el('span', 'quote-amount', format(total)));
+      if (cfg.summary?.per) hero.append(el('span', 'quote-per', cfg.summary.per));
       quote.append(hero);
       const lines = el('dl', 'quote-lines');
-      const line = (field: string, label: string): void => {
-        const v = app.doc[field];
-        if (!isMoney(v)) return;
+      for (const ld of cfg.summary?.lines ?? []) {
+        const v = app.doc[ld.field];
+        if (!isMoney(v)) continue;
         const r = el('div', 'quote-line');
-        r.append(el('dt', undefined, label), el('dd', undefined, format(v)));
+        r.append(el('dt', undefined, ld.label ?? labelOf(ld.field)), el('dd', undefined, format(v)));
         lines.append(r);
-      };
-      line('vehicleSub', 'Voertuig');
-      line('driverSub', 'Bestuurder');
-      line('coverSub', 'Dekking');
+      }
       if (lines.children.length) quote.append(lines);
     } else {
-      quote.append(el('p', 'quote-empty', 'Vul de configuratoren in — de premie stelt zich samen uit de onderdelen.'));
+      quote.append(el('p', 'quote-empty', 'Vul de onderdelen in — het totaal stelt zich samen uit de configuratoren.'));
     }
     rail.append(quote);
     card.append(rail);

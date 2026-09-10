@@ -72,7 +72,17 @@ export interface Cassette {
   l10n?: Record<string, Record<string, string>>; // locale → (labelToken → string)
   docs?: Record<string, Record<string, string>>; // locale → (fieldToken → help prose) — self-documentation, shown to the user
   enums?: Record<string, { id: string; label: string }[]>; // picklist option labels per enum set (i18n)
-  journey?: { field: string; steps: { id: string; label?: string; fields?: string[]; gate?: string }[] }; // the wizard: each step's fields; gate = a computed-bool field unlocking the section
+  // the wizard / journey. Each step lists its fields and an optional `collection` — the configurator
+  // whose row that step edits (absent = the view's own collection, i.e. a flat single-collection
+  // journey; present = a composed journey, one section per child collection, joined by relations).
+  // gate = a computed-bool field that unlocks the section (progressive disclosure). `summary` declares
+  // the rail: the headline total field, its per-period suffix, and the breakdown lines (each a spine
+  // field, e.g. a rollup subtotal). Composition itself is relations + rollup inside the sealed core.
+  journey?: {
+    field: string;
+    steps: { id: string; label?: string; collection?: string; fields?: string[]; gate?: string }[];
+    summary?: { total: string; per?: string; lines?: { field: string; label?: string }[] };
+  };
   seed?: { coll: string; row: string; values: Record<string, Value> }[]; // example rows to apply when empty
   example?: Record<string, Value>; // demo values the client's "fill example" affordance applies to the active record
 }

@@ -92,9 +92,16 @@
   .j-next { margin-left: auto; }
   .j-btn:disabled { opacity: .5; cursor: not-allowed; }
 
-  /* the sticky quote rail */
+  /* the quote rail: a sticky right-hand pane on desktop; on narrow screens it docks to the bottom as a
+   * persistent summary pane (the total stays visible while the configurators scroll) — the responsive
+   * hybrid of wasm-calculator's rail and finders-keepers' collapsible "uw aanvraag" pane. */
   .jc-rail { position: sticky; top: 84px; }
-  @media (max-width: 900px) { .jc-rail { position: static; } }
+  @media (max-width: 900px) {
+    .jc-rail { position: sticky; top: auto; bottom: 0; z-index: 5; padding-top: 6px; }
+    .jc-rail .quote { box-shadow: 0 -10px 24px -16px rgba(0, 0, 0, .5); }
+    /* keep a focused field clear of the bottom-docked rail (~200px) — WCAG 2.4.11 focus-not-obscured */
+    .composed-card .jf { scroll-margin-bottom: 220px; }
+  }
   .quote {
     background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px;
     display: flex; flex-direction: column; gap: 14px;
