@@ -107,6 +107,10 @@ export function mountComposedJourney(mount: HTMLElement, cfg: ComposedConfig): (
   mount.append(wrap, live);
   let prevVisible = new Set<string>();
   let firstRender = true;
+  let lastAnnounce: string | null = null; // dedup the live-region premium announce (skip the first paint)
+  // committed-but-invalid edits, keyed "rowId::field" — kept across the reactive rebuild so a user's
+  // in-progress invalid value + its inline error survive an unrelated async commit (parity with flat).
+  const pending = new Map<string, { raw: string; msg: string }>();
 
   const buildToggle = (mode: Layout): HTMLElement => {
     const bar = el('div', 'journey-toggle');
@@ -169,7 +173,13 @@ export function mountComposedJourney(mount: HTMLElement, cfg: ComposedConfig): (
         lab.htmlFor = inputId;
         lab.textContent = fp.label;
         const host = el('div', 'jf-input');
-        mountCell(host, { value: row.doc[field], prop: prop!, options, refOptions: undefined, readOnly: false, onEdit: (v) => childStore.setField(row.id, field, v), id: inputId });
+        const pkey = `${row.id}::${field}`;
+        mountCell(host, {
+          value: row.doc[field], prop: prop!, options, refOptions: undefined, readOnly: false,
+          onEdit: (v) => childStore.setField(row.id, field, v), id: inputId,
+          pending: pending.get(pkey),
+          onValidity: (st) => (st ? pending.set(pkey, st) : pending.delete(pkey)),
+        });
         cell.append(lab, host);
       }
       grid.append(cell);
@@ -328,9 +338,13 @@ export function mountComposedJourney(mount: HTMLElement, cfg: ComposedConfig): (
     card.append(renderRail(app));
     wrap.append(card);
 
-    // announce the premium (screen readers), unless a layout switch already claimed the live region
+    // announce the premium (screen readers), unless a layout switch already claimed the live region.
+    // guard like the flat player: skip the first paint and re-announce only on an actual change, so a
+    // premium-neutral rebuild (e.g. confirming a section) does not re-read the same figure.
     const p = app.doc[cfg.summary?.total ?? 'premium'];
-    if (!modeAnnounced && isMoney(p)) live.textContent = `${labelOf(cfg.summary?.total ?? 'premium')}: ${format(p)}`;
+    const announce = isMoney(p) ? `${labelOf(cfg.summary?.total ?? 'premium')}: ${format(p)}` : '';
+    if (!modeAnnounced && lastAnnounce !== null && announce !== lastAnnounce) live.textContent = announce;
+    lastAnnounce = announce;
 
     // restore focus/caret/uncommitted text
     if (keepId && !modeAnnounced) {
