@@ -137,10 +137,16 @@ export function renderJourneyGraph(mount: HTMLElement, jg: JourneyGraph, opts: R
   const pairTotal = new Map<string, number>();
   for (const w of jg.wires) { const k = `${w.from}->${w.to}`; pairTotal.set(k, (pairTotal.get(k) ?? 0) + 1); }
   const pairSeen = new Map<string, number>();
+  // distinct pairs, in wire order — each pair's labels sit at a DIFFERENT point along the wire, so labels from
+  // different pairs crossing the same band (e.g. veh→fin and adr→ins) don't superimpose (only within-pair
+  // fanning handled the several-bindings-between-the-same-two case; this handles across pairs).
+  const pairKeys = [...new Set(jg.wires.map((w) => `${w.from}->${w.to}`))];
+  const pairIndex = new Map(pairKeys.map((k, i) => [k, i]));
+  const pairCount = pairKeys.length;
 
-  interface WireEls { w: JWire; j: number; n: number; path: SVGPathElement; label: SVGTextElement }
-  const FAN = 13; // vertical fan between parallel wires
-  const LABEL_STAGGER = 9; // extra label separation on top of the fan
+  interface WireEls { w: JWire; j: number; n: number; pi: number; path: SVGPathElement; label: SVGTextElement }
+  const FAN = 13; // vertical fan between parallel wires within a pair
+  const LABEL_STAGGER = 9; // extra vertical label separation within a pair
   const geom = (we: WireEls): { d: string; lx: number; ly: number } => {
     const a = pos.get(we.w.from)!;
     const b = pos.get(we.w.to)!;
@@ -150,10 +156,12 @@ export function renderJourneyGraph(mount: HTMLElement, jg: JourneyGraph, opts: R
     const x2 = b.x;
     const y2 = b.y + BOX_H / 2 + off;
     const dx = Math.max(40, (x2 - x1) / 2);
+    // place THIS pair's label at a distinct fraction t along the wire, so different pairs' labels don't stack
+    const t = Math.min(0.8, Math.max(0.2, 0.5 + (we.pi - (pairCount - 1) / 2) * 0.14));
     return {
       d: `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`,
-      lx: (x1 + x2) / 2,
-      ly: (y1 + y2) / 2 - 7 + (we.j - (we.n - 1) / 2) * LABEL_STAGGER,
+      lx: x1 + (x2 - x1) * t,
+      ly: y1 + (y2 - y1) * t - 7 + (we.j - (we.n - 1) / 2) * LABEL_STAGGER,
     };
   };
 
@@ -174,7 +182,7 @@ export function renderJourneyGraph(mount: HTMLElement, jg: JourneyGraph, opts: R
     const lt = svgEl('title');
     lt.textContent = w.info;
     lbl.append(lt);
-    const we: WireEls = { w, j, n: pairTotal.get(key) ?? 1, path, label: lbl };
+    const we: WireEls = { w, j, n: pairTotal.get(key) ?? 1, pi: pairIndex.get(key) ?? 0, path, label: lbl };
     const gg = geom(we);
     path.setAttribute('d', gg.d);
     lbl.setAttribute('x', String(gg.lx));

@@ -93,7 +93,9 @@
   .lm-graph-scroll { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--surface-sunken) 40%, var(--surface)); padding: 8px; }
   .lm-graph-svg, .lm-jgraph-svg { display: block; max-width: none; overflow: visible; }
 
-  /* a pan / zoom / drag canvas: a bounded viewport you scroll within, with a zoom toolbar */
+  /* a pan / zoom / drag canvas: a bounded viewport you scroll within, with a zoom toolbar overlaid on a
+     non-scrolling wrapper (so the toolbar stays put while you pan a zoomed canvas) */
+  .lm-canvas-wrap { position: relative; }
   .lm-canvas { position: relative; max-height: 70vh; touch-action: none; }
   .lm-canvas-zoom {
     position: absolute; top: 12px; right: 12px; z-index: 2; display: inline-flex; align-items: stretch; gap: 1px;

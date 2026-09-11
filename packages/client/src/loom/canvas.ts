@@ -64,13 +64,21 @@ export function mountCanvas(scroller: HTMLElement, svg: SVGSVGElement, opts: Can
     b.addEventListener('click', fn);
     return b;
   };
+  // +/- zoom around the CENTRE of the visible area (matching the wheel's cursor-pivot), so repeated clicks
+  // magnify in place rather than walking the content toward a corner
+  const centrePivot = (): { x: number; y: number } => ({ x: scroller.scrollLeft + scroller.clientWidth / 2, y: scroller.scrollTop + scroller.clientHeight / 2 });
   bar.append(
-    btn('−', 'Uitzoomen', () => zoomTo(scale / 1.2)),
+    btn('−', 'Uitzoomen', () => zoomTo(scale / 1.2, centrePivot())),
     pct,
-    btn('+', 'Inzoomen', () => zoomTo(scale * 1.2)),
+    btn('+', 'Inzoomen', () => zoomTo(scale * 1.2, centrePivot())),
   );
   pct.addEventListener('click', () => zoomTo(1));
-  scroller.append(bar);
+  // pin the toolbar as an overlay on a non-scrolling WRAPPER around the scroller, so it stays in view while
+  // panning a zoomed canvas (appended to the scroller it would scroll away with the content)
+  const wrap = document.createElement('div');
+  wrap.className = 'lm-canvas-wrap';
+  scroller.parentNode?.insertBefore(wrap, scroller);
+  wrap.append(scroller, bar);
 
   // ctrl/⌘ + wheel to zoom around the cursor (plain wheel keeps its normal scroll/pan)
   scroller.addEventListener('wheel', (e) => {
