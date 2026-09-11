@@ -27,6 +27,7 @@ import { renderCompositionEditor } from './loom/composition-edit.ts';
 import { loadJourneyDoc } from './loom/journey-edit.ts';
 import { createFormulaInspector } from './loom/formula-inspector.ts';
 import { createModelEditing } from './loom/model-editing.ts';
+import { renderContextBar, shapeLabel } from './nav.ts';
 
 const COLL_LABELS: Record<string, string> = { applications: 'Aanvraag', vehicles: 'Voertuig', drivers: 'Bestuurder', covers: 'Dekking' };
 
@@ -96,18 +97,15 @@ document.title = `${brand.name ?? 'Rowblaa Bank'} — Loom`;
 
 const subjectTitle = journeyDoc?.title ?? shipped.title ?? shipped.id;
 const subjectDoc = journeyDoc?.doc ?? shipped.doc;
-const playerHref = `/play.html?cassette=${encodeURIComponent(journeyDoc?.id ?? shipped.id)}`;
 
 app.innerHTML = `
   <header class="bank-topbar" role="banner">
     <div class="bank-identity">
       <span class="bank-mark" aria-hidden="true">${logoSvg}</span>
       <span class="bank-name">${brand.name ?? 'Rowblaa Bank'}</span>
-      <span class="bank-since">Loom · model</span>
+      <span class="bank-since">Model</span>
     </div>
     <div class="bank-tools">
-      <a class="cc-btn cc-btn-quiet" href="/catalogue.html">Catalogus</a>
-      <a class="cc-btn cc-btn-quiet" href="${playerHref}">Naar de aanvraag →</a>
       <button class="theme-toggle" id="theme" type="button" aria-label="Wissel tussen licht en donker thema"></button>
     </div>
   </header>
@@ -133,20 +131,29 @@ themeBtn.addEventListener('click', () => paint(mode === 'light' ? 'dark' : 'ligh
 
 const mount = app.querySelector<HTMLElement>('#mount')!;
 
-// arrived here by drilling from a journey's composition? the "back to the journey" link is rendered just
-// above the diagram in the Grafiek panel (where a drill lands), not up here in the hero — see that tab.
+// arrived here by drilling a configurator out of a journey's composition? the breadcrumb records that reis
+// (Catalogus › <reis> › <configurator>) so the way back up is consistent with every other page.
 const fromJourney = qs.get('from');
-const backToJourney = (): HTMLAnchorElement | null => {
-  if (journeyDoc || !fromJourney || !Object.hasOwn(JOURNEYS, fromJourney)) return null;
-  const back = el('a', 'lm-back') as HTMLAnchorElement;
-  back.href = `/loom.html?journey=${encodeURIComponent(fromJourney)}#compositie`;
-  back.append(el('span', 'lm-back-arrow', '←'), document.createTextNode(` Terug naar ${JOURNEYS[fromJourney].title ?? fromJourney}`));
-  return back;
-};
+const from = !journeyDoc && fromJourney && Object.hasOwn(JOURNEYS, fromJourney)
+  ? { id: fromJourney, title: JOURNEYS[fromJourney].title ?? fromJourney }
+  : undefined;
+const modelEdited = ((): boolean => {
+  try {
+    return journeyDoc ? !!localStorage.getItem(`fk-journey-doc-${journeyDoc.id}`) : !!localStorage.getItem(`fk-cassette-model-${shipped!.id}`);
+  } catch { return false; }
+})();
+
+// shared navigation: the same breadcrumb + Aanvraag|Model view-switch every surface shows, below the header
+mount.parentElement!.insertBefore(renderContextBar({
+  subject: { id: journeyDoc?.id ?? shipped.id, title: subjectTitle, isJourney: !!journeyDoc },
+  view: 'model',
+  from,
+  modelEdited,
+}), mount);
 
 // hero
 const hero = el('div', 'lm-hero');
-const badge = el('span', `lm-hero-badge lm-badge-${journeyDoc ? 'journey' : shipped.collections.length > 1 ? 'composed' : 'flat'}`, journeyDoc ? 'Pakket' : shipped.collections.length > 1 ? 'Samengesteld' : 'Eén model');
+const badge = el('span', `lm-hero-badge lm-badge-${journeyDoc || shipped.collections.length > 1 ? 'reis' : 'configurator'}`, shapeLabel(shipped.collections.length));
 hero.append(badge);
 hero.append(el('h1', 'lm-hero-title', subjectTitle));
 if (subjectDoc) hero.append(el('p', 'lm-hero-doc', subjectDoc));
@@ -172,7 +179,7 @@ if (journeyDoc) {
     id: 'compositie',
     label: 'Compositie',
     build: (panel) => {
-      panel.append(el('p', 'lm-panel-intro', 'De producten en de getypte bindingen die ze samenstellen, bewerkbaar. Voeg producten of bindingen toe, pas de mapping van een naad aan, en kies wat optelt tot het totaal. Elke wijziging wordt in de verzegelde core gevalideerd voordat u opslaat; de speler draait daarna deze compositie.'));
+      panel.append(el('p', 'lm-panel-intro', 'De configurators en de getypte bindingen die ze samenstellen, bewerkbaar. Voeg configurators of bindingen toe, pas de mapping van een naad aan, en kies wat optelt tot het totaal. Elke wijziging wordt in de verzegelde core gevalideerd voordat u opslaat; de aanvraag draait daarna deze compositie.'));
       renderCompositionEditor(panel, {
         shippedDoc: journeyDoc,
         registry: REGISTRY,
@@ -207,11 +214,8 @@ tabs.push({
   id: 'grafiek',
   label: 'Grafiek',
   build: (panel) => {
-    // the "← Terug naar <journey>" link sits right above the diagram (this is where a drill from the
-    // journey composition lands), so the way back is clear next to the graph it brought you to.
-    const back = backToJourney();
-    if (back) panel.append(back);
-    panel.append(el('p', 'lm-panel-intro', 'Wat voedt wat. Invoervelden links, uitkomsten rechts; de pijlen zijn afhankelijkheden, opnieuw afgeleid uit de formules. Rollups over relaties (en de L2-naad van een pakket) zijn geaccentueerd. Beweeg over een veld om zijn keten te lichten; klik op een berekend veld (ƒ) om de formule te bekijken' + (journeyDoc ? '.' : ' en de getallen erin aan te passen.')));
+    // (the "back to the reis" link now lives in the breadcrumb at the top of the page — consistent across tabs)
+    panel.append(el('p', 'lm-panel-intro', 'Wat voedt wat. Invoervelden links, uitkomsten rechts; de pijlen zijn afhankelijkheden, opnieuw afgeleid uit de formules. Rollups over relaties (en de L2-naad van een reis) zijn geaccentueerd. Beweeg over een veld om zijn keten te lichten; klik op een berekend veld (ƒ) om de formule te bekijken' + (journeyDoc ? '.' : ' en de getallen erin aan te passen.')));
     const g = buildGraph(shipped!, { label: labelFor, collLabel: labelFor, outputField });
     const holder = el('div');
     panel.append(holder);
@@ -251,7 +255,7 @@ tabs.push({
   label: 'Regels',
   build: (panel) => {
     if (journeyDoc) {
-      panel.append(el('p', 'lm-panel-intro', 'De regels van een pakket wonen in de samengestelde producten — de binding (naad) tussen twee producten is berekend en dus vast. Bewerk de tarieven en drempels in het Loom van elk product.'));
+      panel.append(el('p', 'lm-panel-intro', 'De regels van een reis wonen in de samengestelde configurators — de binding (naad) tussen twee configurators is berekend en dus vast. Bewerk de tarieven en drempels in het model van elke configurator.'));
       const seams = el('div', 'lm-seams');
       for (const b of journeyDoc.bindings) {
         const row = el('div', 'lm-seam');
@@ -266,7 +270,7 @@ tabs.push({
       }
       panel.append(seams);
       const links = el('div', 'lm-edit-through');
-      links.append(el('div', 'lm-edit-through-head', 'Regels bewerken per product'));
+      links.append(el('div', 'lm-edit-through-head', 'Regels bewerken per configurator'));
       for (const m of journeyDoc.models) {
         const a = el('a', 'lm-edit-link') as HTMLAnchorElement;
         a.href = `/loom.html?cassette=${encodeURIComponent(m.ref)}#regels`;

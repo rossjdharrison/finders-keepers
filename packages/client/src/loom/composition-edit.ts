@@ -129,8 +129,8 @@ export function renderCompositionEditor(mount: HTMLElement, opts: CompositionEdi
   // --- Modellen -------------------------------------------------------------------------------
   function sectionModels(): HTMLElement {
     const sec = el('section', 'lm-ce-sec');
-    sec.append(el('h3', 'lm-ce-h', 'Modellen'));
-    sec.append(el('p', 'lm-ce-sub', 'De producten in het pakket. De spine draagt het gecombineerde totaal en kan niet worden verwijderd.'));
+    sec.append(el('h3', 'lm-ce-h', 'Configuratoren'));
+    sec.append(el('p', 'lm-ce-sub', 'De configurators in de reis. De spine draagt het gecombineerde totaal en kan niet worden verwijderd.'));
     const list = el('div', 'lm-ce-list');
     for (const m of doc.models) {
       const row = el('div', 'lm-ce-row');
@@ -158,7 +158,7 @@ export function renderCompositionEditor(mount: HTMLElement, opts: CompositionEdi
       const sel = document.createElement('select');
       sel.className = 'lm-ce-select';
       sel.setAttribute('aria-label', 'Kies een product om toe te voegen');
-      sel.append(opt('', 'Product toevoegen…'));
+      sel.append(opt('', 'Configurator toevoegen…'));
       for (const c of addable) sel.append(opt(c.id, c.title ?? c.id));
       const btn = el('button', 'lm-ce-add', 'Toevoegen') as HTMLButtonElement;
       btn.type = 'button';
@@ -275,7 +275,7 @@ export function renderCompositionEditor(mount: HTMLElement, opts: CompositionEdi
   function sectionSummary(): HTMLElement {
     const sec = el('section', 'lm-ce-sec');
     sec.append(el('h3', 'lm-ce-h', 'Samenvatting'));
-    sec.append(el('p', 'lm-ce-sub', 'Regels uit toeleverende producten die op de spine worden getoond, en welke velden optellen tot het gecombineerde totaal.'));
+    sec.append(el('p', 'lm-ce-sub', 'Regels uit toeleverende configurators die op de spine worden getoond, en welke velden optellen tot het gecombineerde totaal.'));
 
     // surfaced lines
     const surf = el('div', 'lm-ce-list');
@@ -464,7 +464,7 @@ export function renderCompositionEditor(mount: HTMLElement, opts: CompositionEdi
     revert.addEventListener('click', () => { clearJourneyDoc(id); doc = structuredClone(shippedDoc); dirty = false; banner = ''; render(); });
     actions.append(save, revert);
     card.append(actions);
-    const note = el('div', 'adm-saved', dirty ? 'Niet-opgeslagen wijzigingen' : hasJourneyOverride(id) ? 'Opgeslagen — de speler gebruikt deze compositie.' : 'Standaardcompositie.');
+    const note = el('div', 'adm-saved', dirty ? 'Niet-opgeslagen wijzigingen' : hasJourneyOverride(id) ? 'Opgeslagen — de aanvraag gebruikt deze compositie.' : 'Standaardcompositie.');
     card.append(note);
     aside.append(card);
     return aside;
