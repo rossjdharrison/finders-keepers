@@ -18,6 +18,7 @@ import { browserExterns } from './browser-externs.ts';
 import { wireAutofill } from './autofill.ts';
 import { initRequestDrawer } from './request-view.ts';
 import { localStoragePersistence, broadcastChannelBroadcaster, snapshotSignature } from './adapters.ts';
+import { renderContextBar } from './nav.ts';
 import { applyTheme, initialMode, type ThemeMode } from './theme.ts';
 import { initConsent } from './consent.ts';
 import { setLocale } from './format.ts';
@@ -79,9 +80,7 @@ app.innerHTML = `
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-4Zm0 10.9h6.3c-.5 3.6-2.8 6.9-6.3 8V12H5.7V6.3L12 3.2v8.7Z"/></svg>
         Beveiligd
       </span>
-      <a class="cc-btn cc-btn-quiet" href="/catalogue.html">Catalogus</a>
       ${cass.example ? '<button class="cc-btn cc-btn-quiet" id="fill-example" type="button">Voorbeeld invullen</button>' : ''}
-      <a class="cc-btn cc-btn-quiet" id="loom-link" href="${journeyDoc ? `/loom.html?journey=${encodeURIComponent(journeyDoc.id)}` : `/loom.html?cassette=${cass.id}`}">Model${(journeyDoc ? journeyEdited : modelIsEdited) ? ' <span class="bank-edited" title="Er zijn aangepaste regels of een aangepaste compositie actief">•</span>' : ''}</a>
       <button class="cc-btn cc-btn-quiet" id="cookie-prefs" type="button">Cookievoorkeuren</button>
       <button class="theme-toggle" id="theme" type="button" aria-label="Wissel tussen licht en donker thema"></button>
     </div>
@@ -90,6 +89,14 @@ app.innerHTML = `
   <main id="mount" class="mount" tabindex="-1"></main>
   <footer class="hint">Deze aanvraag draait volledig in uw browser: het model speelt af op de verzegelde <code>@core</code> in een <b>QuickJS&nbsp;WASM</b>-sandbox. Validatie, herberekening en de bewaakte stappen gebeuren in dit tabblad. Externe opzoekingen (kenteken via de gratis <b>RDW</b>-API, adres via <b>PDOK</b>) zijn live; verder gaat er niets naar een server na het laden.</footer>
 `;
+
+// consistent navigation: a breadcrumb + Aanvraag|Model view-switch, between the header and the aanvraag
+const mountEl = app.querySelector<HTMLElement>('#mount')!;
+mountEl.parentElement!.insertBefore(renderContextBar({
+  subject: { id: journeyDoc?.id ?? cass.id, title: journeyDoc?.title ?? cass.title ?? cass.id, isJourney: !!journeyDoc },
+  view: 'aanvraag',
+  modelEdited: journeyDoc ? journeyEdited : modelIsEdited,
+}), mountEl);
 
 // theme + toggle
 const themeBtn = app.querySelector<HTMLButtonElement>('#theme')!;

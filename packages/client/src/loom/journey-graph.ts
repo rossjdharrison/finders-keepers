@@ -198,10 +198,10 @@ export function renderJourneyGraph(mount: HTMLElement, jg: JourneyGraph, opts: R
   for (const b of jg.boxes) {
     const p = pos.get(b.alias)!;
     const a = svgEl('a', { class: `lm-jbox ${b.isSpine ? 'lm-jbox-spine' : ''}`, href: opts.loomHref(b.ref), transform: `translate(${p.x}, ${p.y})` });
-    a.setAttribute('aria-label', `${b.label} (${b.isSpine ? 'spine' : 'toelevering'}) — open het waardemodel`);
+    a.setAttribute('aria-label', `${b.label} (configurator${b.isSpine ? ', draagt het totaal' : ''}) — open het model`);
     a.append(svgEl('rect', { class: 'lm-jbox-box', width: BOX_W, height: BOX_H, rx: 12 }));
     const role = svgEl('text', { class: 'lm-jbox-role', x: 14, y: 22 });
-    role.textContent = b.isSpine ? 'spine · draagt het totaal' : 'toelevering';
+    role.textContent = b.isSpine ? 'configurator · draagt het totaal' : 'configurator';
     a.append(role);
     const name = svgEl('text', { class: 'lm-jbox-name', x: 14, y: 46 });
     name.textContent = truncate(b.label, 24);
@@ -210,10 +210,10 @@ export function renderJourneyGraph(mount: HTMLElement, jg: JourneyGraph, opts: R
     alias.textContent = truncate(`${b.alias} · ${b.ref}`, 30);
     a.append(alias);
     const drill = svgEl('text', { class: 'lm-jbox-drill', x: 14, y: 82 });
-    drill.textContent = '↳ open het waardemodel';
+    drill.textContent = '↳ open het model';
     a.append(drill);
     const t = svgEl('title');
-    t.textContent = `Open het Loom-model van ${b.label}`;
+    t.textContent = `Open het model van ${b.label}`;
     a.append(t);
     boxLayer.append(a);
     boxEls.set(b.alias, a);
