@@ -17,7 +17,7 @@ import { createHostStore, recomputeAll } from './host-store.ts';
 import { browserExterns } from './browser-externs.ts';
 import { wireAutofill } from './autofill.ts';
 import { initRequestDrawer } from './request-view.ts';
-import { localStoragePersistence, broadcastChannelBroadcaster } from './adapters.ts';
+import { localStoragePersistence, broadcastChannelBroadcaster, snapshotSignature } from './adapters.ts';
 import { applyTheme, initialMode, type ThemeMode } from './theme.ts';
 import { initConsent } from './consent.ts';
 import { setLocale } from './format.ts';
@@ -127,9 +127,15 @@ const quickjs = await createBrowserQuickJS();
 const bundleSource = await fetch(coreBundleUrl).then((r) => r.text());
 const sealed = await createSealedCore(quickjs, bundleSource, externs);
 const chan = `fk-cassette-${cass.id}`;
+// stamp both the persisted snapshot AND the cross-tab broadcast with the cassette's SHAPE signature, so a
+// snapshot saved/broadcast against an older shape (e.g. before a configurator's collection/seed rows existed,
+// or with a since-renamed enum option) is discarded and the journey re-seeds — instead of restoring an
+// incomplete/mismatched state that leaves the total stuck on the "fill in" placeholder or silently misprices.
+const cassSig = snapshotSignature(cass);
 const host = await createBrowserHostOver(sealed, cass, {
-  persistence: localStoragePersistence(chan),
+  persistence: localStoragePersistence(chan, cassSig),
   broadcaster: broadcastChannelBroadcaster(chan),
+  signature: cassSig,
 });
 const collections = cass.collections as unknown as CollectionDoc[];
 if (modelIsEdited) recomputeAll(host, collections); // edited rules over a snapshot → recompute under them

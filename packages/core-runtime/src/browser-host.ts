@@ -34,28 +34,42 @@ export interface BrowserHost {
 export async function createBrowserHostOver(
   core: Core,
   cassette: Cassette,
-  opts: { persistence?: Persistence; broadcaster?: Broadcaster } = {},
+  opts: { persistence?: Persistence; broadcaster?: Broadcaster; signature?: string } = {},
 ): Promise<BrowserHost> {
   core.load(cassette);
   const subs = new Set<() => void>();
   const notify = (): void => { for (const cb of subs) cb(); };
+  const sig = opts.signature;
 
   // durability: restore the last computed state (externs are NOT re-run); else seed the cassette's
   // example rows (applied through the engine once, so their externs resolve + premium computes).
   const saved = opts.persistence ? await opts.persistence.loadSnapshot() : null;
   if (saved) core.restore(saved);
   else for (const s of cassette.seed ?? []) core.apply(s.coll, [{ op: 'insert', row: s.row, values: s.values }]);
+  let lastSeq = core.snapshot().seq;
 
-  // cross-tab: adopt another tab's state (BroadcastChannel never echoes to the sender)
-  opts.broadcaster?.onMessage((s) => { core.restore(s); notify(); });
+  // cross-tab: adopt another tab's state (BroadcastChannel never echoes to the sender). Gate it by the SAME
+  // shape signature as persistence (so a tab on an OLD deploy cannot push a stale-shaped snapshot into a tab
+  // on the new one) and by monotonic seq (never restore backward) — otherwise a rejected snapshot could be
+  // re-persisted here under the current valid signature, amplifying the poison.
+  opts.broadcaster?.onMessage((s) => {
+    const inSig = (s as { __sig?: string }).__sig;
+    if (sig !== undefined && inSig !== sig) return; // cross-version / unstamped broadcast — ignore
+    if (typeof s.seq === 'number' && s.seq <= lastSeq) return; // stale/backward — ignore
+    core.restore(s);
+    lastSeq = s.seq;
+    notify();
+  });
 
   return {
     read: (coll) => core.read(coll),
     apply: (coll, ops) => {
       const rows = core.apply(coll, ops);
       const snap = core.snapshot();
+      lastSeq = snap.seq;
       void opts.persistence?.saveSnapshot(snap);
-      opts.broadcaster?.post(snap);
+      // stamp the broadcast with the signature so peers can reject a cross-version snapshot
+      opts.broadcaster?.post(sig !== undefined ? ({ ...snap, __sig: sig } as Snapshot) : snap);
       notify();
       return rows;
     },

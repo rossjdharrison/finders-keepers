@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import type { Cassette } from '@app/core-runtime';
 import { createModelEditing } from './model-editing.ts';
 import { collectFormulaLiterals } from '../model-edit.ts';
+import { parseExpr } from './expr.ts';
 
 // Node has no localStorage — a minimal Map-backed stub so the session's persistence path is exercised.
 const store = new Map<string, string>();
@@ -47,6 +48,31 @@ test('ModelEditing: a batch rate edit + a later literal edit+save persist TOGETH
   const persisted = JSON.parse(store.get(ed.key)!) as Cassette;
   assert.equal(String(cellMinor(persisted, 'coverRate', 'wa')), '777', 'the earlier batch rate edit survived');
   assert.equal(litRaw(persisted, 'optLegalAidFee'), 400, 'and the literal edit was applied too');
+});
+
+test('ModelEditing.trySetFormula: a valid structural edit commits; an invalid one is rejected and leaves state untouched', () => {
+  store.clear();
+  const ed = createModelEditing(carIns());
+  // a VALID structural rewrite of optLegalAidFee (money → money, references the real bool field) commits + persists
+  const ok = ed.trySetFormula('applications', 'optLegalAidFee', parseExpr('if(optLegalAid, €9, €0)'));
+  assert.equal(ok.ok, true, 'a valid expression is accepted');
+  assert.equal(litRaw(JSON.parse(store.get(ed.key)!) as Cassette, 'optLegalAidFee'), 900, 'the new €9 literal was persisted');
+  // an INVALID rewrite (references a field that does not exist) is rejected; the committed formula is unchanged
+  const bad = ed.trySetFormula('applications', 'optLegalAidFee', parseExpr('nonexistentField + €1'));
+  assert.equal(bad.ok, false, 'an expression referencing an unknown field is rejected');
+  assert.ok(bad.error && bad.error.length > 0, 'with an error message');
+  assert.equal(litRaw(ed.cass(), 'optLegalAidFee'), 900, 'the shared cassette still holds the last VALID formula (€9), untouched by the bad edit');
+});
+
+test('ModelEditing.trySetFormula: a structural edit that changes the field TYPE is rejected (no silent re-type)', () => {
+  store.clear();
+  const ed = createModelEditing(carIns());
+  // optLegalAidFee is declared money; a formula returning a num (not money) must be rejected, not silently
+  // re-typing the field — otherwise downstream money arithmetic gets a num and misbehaves.
+  const before = litRaw(ed.cass(), 'optLegalAidFee');
+  const res = ed.trySetFormula('applications', 'optLegalAidFee', parseExpr('age + 1'));
+  assert.equal(res.ok, false, 'a num-typed formula on a money field is rejected');
+  assert.equal(litRaw(ed.cass(), 'optLegalAidFee'), before, 'and the field keeps its previous money formula');
 });
 
 test('ModelEditing: subscribers fire on save and revert; revert drops the override', () => {

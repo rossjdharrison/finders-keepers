@@ -14,6 +14,7 @@ import type { GNode } from './graph.ts';
 import type { FormulaPath } from '../model-edit.ts';
 import { buildEditableFormula } from '../renderers/formula-edit.ts';
 import { describeFormula } from '../renderers/docs.ts';
+import { formatExpr, parseExpr } from './expr.ts';
 import { format } from '../format.ts';
 
 interface Prop { id: string; source?: string; valueType: { k: string }; formula?: unknown }
@@ -27,6 +28,9 @@ export interface FormulaInspectorOpts {
   /** present → the field's numeric literals are editable; the callback applies + validates + persists and
    * returns the result (ok / error / the resulting sample output). Absent → read-only. */
   onEdit?: (collId: string, propId: string, path: FormulaPath, raw: number) => EditResult;
+  /** present → the WHOLE formula is editable as an expression; the callback applies + validates + persists
+   * the new AST and returns the result. Absent → only the literals are editable (no structural editing). */
+  onSetFormula?: (collId: string, propId: string, formula: unknown) => EditResult;
   /** label for the sample-output readout shown after an edit (e.g. "Maandtermijn") */
   outputLabel?: string;
   /** jump to the full Regels editor (offered as a link in editable mode) */
@@ -121,9 +125,51 @@ export function createFormulaInspector(mount: HTMLElement, opts: FormulaInspecto
     card.append(eq);
 
     card.append(el('p', 'lm-inspect-note', count > 0
-      ? 'De blauw omkaderde getallen — drempels en vaste bedragen — kunt u aanpassen; elke wijziging wordt in de verzegelde core gevalideerd en direct opgeslagen. De overige delen zijn afgeleid uit het model.'
-      : 'Deze formule is volledig afgeleid uit andere velden — er zijn geen instelbare getallen om aan te passen.'));
+      ? 'De blauw omkaderde getallen — drempels en vaste bedragen — kunt u aanpassen; elke wijziging wordt in de verzegelde core gevalideerd en direct opgeslagen. De overige delen zijn afgeleid uit het model. Voor méér dan de getallen: bewerk de formule zelf hieronder.'
+      : 'Deze formule is volledig afgeleid uit andere velden. Wilt u de berekening wijzigen, bewerk dan de formule zelf hieronder.'));
     if (count > 0) card.append(status);
+
+    // structural editor: rewrite the WHOLE expression (operators, refs, conditions), not just its numbers.
+    // The text is parsed to an AST and handed to the same throwaway-core validation, so a bad expression
+    // (wrong type, unknown field, a new cycle) is rejected before it is ever saved.
+    if (opts.onSetFormula) {
+      const details = document.createElement('details');
+      details.className = 'lm-inspect-expr';
+      const sum = document.createElement('summary');
+      sum.className = 'lm-inspect-expr-toggle';
+      sum.textContent = 'Formule zelf bewerken';
+      details.append(sum);
+      const ta = document.createElement('textarea');
+      ta.className = 'lm-inspect-expr-ta';
+      ta.rows = 2;
+      ta.spellcheck = false;
+      ta.value = formatExpr(prop.formula);
+      ta.setAttribute('aria-label', `Formule van ${opts.label(n.id)} als uitdrukking`);
+      details.append(ta);
+      const exprStatus = el('div', 'lm-inspect-status');
+      const applyBtn = el('button', 'lm-inspect-apply', 'Toepassen') as HTMLButtonElement;
+      applyBtn.type = 'button';
+      applyBtn.addEventListener('click', () => {
+        let ast: unknown;
+        try {
+          ast = parseExpr(ta.value);
+        } catch (e) {
+          exprStatus.dataset.state = 'error';
+          exprStatus.textContent = `✗ ${e instanceof Error ? e.message : 'ongeldige uitdrukking'}`;
+          return;
+        }
+        const res = opts.onSetFormula!(n.coll, n.id, ast);
+        if (res.ok) show(n); // re-render: the new formula's own literals become inline-editable, proof it applied
+        else {
+          exprStatus.dataset.state = 'error';
+          exprStatus.textContent = `✗ ${res.error ?? 'ongeldige formule'}`;
+        }
+      });
+      const bar = el('div', 'lm-inspect-expr-bar');
+      bar.append(applyBtn, el('span', 'lm-inspect-expr-help', 'infix — bijv.  a + b · if(x < 10, €5, €0) · lookup(tabel, sleutel)'));
+      details.append(bar, exprStatus);
+      card.append(details);
+    }
 
     if (opts.openRules) {
       const more = el('button', 'lm-inspect-more', 'Alle regels & voorbeeldpremie →') as HTMLButtonElement;

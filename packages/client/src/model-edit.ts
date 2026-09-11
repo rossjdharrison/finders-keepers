@@ -99,10 +99,57 @@ export function setFormulaLiteral(
   return next;
 }
 
+/** Replace a computed field's WHOLE formula AST (a structural edit — new operators, refs, conditions), not
+ * just a literal. Pure: clones, swaps `formula`, touches nothing else. Validity (types stay consistent with
+ * the field's declared valueType, no new cycle, referenced fields exist) is NOT checked here — hand the
+ * result to previewCassette, whose throwaway buildPrepared throws on any of those, so a bad expression is
+ * caught before it is ever persisted. A no-op if the field is missing or not computed. */
+export function setFormula(cassette: Cassette, collId: string, propId: string, formula: unknown): Cassette {
+  const next = structuredClone(cassette);
+  const coll = next.collections.find((c) => c.id === collId);
+  const prop = (coll?.properties ?? []).find((p) => p.id === propId) as { source?: string; formula?: unknown } | undefined;
+  if (prop && (prop.source ?? 'stored') === 'computed') prop.formula = structuredClone(formula);
+  return next;
+}
+
 export interface PreviewResult {
   ok: boolean;
   error?: string;
   premium?: Value; // the sample quote's premium under the (edited) rules
+}
+
+interface SeedRow2 { coll: string; row: string; values: Record<string, Value> }
+
+/** Validate a SINGLE computed field after a STRUCTURAL edit: load the candidate in a throwaway core, seed it,
+ * and read the field — rejecting a runtime ERROR value OR a value whose type no longer matches the field's
+ * DECLARED valueType (a structural edit that silently re-typed the field, which buildPrepared does not itself
+ * reconcile). Complements previewCassette (which only sees the OUTPUT field). */
+export function previewField(cassette: Cassette, collId: string, propId: string): PreviewResult {
+  try {
+    const core = createCore(mockExterns());
+    core.load(cassette);
+    const seed = (cassette as { seed?: SeedRow2[] }).seed;
+    if (cassette.collections.length > 1 && Array.isArray(seed) && seed.length) {
+      for (const s of seed) core.apply(s.coll, [{ op: 'insert', row: s.row, values: s.values }]);
+    } else {
+      const values = (cassette as { example?: Record<string, Value> }).example ?? {};
+      core.apply(collId, [{ op: 'insert', row: 'preview', values }]);
+    }
+    const prop = (cassette.collections.find((c) => c.id === collId)?.properties ?? []).find((p) => p.id === propId) as { valueType?: { k?: string } } | undefined;
+    const docs = core.read(collId).map((r) => r.doc[propId]);
+    const val = docs.find((v) => v && v.t !== 'blank') ?? docs[0];
+    if (val && val.t === 'error') {
+      const e = val as { code?: string; detail?: string };
+      return { ok: false, error: `${e.code ?? '#ERR'}${e.detail ? ` ${e.detail}` : ''}` };
+    }
+    const declared = prop?.valueType?.k;
+    if (val && val.t !== 'blank' && declared && val.t !== declared) {
+      return { ok: false, error: `de formule levert ${val.t}, maar het veld is ${declared}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 interface SeedRow { coll: string; row: string; values: Record<string, Value> }
@@ -145,6 +192,12 @@ export function previewCassette(cassette: Cassette, sample?: Record<string, Valu
       const values = sample ?? (cassette as { example?: Record<string, Value> }).example ?? {};
       const [row] = core.apply(outColl, [{ op: 'insert', row: 'preview', values }]);
       premium = row?.doc[field];
+    }
+    // a formula that TYPECHECKS but computes to a runtime ERROR value (#DIV0, #TYPE, a bad lookup) is NOT ok —
+    // the engine returns it as an error Value rather than throwing, so catch it here or a broken rule persists.
+    if (premium && premium.t === 'error') {
+      const e = premium as { code?: string; detail?: string };
+      return { ok: false, error: `${e.code ?? '#ERR'}${e.detail ? ` ${e.detail}` : ''}` };
     }
     return { ok: true, premium: premium && premium.t !== 'blank' ? premium : undefined };
   } catch (e) {
