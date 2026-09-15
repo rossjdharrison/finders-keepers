@@ -5,11 +5,12 @@
 // accepted. On invalid input the cell shows the message + aria-invalid and does not commit.
 
 import { isValidKenteken, formatKenteken } from './kenteken.ts';
+import { isValidKvk, normalizeKvk } from './kvk.ts';
 
 export interface FieldConstraint {
   min?: number;
   max?: number;
-  format?: 'kenteken' | 'postcode';
+  format?: 'kenteken' | 'postcode' | 'kvk';
 }
 
 const POSTCODE = /^[1-9][0-9]{3}\s?[A-Za-z]{2}$/;
@@ -30,6 +31,7 @@ export function checkInput(raw: string, kind: string, c?: FieldConstraint): stri
   if (kind === 'text') {
     if (c?.format === 'kenteken' && !isValidKenteken(raw)) return 'Voer een geldig Nederlands kenteken in (bijv. 48-ZG-BT).';
     if (c?.format === 'postcode' && !POSTCODE.test(s)) return 'Voer een geldige postcode in (bijv. 1011 AB).';
+    if (c?.format === 'kvk' && !isValidKvk(raw)) return 'Voer een geldig KvK-nummer in (8 cijfers).';
   }
   return null;
 }
@@ -39,5 +41,6 @@ export function canonicalize(raw: string, kind: string, c?: FieldConstraint): st
   if (kind !== 'text') return raw;
   if (c?.format === 'kenteken') return formatKenteken(raw) ?? raw;
   if (c?.format === 'postcode') return raw.trim().toUpperCase().replace(/^(\d{4})\s?([A-Z]{2})$/, '$1 $2');
+  if (c?.format === 'kvk') return normalizeKvk(raw);
   return raw;
 }

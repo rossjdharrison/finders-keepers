@@ -10,8 +10,10 @@ import type { Externs } from '@app/core-runtime';
 import type { Value } from '@core/values';
 import { normalizeKenteken } from './kenteken.ts';
 import { normalizePostcode } from './pdok.ts';
+import { normalizeKvk } from './kvk.ts';
 import { lookupVehicle, type VehicleInfo } from './rdw.ts';
 import { lookupAddress, type AddressInfo } from './pdok.ts';
+import { lookupCompany, type CompanyInfo } from './kvk.ts';
 
 const text = (v: string): Value => ({ t: 'text', v });
 const en = (set: string, v: string): Value => ({ t: 'enum', set, v });
@@ -29,10 +31,13 @@ function regionBandOf(pc: string): Value {
 export interface BrowserExterns extends Externs {
   vehicles: Map<string, VehicleInfo>;
   addresses: Map<string, AddressInfo>;
+  companies: Map<string, CompanyInfo>;
   hasVehicle(rawPlate: string): boolean;
   prefetchVehicle(rawPlate: string): Promise<boolean>;
   hasAddress(rawPostcode: string): boolean;
   prefetchAddress(rawPostcode: string): Promise<boolean>;
+  hasCompany(rawKvk: string): boolean;
+  prefetchCompany(rawKvk: string): Promise<boolean>;
   /** the house/flat numbers on a postcode (for a datalist); [] if not fetched */
   addressNumbers(rawPostcode: string): string[];
 }
@@ -40,9 +45,11 @@ export interface BrowserExterns extends Externs {
 export function browserExterns(): BrowserExterns {
   const vehicles = new Map<string, VehicleInfo>();
   const addresses = new Map<string, AddressInfo>();
+  const companies = new Map<string, CompanyInfo>();
   return {
     vehicles,
     addresses,
+    companies,
     clock: () => ({ today: 20000, nowMs: 20000 * 86_400_000 }), // fixed for reproducibility
     hasVehicle: (raw) => vehicles.has(normalizeKenteken(raw)),
     async prefetchVehicle(raw) {
@@ -59,6 +66,14 @@ export function browserExterns(): BrowserExterns {
       const info = await lookupAddress(k);
       if (info) addresses.set(k, info);
       return addresses.has(k);
+    },
+    hasCompany: (raw) => companies.has(normalizeKvk(raw)),
+    async prefetchCompany(raw) {
+      const k = normalizeKvk(raw);
+      if (companies.has(k)) return true;
+      const info = await lookupCompany(k);
+      if (info) companies.set(k, info);
+      return companies.has(k);
     },
     addressNumbers: (raw) => addresses.get(normalizePostcode(raw))?.numbers ?? [],
     api(name, params) {
@@ -77,6 +92,14 @@ export function browserExterns(): BrowserExterns {
       if (name === 'regionBand') {
         const pc = params.postcode?.t === 'text' ? params.postcode.v : '';
         return pc ? regionBandOf(pc) : BLANK;
+      }
+      // KvK company lookup: kvkNummer → name / legal form / sector / city / employees (each its own extern,
+      // all reading the one cached CompanyInfo — mirrors rdwDesc/rdwValue sharing the vehicle lookup).
+      if (name === 'kvkName' || name === 'kvkRechtsvorm' || name === 'kvkSector' || name === 'kvkCity' || name === 'kvkMedewerkers') {
+        const kvk = params.kvk?.t === 'text' ? params.kvk.v : '';
+        const hit = companies.get(normalizeKvk(kvk));
+        if (!hit) return BLANK;
+        return name === 'kvkName' ? hit.name : name === 'kvkRechtsvorm' ? hit.legalForm : name === 'kvkSector' ? hit.sector : name === 'kvkCity' ? hit.city : hit.employees;
       }
       return { t: 'error', code: '#NA', detail: `no such extern: ${name}` };
     },

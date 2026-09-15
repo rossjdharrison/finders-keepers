@@ -1,0 +1,217 @@
+{
+  "id": "rowblaa-tour",
+  "kind": "guide",
+  "title": "Rondleiding",
+  "locale": "nl",
+  "doc": "De rondleiding zelf is óók maar data — precies dit bestand. Twee sporen (Autoverzekering en Zakelijk krediet), elk een lijst uitlegpunten (het 'wat' en het 'hoe') die de site over zichzelf vertelt. Bewerk de tekst hier en de rondleiding verandert mee.",
+  "concepts": {
+    "intro": "Overzicht",
+    "composability": "Samenstelbaarheid",
+    "logic": "Logica",
+    "separation": "Scheiding van zorg",
+    "editability": "Bewerkbaar",
+    "transparency": "Transparantie",
+    "privacy": "Privacy"
+  },
+  "tracks": [
+    {
+      "id": "verzekering",
+      "label": "Autoverzekering",
+      "subject": "Composeerbaar model → live prijs → regel bewerken",
+      "stops": [
+    {
+      "id": "welcome",
+      "surface": "catalogue",
+      "path": "/catalogue.html",
+      "anchor": { "selector": ".cat-hero" },
+      "concept": "intro",
+      "title": "Welkom bij de rondleiding",
+      "plain": "Dit is een écht werkend voorbeeld: de autoverzekering en -financiering van 'Rowblaa Bank'. Het bijzondere is wat u níet ziet — er is geen aparte code per product. Het rekenmodel ís de app. In een paar stappen laten we zien hoe dat werkt, en waarom het samenstelbaar, transparant en aanpasbaar is.",
+      "tech": "Elk product is een JSON-'cassette' die door een verzegelde, deterministische reken-engine wordt afgespeeld — in WebAssembly (QuickJS), volledig in dit browsertabblad. Geen server-round-trip voor de berekening.",
+      "action": "Klik 'Volgende' om te beginnen."
+    },
+    {
+      "id": "catalogue-proposition",
+      "surface": "catalogue",
+      "path": "/catalogue.html",
+      "anchor": { "selector": ".cat-card", "contains": "Autopakket" },
+      "concept": "composability",
+      "title": "Een product is samengesteld",
+      "plain": "Elk product is een 'propositie': een commerciële samenstelling van herbruikbare bouwstenen — voertuig, adres, persoon, verzekering, financiering. Het 'Wagenpark' hiernaast hergebruikt exact dezelfde blokken, alleen anders samengesteld. Bouwstenen maak je één keer; producten stel je samen.",
+      "tech": "Een propositie componeert configurators via getypte L2-naden; de catalogus is afgeleid uit de cassettebestanden zelf (geen handgeschreven registry). 'Doelgroep' is de geschiktheids-/deontische laag, als data op de propositie.",
+      "action": "We openen nu de aanvraag van het Autopakket."
+    },
+    {
+      "id": "play-live",
+      "surface": "play",
+      "path": "/play.html?cassette=auto-package-aanvraag",
+      "anchor": { "selector": ".jc-rail" },
+      "concept": "transparency",
+      "title": "De aanvraag rekent live",
+      "plain": "Dit is de klantaanvraag. Kies bovenin een andere auto, of pas een dekking aan — het maandbedrag hiernaast herberekent meteen. Alles gebeurt in uw browser; er gaat niets naar een server. Bedragen zijn tot op de cent exact.",
+      "tech": "De verzegelde @core herberekent deterministisch over een afhankelijkheidsgraaf (DAG). Geld is een exact geheel getal (minor units als string) — nooit een afrondingsfout door floating-point.",
+      "action": "Probeer het: kies een andere auto en let op het maandbedrag."
+    },
+    {
+      "id": "play-privacy",
+      "surface": "play",
+      "path": "/play.html?cassette=auto-package-aanvraag",
+      "anchor": { "selector": ".jc-section", "contains": "Individu" },
+      "concept": "privacy",
+      "title": "We vragen alléén wat nodig is",
+      "plain": "Kijk hoe weinig we vragen. Een persoonsprofiel kan tientallen velden hebben, maar de reis toont er precies díe die de berekening echt nodig heeft — de rest wordt niet eens verzameld. Privacy volgt hier uit de samenstelling, niet uit een beleidsregel achteraf.",
+      "tech": "Dataminimalisatie is een BEREKENDE eigenschap: neededFields loopt de afhankelijkheidsgraaf terug vanaf wat de reis exporteert. Verborgen velden worden ook niet geseed — ze zijn echt afwezig, niet enkel onzichtbaar."
+    },
+    {
+      "id": "play-separation",
+      "surface": "play",
+      "path": "/play.html?cassette=auto-package-aanvraag",
+      "anchor": { "selector": ".jc-section", "contains": "Verzekering" },
+      "concept": "separation",
+      "title": "Elk blok doet één ding",
+      "plain": "De Verzekering rékent alléén de premie — maar de invoer komt uit ándere blokken: de cataloguswaarde uit het Voertuig, de bestuurdersfeiten uit het Individu, de risicoregio uit het Adres. Elk blok bezit zijn eigen taak; u vervangt er één zonder de rest te raken. Dat is scheiding van zorg.",
+      "tech": "De verzekering bezit zélf haar prijstabellen (regio, leeftijd, km); de waarden komen als getypte rollups over de naden binnen. Het adres classificeert (regio-enum), de verzekering beprijst — de regioprijs blijft dus bij de verzekering, niet bij het adres."
+    },
+    {
+      "id": "play-switch",
+      "surface": "play",
+      "path": "/play.html?cassette=auto-package-aanvraag",
+      "anchor": { "selector": ".ctx-views" },
+      "concept": "transparency",
+      "title": "Van aanvraag naar model",
+      "plain": "Wilt u zien HÓE het rekent? Elk onderwerp heeft twee weergaven: de Aanvraag (wat de klant ziet) en het Model (de motorkap open). Dezelfde inhoud, andere blik.",
+      "tech": "Dezelfde samengestelde cassette voedt beide weergaven; de Aanvraag is de klant-channel, het Model de inspectie-/bewerk-channel.",
+      "action": "We openen nu het Model."
+    },
+    {
+      "id": "loom-composition",
+      "surface": "loom",
+      "path": "/loom.html?journey=auto-package-aanvraag",
+      "hash": "compositie",
+      "anchor": { "selector": "#lm-panel-compositie" },
+      "concept": "composability",
+      "title": "De samenstelling, zichtbaar",
+      "plain": "Elk blok is een kaart, elke koppeling een lijn. Zie hoe één auto-keuze zowel de verzekeringspremie ALS het te financieren bedrag voedt — één keuze, meerdere gebruikers. Zo bouwt u producten: door blokken te koppelen, niet door code te schrijven.",
+      "tech": "Elke binding is een cardinaliteit-1 rollup over een gesynthetiseerde relatie — het 'slot' dat een gekoppelde invoer live door de cascade houdt. De compositie is hier ook bewerkbaar (blokken/koppelingen toevoegen), gevalideerd in een wegwerp-core."
+    },
+    {
+      "id": "loom-graph",
+      "surface": "loom",
+      "path": "/loom.html?journey=auto-package-aanvraag",
+      "hash": "grafiek",
+      "anchor": { "selector": "#lm-panel-grafiek" },
+      "concept": "logic",
+      "title": "De logica, volledig te volgen",
+      "plain": "Dit is de afhankelijkheidsgraaf: elk getal leidt via pijlen terug naar precies de invoer waar het van afhangt. Niets is verborgen, alles is te volgen. Klik op een berekend veld (ƒ) om de formule in leesbare taal te zien.",
+      "tech": "De graaf wordt client-side opnieuw afgeleid uit de formule-AST's, en spiegelt de collect() van de engine. Rollups over relaties (de L2-naad) tekenen als kruis-collectie-pijlen."
+    },
+    {
+      "id": "loom-rules",
+      "surface": "loom",
+      "path": "/loom.html?journey=auto-package-aanvraag",
+      "hash": "regels",
+      "anchor": { "selector": "#lm-panel-regels" },
+      "concept": "editability",
+      "title": "De regels zijn gewoon data",
+      "plain": "Dit zijn de rekenregels — tarieven en drempels. De regels van een reis wonen in de losse blokken, en élk blok is óók een compleet, bewerkbaar product op zichzelf. Laten we dat bewijzen op het Financiering-blok.",
+      "tech": "Voor een reis is deze tab bewust view-only met doorklik-links naar de blokken (de naad tussen twee blokken is berekend en dus vast). De echte tarieven bewerkt u in het model van elk blok.",
+      "action": "We openen nu het Financiering-blok."
+    },
+    {
+      "id": "financing-edit",
+      "surface": "loom",
+      "path": "/loom.html?cassette=financing",
+      "hash": "regels",
+      "anchor": { "selector": "#lm-panel-regels" },
+      "concept": "editability",
+      "title": "Verander een regel — zonder code",
+      "plain": "Dit zijn de rentes van de financiering, direct bewerkbaar. Pas de rente aan (bijvoorbeeld de 48-maanden-rente omhoog) en sla op. U wijzigt de logica zélf — geen ontwikkelaar, geen release, geen wachttijd.",
+      "tech": "De wijziging wordt eerst in een wegwerp-core gevalideerd (types + geen fout), daarna lokaal opgeslagen; de speler herlaadt het model door dezelfde verzegelde engine. De bytes van de engine blijven bevroren — alleen de data verandert.",
+      "action": "Wijzig een rente, klik Opslaan, en ga dan verder."
+    },
+    {
+      "id": "financing-result",
+      "surface": "play",
+      "path": "/play.html?cassette=financing",
+      "anchor": { "selector": ".jc-rail" },
+      "concept": "editability",
+      "title": "En het beweegt mee",
+      "plain": "Dit is de aanvraag van hetzelfde blok. De maandtermijn is mee veranderd met úw aanpassing van zojuist. Dát is de kern: de logica is transparant, samenstelbaar én door u aan te passen — als data, niet als code.",
+      "tech": "De speler paste uw lokaal opgeslagen model toe in plaats van de standaard — identieke inputs, identieke engine, dus een reproduceerbaar resultaat. Zet 'Uitleg' aan op elke pagina voor toelichting op wat u ziet.",
+      "action": "Rondleiding voltooid — klik vrij verder, of start opnieuw met 'Rondleiding'."
+    }
+      ]
+    },
+    {
+      "id": "krediet",
+      "label": "Zakelijk krediet",
+      "subject": "KvK-opzoeking → transparant, borg-afhankelijk kredietbesluit",
+      "stops": [
+        {
+          "id": "sme-intro",
+          "surface": "catalogue",
+          "path": "/catalogue.html",
+          "anchor": { "selector": ".cat-card", "contains": "Zakelijk kredietpakket" },
+          "concept": "intro",
+          "title": "Tweede spoor: zakelijk krediet",
+          "plain": "Ditzelfde bouwsteen-idee, maar nu voor een bedrijf. We halen een onderneming op uit het Handelsregister (KvK), rekenen een transparant kredietbesluit, en laten zien hoe de bestuurder als borg het oordeel kan kantelen.",
+          "tech": "Een tweede propositie (sme-lending) die dezelfde Individu-bouwsteen hergebruikt — nu in de rol van borg — plus een KvK-configurator en een kredietfaciliteit met een DSCR-besluit.",
+          "action": "We openen nu de kredietaanvraag."
+        },
+        {
+          "id": "sme-kvk",
+          "surface": "play",
+          "path": "/play.html?cassette=sme-lending-aanvraag",
+          "anchor": { "selector": ".jc-section", "contains": "Onderneming" },
+          "concept": "composability",
+          "title": "Eén nummer, heel het bedrijf",
+          "plain": "Voer een KvK-nummer in — en de bedrijfsnaam, rechtsvorm, sector en vestigingsplaats vullen zich vanzelf uit het Handelsregister. Dezelfde magie als het kenteken bij de verzekering, maar dan voor een onderneming.",
+          "tech": "De KvK-API is (anders dan de RDW) niet gratis-en-CORS-open: productie draait een sleutel via een proxy. Hier een KvK-vormige mock, via dezelfde async-extern-brug (cache + prefetch + herbereken) als het kenteken.",
+          "action": "Probeer een ander KvK-nummer, of pas de omzet/het resultaat aan."
+        },
+        {
+          "id": "sme-borg",
+          "surface": "play",
+          "path": "/play.html?cassette=sme-lending-aanvraag",
+          "anchor": { "selector": ".jc-section", "contains": "Bestuurder" },
+          "concept": "separation",
+          "title": "Dezelfde persoon, een andere rol",
+          "plain": "Let op deze stap: dit is de bestuurder — maar hier in de ROL van borg. Het is exact dezelfde 'Individu'-bouwsteen als in het Autopakket; alleen de rol verschilt, en daarmee wát er nodig is (enkel inkomen en verplichtingen) en welke plicht eruit volgt (de borgstelling).",
+          "tech": "De partij-as: één party (de persoon) speelt meerdere rollen. Hier bindt de reis alléén het inkomen en de verplichtingen van de bestuurder aan de faciliteit — de basis voor de borg-dekking."
+        },
+        {
+          "id": "sme-decision",
+          "surface": "play",
+          "path": "/play.html?cassette=sme-lending-aanvraag",
+          "anchor": { "selector": ".jc-rail" },
+          "concept": "transparency",
+          "title": "Het besluit is geen black box",
+          "plain": "De maandlast staat hiernaast, opgesplitst in aflossing en rente. En in de kredietstap ziet u het volledige oordeel: de dekking, de rente-opbouw (basisrente + sectoropslag) en het maximaal verantwoorde bedrag — allemaal te volgen. Goedgekeurd, onder voorwaarden of afgewezen, mét de reden.",
+          "tech": "Het oordeel = totale dekking versus 1,25 × maandlast (DSCR). De sectoropslag komt uit de KvK-sector die de faciliteit zélf beprijst — scheiding van zorg, net als adres→verzekering."
+        },
+        {
+          "id": "sme-tip",
+          "surface": "play",
+          "path": "/play.html?cassette=sme-lending-aanvraag",
+          "anchor": { "selector": ".jc-section", "contains": "Kredietoordeel" },
+          "concept": "editability",
+          "title": "Eén partij kan het besluit kantelen",
+          "plain": "Nu het mooiste: zet 'Persoonlijke borgstelling' uit, of vraag méér krediet. Het oordeel verandert live — de toezegging van één partij (de borg) beslist mee over de goedkeuring. De beslissing zit in de data, niet in code.",
+          "tech": "De borg-dekking is gepoort op de bool 'persoonlijkeBorg' en telt 20% van de privé-maandruimte van de bestuurder mee. Zet 'm uit en een marginale aanvraag valt van 'onder voorwaarden' naar 'afgewezen'.",
+          "action": "Zet de borgstelling uit (of verhoog het bedrag) en kijk naar het oordeel."
+        },
+        {
+          "id": "sme-model",
+          "surface": "loom",
+          "path": "/loom.html?journey=sme-lending-aanvraag",
+          "hash": "compositie",
+          "anchor": { "selector": "#lm-panel-compositie" },
+          "concept": "composability",
+          "title": "Zelfde patroon, ander product",
+          "plain": "In het Model ziet u de drie bouwstenen — Onderneming, Bestuurder en Krediet — en de naden die de sector, de bedrijfsruimte en het inkomen naar het besluit voeren. Zelfde verzegelde engine, zelfde aanpak als de verzekering; een compleet ander product, alleen door andere data.",
+          "tech": "De DSCR-drempel (1,25) en de borgnorm (20%) zijn instelbare knoppen in het Krediet-blok — net als de leennorm bij de financiering. Bewerk ze en het hele besluit rekent opnieuw door dezelfde core."
+        }
+      ]
+    }
+  ]
+}

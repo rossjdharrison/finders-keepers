@@ -22,6 +22,19 @@ export interface JourneyBinding {
   mapping?: { to: string; from: unknown }[]; // optional transform; absent = pass through the single provided value
   condition?: unknown; // optional boolean gate (over provided vars / child fields): false → the target takes a typed zero
 }
+// A declared suitability / target-market on a PROPOSITION — the deontic axis expressed as data (not a new
+// engine). `segment` is the party kind the bundle is meant for; `suitability` are declarative eligibility
+// notes, each optionally carrying a guard predicate (the SAME `availableWhen` family) for a future gate to
+// enforce. Today it is carried through and DISPLAYED; enforcement stays the guard/gate layer.
+export interface TargetMarket {
+  segment: 'consumer' | 'business' | string;
+  label: string;
+  note?: string;
+  suitability?: { id: string; note: string; requires?: unknown }[];
+}
+
+// The COMPILE IR (also the merge of a Proposition + a Journey). `compileJourney` operates on this shape, so
+// every seam/rollup semantic and its tests are unchanged by the proposition/journey source split above it.
 export interface JourneyDoc {
   kind: 'journey';
   id: string;
@@ -35,6 +48,76 @@ export interface JourneyDoc {
   surface?: { as: string; from: string; field: string; label?: string }[]; // roll a child field up to the spine (for the rail)
   total: { field: string; of: string[]; label?: string; per?: string }; // spine field = sum of these spine fields
   sections: { model: string; label: string; fields: string[] }[]; // journey sections, one per model
+  targetMarket?: TargetMarket; // carried from the proposition (the commercial/regulatory layer)
+  party?: string; // carried from the journey: the party CONTEXT it runs under (e.g. 'anonymous' | 'business')
+}
+
+// --- the authored layers (split above the IR) ----------------------------------------------------
+// The proposition/journey/channel thesis, as data. A PROPOSITION owns the commercial COMPOSITION (which
+// configurators, the typed seams that stitch them, what surfaces to the total) and the target-market it
+// serves. A JOURNEY owns the customer INTERACTION (the sections/steps, data minimization, the party context)
+// over one proposition. Several journeys can share one proposition (e.g. an anonymous vs an authenticated
+// run) — that is a difference on the PARTY axis, not a second composition. Channel (presentation modality)
+// is deliberately NOT a layer here: the journey is authored channel-agnostically (it says which fields to
+// collect under which gates, not how to render them), so a channel can be added later with no re-authoring.
+
+export interface Proposition {
+  kind: 'proposition';
+  id: string;
+  title?: string;
+  doc?: string;
+  locale?: string;
+  models: { ref: string; as: string }[];
+  spine: string;
+  bindings: JourneyBinding[];
+  surface?: { as: string; from: string; field: string; label?: string }[];
+  total: { field: string; of: string[]; label?: string; per?: string };
+  targetMarket?: TargetMarket;
+}
+
+export interface Journey {
+  kind: 'journey';
+  id: string;
+  proposition: string; // the composition this interaction runs over
+  title?: string;
+  doc?: string;
+  locale?: string;
+  minimal?: boolean;
+  party?: string; // the party context this journey serves (open/anonymous vs authenticated vs business)
+  sections: { model: string; label: string; fields: string[] }[];
+}
+
+export function isProposition(x: unknown): x is Proposition {
+  const d = x as { kind?: string; models?: unknown };
+  return !!d && d.kind === 'proposition' && Array.isArray(d.models);
+}
+
+/** A JOURNEY source doc (interaction) — distinct from the compile IR, which also has kind 'journey' but
+ * carries the composition inline. A source journey names its proposition and has no models of its own. */
+export function isJourneySource(x: unknown): x is Journey {
+  const d = x as { kind?: string; proposition?: unknown; sections?: unknown; models?: unknown };
+  return !!d && d.kind === 'journey' && typeof d.proposition === 'string' && Array.isArray(d.sections) && !('models' in d);
+}
+
+/** Merge a proposition (composition) and a journey (interaction) into the compile IR. The journey's identity
+ * and locale win (it is the runnable thing); the composition supplies models/bindings/surface/total. */
+export function mergeJourney(prop: Proposition, jrn: Journey): JourneyDoc {
+  return {
+    kind: 'journey',
+    id: jrn.id,
+    title: jrn.title ?? prop.title,
+    doc: jrn.doc ?? prop.doc,
+    locale: jrn.locale ?? prop.locale,
+    minimal: jrn.minimal,
+    models: prop.models,
+    spine: prop.spine,
+    bindings: prop.bindings,
+    surface: prop.surface,
+    total: prop.total,
+    sections: jrn.sections,
+    targetMarket: prop.targetMarket,
+    party: jrn.party,
+  };
 }
 
 const localId = (s: string): string => s.split(':')[1] ?? s;
@@ -195,12 +278,19 @@ export function compileJourney(doc: JourneyDoc, registry: Record<string, Cassett
   // 5. the journey block: one section per model + the summary rail (total + surfaced/own lines). With data
   //    minimization on, each section's fields are DERIVED — only what the journey provably needs from that
   //    model (its needed inputs + its exported readouts) — so unused profile fields are never shown.
-  const steps = doc.sections.map((s) => ({
-    id: s.model,
-    label: s.label,
-    collection: modelColl[s.model].id,
-    fields: doc.minimal ? neededFields(doc, s.model, registry).shown : s.fields,
-  }));
+  const steps = doc.sections.map((s) => {
+    // a section must name a declared model. With the proposition/journey split, sections (journey) and models
+    // (proposition) are authored separately, so a section can drift onto an alias the proposition doesn't
+    // declare — fail clearly here, consistent with the spine/binding/surface guards, not with `undefined.id`.
+    const coll = modelColl[s.model];
+    if (!coll) throw new Error(`journey ${doc.id}: section references undeclared model '${s.model}'`);
+    return {
+      id: s.model,
+      label: s.label,
+      collection: coll.id,
+      fields: doc.minimal ? neededFields(doc, s.model, registry).shown : s.fields,
+    };
+  });
   const summary = {
     total: doc.total.field,
     per: doc.total.per,
@@ -255,5 +345,8 @@ export function compileJourney(doc: JourneyDoc, registry: Record<string, Cassett
     enums,
     journey: { steps, summary }, // no step field → the renderer shows a single page (no wizard)
     seed,
+    // the commercial/deontic layer, carried onto the runnable cassette for display (catalogue vital, Loom hero)
+    ...(doc.targetMarket ? { targetMarket: doc.targetMarket } : {}),
+    ...(doc.party ? { party: doc.party } : {}),
   } as unknown as Cassette;
 }

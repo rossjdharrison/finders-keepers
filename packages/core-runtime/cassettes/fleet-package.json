@@ -1,0 +1,57 @@
+{
+  "kind": "proposition",
+  "id": "fleet-package",
+  "title": "Wagenpark (vast, 3 voertuigen)",
+  "doc": "Een zakelijke wagenparkpropositie — DEZELFDE configurators als het Autopakket (Voertuig, Verzekering, Adres, Individu), zonder één nieuwe configurator: het bewijs dat de propositielaag echt hergebruikt. Drie voertuigen, elk met een eigen verzekering en dekkingskeuze, delen één vestigingsadres (risicoregio) en één hoofdbestuurdersprofiel. Het wagenparkbedrag per maand is de som van de drie voertuigpremies. Eén policyhouder, meerdere voertuigen: de compositie verschilt van het Autopakket, de bouwstenen niet.",
+  "locale": "nl",
+  "targetMarket": {
+    "segment": "business",
+    "label": "Zakelijk wagenpark",
+    "note": "Voor ondernemers met meerdere voertuigen onder één policyhouder; zakelijk gebruik.",
+    "suitability": [
+      { "id": "commercialUse", "note": "Zakelijk gebruik — kies bij het gebruik 'Zakelijk' zodat de premie de zakelijke opslag rekent." },
+      { "id": "onePolicyholder", "note": "Eén hoofdbestuurder/policyhouder deelt regio en bestuurdersgegevens over alle voertuigen." }
+    ]
+  },
+  "models": [
+    { "ref": "voertuig", "as": "veh1" },
+    { "ref": "voertuig", "as": "veh2" },
+    { "ref": "voertuig", "as": "veh3" },
+    { "ref": "car-insurance", "as": "ins1" },
+    { "ref": "car-insurance", "as": "ins2" },
+    { "ref": "car-insurance", "as": "ins3" },
+    { "ref": "adres", "as": "adr" },
+    { "ref": "individual", "as": "ind" }
+  ],
+  "spine": "ins1",
+  "bindings": [
+    { "id": "vehToIns1Value", "from": "veh1", "to": "ins1", "contract": { "provides": [{ "as": "vval", "source": "output:catalogValue" }], "requires": [{ "name": "vval", "target": "field:vehicleValue" }] }, "mapping": [{ "to": "vehicleValue", "from": { "op": "field", "id": "vval" } }] },
+    { "id": "vehToIns2Value", "from": "veh2", "to": "ins2", "contract": { "provides": [{ "as": "vval", "source": "output:catalogValue" }], "requires": [{ "name": "vval", "target": "field:vehicleValue" }] }, "mapping": [{ "to": "vehicleValue", "from": { "op": "field", "id": "vval" } }] },
+    { "id": "vehToIns3Value", "from": "veh3", "to": "ins3", "contract": { "provides": [{ "as": "vval", "source": "output:catalogValue" }], "requires": [{ "name": "vval", "target": "field:vehicleValue" }] }, "mapping": [{ "to": "vehicleValue", "from": { "op": "field", "id": "vval" } }] },
+
+    { "id": "adrToIns1Region", "from": "adr", "to": "ins1", "contract": { "provides": [{ "as": "region", "source": "output:regionBand" }], "requires": [{ "name": "region", "target": "field:regionBand" }] }, "mapping": [{ "to": "regionBand", "from": { "op": "field", "id": "region" } }] },
+    { "id": "adrToIns2Region", "from": "adr", "to": "ins2", "contract": { "provides": [{ "as": "region", "source": "output:regionBand" }], "requires": [{ "name": "region", "target": "field:regionBand" }] }, "mapping": [{ "to": "regionBand", "from": { "op": "field", "id": "region" } }] },
+    { "id": "adrToIns3Region", "from": "adr", "to": "ins3", "contract": { "provides": [{ "as": "region", "source": "output:regionBand" }], "requires": [{ "name": "region", "target": "field:regionBand" }] }, "mapping": [{ "to": "regionBand", "from": { "op": "field", "id": "region" } }] },
+
+    { "id": "indToIns1Age", "from": "ind", "to": "ins1", "contract": { "provides": [{ "as": "age", "source": "output:age" }], "requires": [{ "name": "age", "target": "field:age" }] }, "mapping": [{ "to": "age", "from": { "op": "field", "id": "age" } }] },
+    { "id": "indToIns2Age", "from": "ind", "to": "ins2", "contract": { "provides": [{ "as": "age", "source": "output:age" }], "requires": [{ "name": "age", "target": "field:age" }] }, "mapping": [{ "to": "age", "from": { "op": "field", "id": "age" } }] },
+    { "id": "indToIns3Age", "from": "ind", "to": "ins3", "contract": { "provides": [{ "as": "age", "source": "output:age" }], "requires": [{ "name": "age", "target": "field:age" }] }, "mapping": [{ "to": "age", "from": { "op": "field", "id": "age" } }] },
+
+    { "id": "indToIns1NoClaim", "from": "ind", "to": "ins1", "contract": { "provides": [{ "as": "sj", "source": "output:schadevrijeJaren" }], "requires": [{ "name": "sj", "target": "field:schadevrijeJaren" }] }, "mapping": [{ "to": "schadevrijeJaren", "from": { "op": "field", "id": "sj" } }] },
+    { "id": "indToIns2NoClaim", "from": "ind", "to": "ins2", "contract": { "provides": [{ "as": "sj", "source": "output:schadevrijeJaren" }], "requires": [{ "name": "sj", "target": "field:schadevrijeJaren" }] }, "mapping": [{ "to": "schadevrijeJaren", "from": { "op": "field", "id": "sj" } }] },
+    { "id": "indToIns3NoClaim", "from": "ind", "to": "ins3", "contract": { "provides": [{ "as": "sj", "source": "output:schadevrijeJaren" }], "requires": [{ "name": "sj", "target": "field:schadevrijeJaren" }] }, "mapping": [{ "to": "schadevrijeJaren", "from": { "op": "field", "id": "sj" } }] },
+
+    { "id": "indToIns1Km", "from": "ind", "to": "ins1", "contract": { "provides": [{ "as": "km", "source": "output:annualKm" }], "requires": [{ "name": "km", "target": "field:annualKm" }] }, "mapping": [{ "to": "annualKm", "from": { "op": "field", "id": "km" } }] },
+    { "id": "indToIns2Km", "from": "ind", "to": "ins2", "contract": { "provides": [{ "as": "km", "source": "output:annualKm" }], "requires": [{ "name": "km", "target": "field:annualKm" }] }, "mapping": [{ "to": "annualKm", "from": { "op": "field", "id": "km" } }] },
+    { "id": "indToIns3Km", "from": "ind", "to": "ins3", "contract": { "provides": [{ "as": "km", "source": "output:annualKm" }], "requires": [{ "name": "km", "target": "field:annualKm" }] }, "mapping": [{ "to": "annualKm", "from": { "op": "field", "id": "km" } }] },
+
+    { "id": "indToIns1Usage", "from": "ind", "to": "ins1", "contract": { "provides": [{ "as": "use", "source": "output:usage" }], "requires": [{ "name": "use", "target": "field:usage" }] }, "mapping": [{ "to": "usage", "from": { "op": "field", "id": "use" } }] },
+    { "id": "indToIns2Usage", "from": "ind", "to": "ins2", "contract": { "provides": [{ "as": "use", "source": "output:usage" }], "requires": [{ "name": "use", "target": "field:usage" }] }, "mapping": [{ "to": "usage", "from": { "op": "field", "id": "use" } }] },
+    { "id": "indToIns3Usage", "from": "ind", "to": "ins3", "contract": { "provides": [{ "as": "use", "source": "output:usage" }], "requires": [{ "name": "use", "target": "field:usage" }] }, "mapping": [{ "to": "usage", "from": { "op": "field", "id": "use" } }] }
+  ],
+  "surface": [
+    { "as": "prem2", "from": "ins2", "field": "premium", "label": "Voertuig 2 p/m" },
+    { "as": "prem3", "from": "ins3", "field": "premium", "label": "Voertuig 3 p/m" }
+  ],
+  "total": { "field": "fleetMonthly", "of": ["premium", "prem2", "prem3"], "label": "Wagenpark p/m", "per": "per maand" }
+}

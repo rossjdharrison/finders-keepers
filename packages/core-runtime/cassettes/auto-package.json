@@ -1,10 +1,18 @@
 {
-  "kind": "journey",
+  "kind": "proposition",
   "id": "auto-package",
   "title": "Autopakket",
-  "doc": "De volledige autoreis bij Rowblaa Bank, functioneel gedecomponeerd in vijf herbruikbare configurators — Voertuig, Adres, Individu, Verzekering en Financiering — samengesteld via getypte L2-naden. Voertuig kiest de auto (de cataloguswaarde voedt zowel de premie als het te financieren bedrag — de kritieke waardestroom). Adres levert de risicoregio. Individu is een rijk persoonsprofiel waarvan de reis alléén de benodigde velden gebruikt — met dataminimalisatie aan toont de reis uitsluitend die velden: privacy by design, afgeleid uit de compositie. Doordat de financiering het inkomen en de vaste lasten nodig heeft (voor een verantwoord maximaal te financieren bedrag), verschijnen precies díe velden vanzelf in het Individu — de reis vraagt leeftijd, schadevrije jaren, kilometers, gebruik, bruto jaarinkomen en maandelijkse verplichtingen. De schadevrije jaren geven bovendien een loyaliteitskorting op de financieringsrente; het inkomen bepaalt of de gewenste financiering binnen uw budget past. Alles gecomponeerd via relaties + rollup in dezelfde verzegelde @core, zonder codewijziging.",
+  "doc": "De commerciële samenstelling van het Autopakket: vijf herbruikbare configurators — Voertuig, Adres, Individu, Verzekering en Financiering — gekoppeld via getypte L2-naden. Voertuig kiest de auto; die cataloguswaarde voedt zowel de premie als het te financieren bedrag (de kritieke waardestroom). Adres levert de risicoregio, Individu de bestuurders- en inkomensfeiten. De propositie bezit WAT er wordt samengesteld en voor wie; hoe de klant het aanvraagt (de stappen, dataminimalisatie, de partijcontext) staat in de bijbehorende reis.",
   "locale": "nl",
-  "minimal": true,
+  "targetMarket": {
+    "segment": "consumer",
+    "label": "Particuliere autobezitter",
+    "note": "Voor privé- en woon-werkgebruik door één hoofdbestuurder, met optionele financiering binnen een verantwoorde leennorm.",
+    "suitability": [
+      { "id": "privateUse", "note": "Bedoeld voor privé/woon-werkgebruik — de premie rekent met het opgegeven gebruik." },
+      { "id": "affordableFinancing", "note": "Financiering alleen verantwoord binnen de leennorm (inkomen − vaste lasten); een tekort toont de benodigde extra aanbetaling." }
+    ]
+  },
   "models": [
     { "ref": "voertuig", "as": "veh" },
     { "ref": "adres", "as": "adr" },
@@ -68,12 +76,5 @@
   "surface": [
     { "as": "insPremium", "from": "ins", "field": "premium", "label": "Verzekering p/m" }
   ],
-  "total": { "field": "combinedMonthly", "of": ["insPremium", "finMonthly"], "label": "Maandbedrag", "per": "per maand" },
-  "sections": [
-    { "model": "veh", "label": "Voertuig", "fields": ["merkModel", "bouwjaar", "catalogValue"] },
-    { "model": "adr", "label": "Adres", "fields": ["postcode", "houseNumber", "street", "city", "regionBand"] },
-    { "model": "ind", "label": "Individu", "fields": ["firstName", "lastName", "dateOfBirth", "age", "email", "phone", "gender", "nationality", "maritalStatus", "occupation", "grossIncome", "monthlyObligations", "driversLicenceSince", "schadevrijeJaren", "annualKm", "usage"] },
-    { "model": "ins", "label": "Verzekering", "fields": ["vehicleValue", "regionBand", "age", "schadevrijeJaren", "annualKm", "usage", "cover", "optLegalAid", "optRoadside", "premium"] },
-    { "model": "fin", "label": "Financiering", "fields": ["principal", "downPayment", "tradeIn", "termMonths", "loyaltyYears", "annualRate", "finMonthly", "grossMonthly", "maxFinancing", "affordability", "financingShortfall"] }
-  ]
+  "total": { "field": "combinedMonthly", "of": ["insPremium", "finMonthly"], "label": "Maandbedrag", "per": "per maand" }
 }

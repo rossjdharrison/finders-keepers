@@ -90,6 +90,32 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, workspace
   let firstRender = true;
   const pending = new Map<string, { raw: string; msg: string }>(); // committed-but-invalid edits, kept across rebuilds
 
+  // A step's collection may be a GRANDCHILD of the spine, not a direct child: e.g. an Address bound to the
+  // Insurance, which is in turn surfaced up to the Financing spine (adr → ins → fin). Its row links to the
+  // spine only THROUGH an intermediate parent, so a direct spine-ref lookup misses it and the step would be
+  // silently dropped. Follow each row's parent-refs (the relations' childFields) up the chain; the row that
+  // reaches the spine row is the one this step edits. A DAG + a `seen` guard keep it terminating.
+  const rowForSpine = (coll: string, spineId: string): Row | null => {
+    const cs = workspace.collection(coll);
+    if (!cs) return null;
+    const reaches = (c: string, r: Row, seen: Set<string>): boolean => {
+      const key = `${c}/${r.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      for (const rel of relations) {
+        if (rel.childColl !== c) continue;
+        const ref = r.doc[rel.childField];
+        if (ref?.t !== 'ref') continue;
+        const pid = (ref as { id: string }).id;
+        if (rel.parentColl === store.id && pid === spineId) return true; // reached the spine row
+        const prow = workspace.collection(rel.parentColl)?.rows.value.find((x) => x.id === pid);
+        if (prow && reaches(rel.parentColl, prow, seen)) return true; // reached it through this parent
+      }
+      return false;
+    };
+    return cs.rows.value.find((r) => reaches(coll, r, new Set())) ?? null;
+  };
+
   // resolve a step's field context: which store/row/plan its fields come from. A step with a collection
   // edits that collection's CHILD row (joined to the spine); otherwise it edits the spine itself.
   const resolveStep = (step: { collection?: string }, spineRow: Row, spineByField: ByField): StepCtx | null => {
@@ -100,10 +126,63 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, workspace
     const cd = model.collections.find((c) => c.id === step.collection);
     if (!cs || !cd) return null;
     const jf = childFieldOf(step.collection);
-    const row = cs.rows.value.find((r) => r.doc[jf]?.t === 'ref' && (r.doc[jf] as { id: string }).id === spineRow.id);
+    // direct child of the spine (fast path), else a grandchild reached through an intermediate parent
+    const row = cs.rows.value.find((r) => r.doc[jf]?.t === 'ref' && (r.doc[jf] as { id: string }).id === spineRow.id)
+      ?? rowForSpine(step.collection, spineRow.id);
     if (!row) return null;
     const plan = resolvePlan({ collection: cd, types: model.types, vocab, overrides, viewer, audience: { l10n, docs }, row });
     return { fstore: cs, row, byField: byFieldOf(plan.fields) };
+  };
+
+  // a child row is "active" unless it carries an `actief` bool set false (the soft-remove flag for a to-many step)
+  const isActiveRow = (r: Row): boolean => { const a = r.doc.actief; return !a || a.t !== 'bool' || a.v; };
+
+  // a TO-MANY (repeat) step: render EVERY active child row of `step.collection` joined to the spine, each
+  // editable, with per-row remove (soft: set actief=false) and an add button (insert a fresh child). The
+  // engine rolls the rows up (sum/count) live; the store's `insert` adds rows, setField soft-removes.
+  const renderRepeat = (mountEl: HTMLElement, step: NonNullable<typeof steps>[number], spineRow: Row, nowVisible: Set<string>): void => {
+    const coll = step.collection!;
+    const cs = workspace.collection(coll);
+    const cd = model.collections.find((c) => c.id === coll);
+    if (!cs || !cd) return;
+    const jf = childFieldOf(coll);
+    const rows = cs.rows.value.filter((r) => r.doc[jf]?.t === 'ref' && (r.doc[jf] as { id: string }).id === spineRow.id && isActiveRow(r));
+    const section = el('section', 'jc-section jc-repeat');
+    section.dataset.section = step.id;
+    nowVisible.add(step.id);
+    section.setAttribute('aria-label', step.label ?? step.id);
+    section.append(el('h3', 'jc-section-title', step.label ?? step.id));
+    if (step.hint) section.append(el('p', 'jc-repeat-hint', step.hint));
+    rows.forEach((row, i) => {
+      const plan = resolvePlan({ collection: cd, types: model.types, vocab, overrides, viewer, audience: { l10n, docs }, row });
+      const byField = byFieldOf(plan.fields);
+      const item = el('div', 'jc-repeat-item');
+      const head = el('div', 'jc-repeat-head');
+      head.append(el('span', 'jc-repeat-item-title', `${step.itemLabel ?? 'Item'} ${i + 1}`));
+      // always render Remove so the affordance is discoverable, but disable it on the last row —
+      // removing the last would empty the sum rollup (a money total collapsing to num(0), the #TYPE trap)
+      const rm = el('button', 'jc-repeat-remove', 'Verwijderen') as HTMLButtonElement;
+      rm.type = 'button';
+      rm.disabled = rows.length <= 1;
+      if (rm.disabled) rm.title = `Minimaal één ${(step.itemLabel ?? 'item').toLowerCase()}`;
+      rm.addEventListener('click', () => { if (rows.length > 1) cs.setField(row.id, 'actief', { t: 'bool', v: false }); });
+      head.append(rm);
+      item.append(head);
+      const grid = el('div', 'journey-fields');
+      for (const field of (step.fields ?? []).filter((f) => f !== totalField)) { const c = fieldCell(cs, row, byField, field, false); if (c) grid.append(c); }
+      item.append(grid);
+      section.append(item);
+    });
+    if (cs.insert) {
+      const add = el('button', 'jc-repeat-add', step.addLabel ?? '+ Toevoegen') as HTMLButtonElement;
+      add.type = 'button';
+      add.addEventListener('click', () => {
+        const id = `${coll}-${cs.rows.value.length + 1}`; // rows are never deleted (soft-remove), so length is monotonic → unique
+        cs.insert!(id, { [jf]: { t: 'ref', collection: store.id, id: spineRow.id } as Value, ...(step.newRow ?? {}) });
+      });
+      section.append(add);
+    }
+    mountEl.append(section);
   };
 
   // one field cell (used by both layouts, for the spine OR a child store). Returns null for a hidden field
@@ -317,6 +396,7 @@ export const journeyRenderer: Renderer = (mount, { store, view, model, workspace
         card.setAttribute('aria-label', 'Aanvraag — alles op één pagina');
         main.append(el('h2', 'jc-page-title', view.title ?? 'Uw aanvraag'));
         for (const step of steps) {
+          if (step.repeat && step.collection) { renderRepeat(main, step, spineRow, nowVisible); continue; } // to-many section
           const ctx = resolveStep(step, spineRow, spineByField);
           if (!ctx) continue;
           const inputs = (step.fields ?? []).filter((f) => f !== totalField);

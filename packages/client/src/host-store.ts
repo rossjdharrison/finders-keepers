@@ -55,6 +55,11 @@ export function createHostStore(host: BrowserHost, collections: CollectionDoc[])
         if (props.get(field)?.source !== 'stored') return; // computed/extern are engine-owned
         host.apply(doc.id, [{ op: 'setField', row, field, value }]); // fires the host's subscribers → refresh
       },
+      // add a child row (for a to-many step). The in-browser core supports insert + setField (not delete),
+      // so "remove" is a soft flag (setField an `actief` bool false) that the rollups + UI filter out.
+      insert(row: string, values: Record<string, RowStateWire['doc'][string]>) {
+        host.apply(doc.id, [{ op: 'insert', row, values }]);
+      },
     };
   }
   for (const doc of collections) stores.set(doc.id, makeStore(doc));

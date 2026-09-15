@@ -8,6 +8,7 @@ import { applyTheme, initialMode, type ThemeMode } from './theme.ts';
 import { setLocale } from './format.ts';
 import { CATALOGUE, REGISTRY, type CassetteMeta } from './cassette-registry.ts';
 import { playerHref, loomHref, shapeLabel, NAV } from './nav.ts';
+import { initDemo } from './demo/demo.ts';
 
 const themed = Object.values(REGISTRY).find((c) => c.theme);
 const theme = themed?.theme;
@@ -56,9 +57,15 @@ hero.append(el('p', 'cat-sub', 'Elke kaart is een cassette — een model dat vol
 mount.append(hero);
 
 const renderCard = (m: CassetteMeta): HTMLElement => {
+  // a proposition runs (and is modelled) through its default journey; everything else is its own id. A
+  // proposition with no journey yet (run === undefined) is a real, supported state — list it, but do NOT
+  // dress it as runnable: its links would 404 / open the wrong model. Show it flat with a note instead.
+  const notRunnable = m.shape === 'journey' && !m.run;
+  const runId = m.run ?? m.id;
   const card = el('div', 'cat-card');
-  const main = el('a', 'cat-card-main') as HTMLAnchorElement;
-  main.href = playerHref(m.id); // the aanvraag
+  // the runnable body is a link; a not-yet-runnable proposition is a plain block (no href)
+  const main = el(notRunnable ? 'div' : 'a', 'cat-card-main');
+  if (!notRunnable) (main as HTMLAnchorElement).href = playerHref(runId); // the aanvraag
   const top = el('div', 'cat-card-top');
   top.append(el('span', 'cat-card-title', m.title));
   top.append(el('span', `cat-badge cat-badge-${m.collections > 1 ? 'reis' : 'configurator'}`, shapeLabel(m.collections)));
@@ -66,18 +73,23 @@ const renderCard = (m: CassetteMeta): HTMLElement => {
   if (m.doc) main.append(el('p', 'cat-card-doc', m.doc));
   const vitals = el('div', 'cat-vitals');
   vitals.append(el('span', 'cat-vital', `${m.collections} ${m.collections === 1 ? 'collectie' : 'collecties'}`));
+  // the declared target-market (the commercial/deontic layer): shown as a vital so a bundle's segment is visible
+  if (m.targetMarket) vitals.append(el('span', 'cat-vital', `Doelgroep: ${m.targetMarket.label}`));
   if (m.hasSteps) vitals.append(el('span', 'cat-vital', 'stapsgewijze reis'));
   vitals.append(el('span', 'cat-vital cat-mono', m.id));
   main.append(vitals);
-  main.append(el('span', 'cat-go', `${NAV.aanvraag} →`));
+  main.append(el('span', notRunnable ? 'cat-go cat-go-muted' : 'cat-go', notRunnable ? 'Nog geen reis' : `${NAV.aanvraag} →`));
   card.append(main);
-  // second entry: the Model (view the structure + graph, alter the rules) — a journey opens by ?journey=
-  const foot = el('div', 'cat-card-foot');
-  const model = el('a', 'cat-card-loom') as HTMLAnchorElement;
-  model.href = loomHref(m.id, { isJourney: m.shape === 'journey' });
-  model.append(el('span', 'cat-card-loom-gear', '⚙'), document.createTextNode(` ${NAV.model} →`));
-  foot.append(model);
-  card.append(foot);
+  // second entry: the Model (view the structure + graph, alter the rules) — a journey opens by ?journey=.
+  // Only offer it when there is a runnable journey to model; a journey-less proposition has nothing to open.
+  if (!notRunnable) {
+    const foot = el('div', 'cat-card-foot');
+    const model = el('a', 'cat-card-loom') as HTMLAnchorElement;
+    model.href = loomHref(runId, { isJourney: m.shape === 'journey' });
+    model.append(el('span', 'cat-card-loom-gear', '⚙'), document.createTextNode(` ${NAV.model} →`));
+    foot.append(model);
+    card.append(foot);
+  }
   return card;
 };
 const gridOf = (metas: CassetteMeta[]): HTMLElement => {
@@ -116,3 +128,6 @@ if (components.length) {
 }
 
 if (!CATALOGUE.length) mount.append(el('div', 'empty', 'Geen cassettes gevonden.'));
+
+// the demo layer: guided tour + Explain, once the catalogue DOM exists (so anchors resolve)
+initDemo('catalogue');

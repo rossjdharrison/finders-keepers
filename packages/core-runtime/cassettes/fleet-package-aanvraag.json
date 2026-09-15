@@ -1,0 +1,20 @@
+{
+  "kind": "journey",
+  "id": "fleet-package-aanvraag",
+  "proposition": "fleet-package",
+  "title": "Wagenpark aanvragen",
+  "doc": "De zakelijke aanvraagreis over het Wagenpark: één keer het vestigingsadres en het hoofdbestuurdersprofiel, dan per voertuig de auto en de dekking. Met dataminimalisatie aan verzamelt de reis het bestuurders- en regioprofiel één keer (gedeeld over alle voertuigen) en per voertuig alleen de eigen dekkingskeuze. Het wagenparkbedrag per maand is de som van de voertuigpremies.",
+  "locale": "nl",
+  "minimal": true,
+  "party": "business",
+  "sections": [
+    { "model": "adr", "label": "Vestigingsadres", "fields": ["postcode", "houseNumber", "street", "city", "regionBand"] },
+    { "model": "ind", "label": "Hoofdbestuurder", "fields": ["firstName", "lastName", "age", "schadevrijeJaren", "annualKm", "usage"] },
+    { "model": "veh1", "label": "Voertuig 1", "fields": ["merkModel", "bouwjaar", "catalogValue"] },
+    { "model": "ins1", "label": "Dekking 1", "fields": ["vehicleValue", "cover", "optLegalAid", "optPassenger", "optRoadside", "optNoClaimProtect", "paymentTerm", "premium"] },
+    { "model": "veh2", "label": "Voertuig 2", "fields": ["merkModel", "bouwjaar", "catalogValue"] },
+    { "model": "ins2", "label": "Dekking 2", "fields": ["vehicleValue", "cover", "optLegalAid", "optPassenger", "optRoadside", "optNoClaimProtect", "paymentTerm", "premium"] },
+    { "model": "veh3", "label": "Voertuig 3", "fields": ["merkModel", "bouwjaar", "catalogValue"] },
+    { "model": "ins3", "label": "Dekking 3", "fields": ["vehicleValue", "cover", "optLegalAid", "optPassenger", "optRoadside", "optNoClaimProtect", "paymentTerm", "premium"] }
+  ]
+}

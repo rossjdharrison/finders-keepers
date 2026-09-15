@@ -38,6 +38,11 @@
     position: sticky; top: 0; z-index: 10;
   }
   .bank-identity { display: flex; align-items: center; gap: 11px; }
+  /* the identity doubles as the "home" control — click the logo/name to return to the Catalogus */
+  a.bank-home { text-decoration: none; color: inherit; border-radius: var(--radius-sm); padding: 3px 8px; margin: -3px -8px; transition: background .12s ease; }
+  a.bank-home:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  a.bank-home:hover .bank-name { color: var(--accent); }
+  a.bank-home:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .bank-mark {
     display: grid; place-items: center; width: 40px; height: 40px;
     background: var(--logo-tile); border-radius: var(--radius-sm); padding: 3px;

@@ -18,7 +18,7 @@ import logoSvg from './assets/rowblaa-logo.svg?raw';
 import type { Cassette } from '@app/core-runtime';
 import { applyTheme, initialMode, type ThemeMode } from './theme.ts';
 import { setLocale } from './format.ts';
-import { REGISTRY, JOURNEYS, presentationDonor } from './cassette-registry.ts';
+import { REGISTRY, JOURNEYS, presentationDonor, resolveJourneyDoc, journeyTitle } from './cassette-registry.ts';
 import { compileJourney, type JourneyDoc } from './compile-journey.ts';
 import { projectStructure, renderStructure } from './loom/structure.ts';
 import { buildGraph, renderGraph } from './loom/graph.ts';
@@ -27,7 +27,9 @@ import { renderCompositionEditor } from './loom/composition-edit.ts';
 import { loadJourneyDoc } from './loom/journey-edit.ts';
 import { createFormulaInspector } from './loom/formula-inspector.ts';
 import { createModelEditing } from './loom/model-editing.ts';
+import { renderJsonView } from './loom/json-view.ts';
 import { renderContextBar, shapeLabel } from './nav.ts';
+import { initDemo } from './demo/demo.ts';
 
 const COLL_LABELS: Record<string, string> = { applications: 'Aanvraag', vehicles: 'Voertuig', drivers: 'Bestuurder', covers: 'Dekking' };
 
@@ -42,9 +44,11 @@ const qs = new URLSearchParams(location.search);
 const cassId = qs.get('cassette');
 const journeyId = qs.get('journey');
 
-// resolve the subject: a journey doc (compiled to a composed cassette for view/graph) or a product cassette.
+// resolve the subject: a journey (merged with its proposition into the compile IR, then compiled to a
+// composed cassette for view/graph) or a product cassette. The Compositie tab edits this merged IR (the
+// composition lives on the proposition; the interaction on the journey) and persists it as before.
 // Object.hasOwn guards against a crafted ?journey=toString reading an inherited prototype member.
-const journeyDoc: JourneyDoc | undefined = journeyId && Object.hasOwn(JOURNEYS, journeyId) ? JOURNEYS[journeyId] : undefined;
+const journeyDoc: JourneyDoc | undefined = journeyId && Object.hasOwn(JOURNEYS, journeyId) ? resolveJourneyDoc(journeyId) : undefined;
 let shipped: Cassette | undefined;
 let compileError: string | undefined;
 if (journeyDoc) {
@@ -55,6 +59,13 @@ if (journeyDoc) {
   } catch (e) {
     compileError = e instanceof Error ? e.message : String(e);
   }
+} else if (journeyId) {
+  // an EXPLICIT ?journey= that does not resolve (a stale bookmark from before the proposition/journey
+  // split, a typo, or a journey whose proposition is missing) must report "unknown" — NOT silently fall
+  // through to the bare-page car-insurance default, which would mislabel the wrong model as the subject.
+  compileError = Object.hasOwn(JOURNEYS, journeyId)
+    ? `reis '${journeyId}' verwijst naar een onbekende propositie`
+    : `onbekende reis '${journeyId}'`;
 } else {
   const wantId = cassId ?? (REGISTRY['car-insurance'] ? 'car-insurance' : Object.keys(REGISTRY)[0]);
   shipped = wantId && Object.hasOwn(REGISTRY, wantId) ? REGISTRY[wantId] : undefined;
@@ -100,11 +111,11 @@ const subjectDoc = journeyDoc?.doc ?? shipped.doc;
 
 app.innerHTML = `
   <header class="bank-topbar" role="banner">
-    <div class="bank-identity">
+    <a class="bank-identity bank-home" href="/catalogue.html" title="Naar de catalogus" aria-label="Terug naar de catalogus">
       <span class="bank-mark" aria-hidden="true">${logoSvg}</span>
       <span class="bank-name">${brand.name ?? 'Rowblaa Bank'}</span>
       <span class="bank-since">Model</span>
-    </div>
+    </a>
     <div class="bank-tools">
       <button class="theme-toggle" id="theme" type="button" aria-label="Wissel tussen licht en donker thema"></button>
     </div>
@@ -135,7 +146,7 @@ const mount = app.querySelector<HTMLElement>('#mount')!;
 // (Catalogus › <reis> › <configurator>) so the way back up is consistent with every other page.
 const fromJourney = qs.get('from');
 const from = !journeyDoc && fromJourney && Object.hasOwn(JOURNEYS, fromJourney)
-  ? { id: fromJourney, title: JOURNEYS[fromJourney].title ?? fromJourney }
+  ? { id: fromJourney, title: journeyTitle(fromJourney) }
   : undefined;
 const modelEdited = ((): boolean => {
   try {
@@ -287,6 +298,25 @@ tabs.push({
   },
 });
 
+tabs.push({
+  id: 'json',
+  label: 'JSON',
+  build: (panel) => {
+    // the effective model the core runs: a flat/composed cassette (with any live edits) is editable here;
+    // a journey's COMPILED cassette is derived from its proposition + reis, so it is view-only.
+    const effective = editing ? editing.cass() : shipped!;
+    renderJsonView(panel, {
+      cassette: effective,
+      editable: !journeyDoc,
+      storageKey: `fk-cassette-model-${shipped!.id}`,
+      edited: modelEdited,
+      note: journeyDoc
+        ? 'De gecompileerde cassette die de verzegelde @core uitvoert — afgeleid uit de propositie én de reis. Bekijk, kopieer of download het hier; de compositie bewerkt u in Compositie, de tarieven in de configurators.'
+        : undefined,
+    });
+  },
+});
+
 const nav = el('nav', 'lm-tabs');
 nav.setAttribute('role', 'tablist');
 nav.setAttribute('aria-label', 'Loom-weergaven');
@@ -318,7 +348,7 @@ const activate = (id: string): void => {
 // inspector), evict the OTHER cached tab so it rebuilds from the shared cassette next time it is opened. The
 // active tab already reflects the change (it made it), so it is left intact (no focus/scroll disruption).
 editing?.subscribe(() => {
-  for (const id of ['regels', 'grafiek']) if (id !== activeTab) built.delete(id);
+  for (const id of ['regels', 'grafiek', 'json']) if (id !== activeTab) built.delete(id);
 });
 
 for (const t of tabs) {
@@ -359,3 +389,6 @@ mount.append(nav, panelWrap);
 // initial tab from the hash (deep-linkable), else the first
 const initial = location.hash.slice(1);
 activate(tabs.some((t) => t.id === initial) ? initial : tabs[0].id);
+
+// the demo layer: guided tour + Explain, after the tabs exist (the tour anchors on #lm-panel-* / #lm-tab-*)
+initDemo('loom');

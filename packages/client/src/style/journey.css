@@ -52,6 +52,20 @@
   .journey-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 17px 22px; }
   .journey-fields.is-ledger { grid-template-columns: 1fr; gap: 0; }
 
+  /* a to-many (repeat) section: each child row is a sub-card with a remove control; an add button at the end */
+  .jc-repeat { gap: 12px; }
+  .jc-repeat-hint { margin: -2px 0 2px; font-size: 12.5px; line-height: 1.45; color: var(--ink-muted); }
+  .jc-repeat-item { display: flex; flex-direction: column; gap: 12px; padding: 13px 15px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-raised); }
+  .jc-repeat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .jc-repeat-item-title { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+  .jc-repeat-remove { font: inherit; font-size: 12px; font-weight: 600; color: var(--ink-muted); background: transparent; border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 4px 11px; cursor: pointer; transition: color .12s ease, border-color .12s ease; }
+  .jc-repeat-remove:hover:not(:disabled) { color: var(--state-error); border-color: var(--state-error); }
+  .jc-repeat-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .jc-repeat-remove:disabled { opacity: .45; cursor: not-allowed; }
+  .jc-repeat-add { align-self: flex-start; font: inherit; font-size: 13px; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--border)); border-radius: var(--radius-md); padding: 9px 15px; cursor: pointer; transition: background .12s ease; }
+  .jc-repeat-add:hover { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+  .jc-repeat-add:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
   .jf { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .jf-label { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; }
   .jf-help { font-size: 11.5px; line-height: 1.45; color: var(--ink-muted); max-width: 46ch; }

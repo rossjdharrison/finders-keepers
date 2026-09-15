@@ -1,0 +1,15 @@
+{
+  "kind": "journey",
+  "id": "sme-lending-aanvraag",
+  "proposition": "sme-lending",
+  "title": "Zakelijk krediet aanvragen",
+  "doc": "De aanvraagreis voor een zakelijk krediet. Voer het KvK-nummer in — naam, rechtsvorm, sector en vestiging vullen zich vanzelf; vul de kerncijfers aan. De bestuurder verschijnt in de rol van borg (alleen inkomen en verplichtingen zijn nodig). Bij het krediet ziet u meteen een transparant oordeel: goedgekeurd, onder voorwaarden of afgewezen — met de dekking, de rente-opbouw en het maximaal verantwoorde bedrag, alles herleidbaar. Zet de borgstelling aan of uit en zie het oordeel kantelen.",
+  "locale": "nl",
+  "minimal": false,
+  "party": "business",
+  "sections": [
+    { "model": "co", "label": "Onderneming", "fields": ["kvkNummer", "bedrijfsnaam", "rechtsvorm", "sector", "vestigingsplaats", "medewerkers", "jaaromzet", "bedrijfsresultaat", "bestaandeLasten", "nettoMaandruimte"] },
+    { "model": "dir", "label": "Bestuurder & borg", "fields": ["firstName", "lastName", "grossIncome", "monthlyObligations"] },
+    { "model": "fac", "label": "Krediet", "fields": ["kredietbedrag", "looptijd", "kredietdoel", "persoonlijkeBorg", "jaarrente", "maandAflossing", "maandRente", "maandlast", "totaleDekking", "borgDekking", "maxKrediet", "kredietoordeel", "tekort"] }
+  ]
+}

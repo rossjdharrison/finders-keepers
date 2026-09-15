@@ -1,0 +1,45 @@
+{
+  "kind": "proposition",
+  "id": "sme-lending",
+  "title": "Zakelijk kredietpakket",
+  "doc": "De commerciële samenstelling van een zakelijk kredietaanvraag: drie herbruikbare bouwstenen — Onderneming (KvK), Individu (de bestuurder in de rol van borg) en Zakelijk krediet — gekoppeld via getypte L2-naden. De KvK-sector en de maandelijkse bedrijfsruimte voeden het kredietoordeel; het inkomen van de bestuurder voedt de persoonlijke borg. Zo ontstaat een transparant, herleidbaar kredietbesluit: elke euro en elk oordeel is terug te voeren op zijn invoer. Dezelfde Individu-bouwsteen als het Autopakket, hier in een andere rol.",
+  "locale": "nl",
+  "targetMarket": {
+    "segment": "business",
+    "label": "MKB-onderneming",
+    "note": "Voor gevestigde ondernemingen met een positief bedrijfsresultaat; krediet verantwoord binnen een dekkingsratio (DSCR).",
+    "suitability": [
+      { "id": "positiveResult", "note": "Krediet alleen verantwoord bij voldoende maandelijkse dekking (DSCR ≥ 1,25); anders onder voorwaarden of afgewezen." },
+      { "id": "directorGuarantee", "note": "Zonder toereikende bedrijfsdekking kan een persoonlijke borgstelling van de bestuurder het oordeel kantelen — een beslissing van een partij in de rol van borg." }
+    ]
+  },
+  "models": [
+    { "ref": "bedrijf", "as": "co" },
+    { "ref": "individual", "as": "dir" },
+    { "ref": "zakelijk-krediet", "as": "fac" }
+  ],
+  "spine": "fac",
+  "bindings": [
+    {
+      "id": "coToFacRuimte", "from": "co", "to": "fac",
+      "contract": { "provides": [{ "as": "ruimte", "source": "output:nettoMaandruimte" }], "requires": [{ "name": "ruimte", "target": "field:bedrijfsMaandruimte" }] },
+      "mapping": [{ "to": "bedrijfsMaandruimte", "from": { "op": "field", "id": "ruimte" } }]
+    },
+    {
+      "id": "coToFacSector", "from": "co", "to": "fac",
+      "contract": { "provides": [{ "as": "sec", "source": "output:sector" }], "requires": [{ "name": "sec", "target": "field:sector" }] },
+      "mapping": [{ "to": "sector", "from": { "op": "field", "id": "sec" } }]
+    },
+    {
+      "id": "dirToFacIncome", "from": "dir", "to": "fac",
+      "contract": { "provides": [{ "as": "inc", "source": "output:grossIncome" }], "requires": [{ "name": "inc", "target": "field:directeurInkomen" }] },
+      "mapping": [{ "to": "directeurInkomen", "from": { "op": "field", "id": "inc" } }]
+    },
+    {
+      "id": "dirToFacObligations", "from": "dir", "to": "fac",
+      "contract": { "provides": [{ "as": "obl", "source": "output:monthlyObligations" }], "requires": [{ "name": "obl", "target": "field:directeurLasten" }] },
+      "mapping": [{ "to": "directeurLasten", "from": { "op": "field", "id": "obl" } }]
+    }
+  ],
+  "total": { "field": "maandTotaal", "of": ["maandAflossing", "maandRente"], "label": "Maandlast", "per": "per maand" }
+}

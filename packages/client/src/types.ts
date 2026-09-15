@@ -72,7 +72,10 @@ export interface ViewConfig {
   journey?: {
     field: string;
     confirmField?: string; // a spine bool that must be true to submit (e.g. termsAccepted); absent = no such gate
-    steps: { id: string; label?: string; collection?: string; fields?: string[]; gate?: string }[];
+    // `repeat` makes a step a TO-MANY section: it lists every child row of `collection` joined to the spine,
+    // each editable, with add (`newRow` seeds a fresh child) / remove (soft: sets `actief` false). `itemLabel`
+    // titles each card ("Voertuig 1"), `addLabel` the add button, `hint` a one-line intro under the title.
+    steps: { id: string; label?: string; collection?: string; fields?: string[]; gate?: string; repeat?: boolean; newRow?: Record<string, Value>; itemLabel?: string; addLabel?: string; hint?: string }[];
     summary?: { total: string; per?: string; lines?: { field: string; label?: string }[] };
   };
 }
@@ -114,6 +117,7 @@ export interface CollectionStore {
   propOf(field: string): Property | undefined;
   labelOf(rowId: string, labelField: string): string; // for ref display
   setField(row: string, field: string, value: Value): void;
+  insert?(row: string, values: Record<string, Value>): void; // add a child row (to-many steps); optional per adapter
 }
 
 /** The whole workspace: all collections behind one socket. */

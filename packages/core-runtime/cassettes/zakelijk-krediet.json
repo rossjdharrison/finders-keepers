@@ -1,0 +1,98 @@
+{
+  "id": "zakelijk-krediet",
+  "title": "Zakelijk krediet",
+  "doc": "Een zakelijk kredietproduct: financier een bedrag over een looptijd tegen een risico-afhankelijke rente, en zie een TRANSPARANT kredietoordeel. De rente = basisrente (looptijd) + sectoropslag (het sectorrisico dat dit product zélf beprijst). Het oordeel vergelijkt de maandlast met de dekking: de maandelijkse ruimte van de onderneming, eventueel aangevuld met de persoonlijke borg van de bestuurder. Elke stap is te volgen; de drempel (DSCR 1,25) en de borgnorm zijn instelbare knoppen. In het Zakelijk-kredietpakket worden de bedrijfsruimte, de sector en het inkomen van de bestuurder GEBONDEN (L2-naden).",
+  "locale": "nl",
+  "types": { "CreditFacility": { "specializes": ["agreement"] } },
+  "collections": [
+    {
+      "id": "facilities",
+      "semanticClass": "CreditFacility",
+      "doc": "Een kredietfaciliteit — een overeenkomst. Bedrag + looptijd + sector + dekking in, maandlast + oordeel uit.",
+      "properties": [
+        { "id": "kredietbedrag", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Het gevraagde kredietbedrag." },
+        { "id": "looptijd", "valueType": { "k": "enum", "set": "krediettermijn" }, "source": "stored", "doc": "Looptijd van het krediet." },
+        { "id": "kredietdoel", "valueType": { "k": "enum", "set": "kredietdoel" }, "source": "stored", "doc": "Waarvoor het krediet dient." },
+        { "id": "persoonlijkeBorg", "valueType": { "k": "bool" }, "source": "stored", "doc": "Geeft de bestuurder een persoonlijke borgstelling? Dan telt zijn/haar privé-ruimte mee als extra dekking." },
+
+        { "id": "bedrijfsMaandruimte", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Maandelijkse kredietruimte van de onderneming. In het pakket gebonden aan de onderneming." },
+        { "id": "sector", "valueType": { "k": "enum", "set": "sector" }, "source": "stored", "doc": "Sector van de onderneming (bepaalt de sectoropslag op de rente). In het pakket gebonden aan de KvK-sector." },
+        { "id": "directeurInkomen", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Bruto jaarinkomen van de bestuurder/borg. In het pakket gebonden aan het Individu-profiel." },
+        { "id": "directeurLasten", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Maandelijkse privéverplichtingen van de bestuurder. In het pakket gebonden aan het Individu-profiel." },
+
+        { "id": "termNum", "valueType": { "k": "num" }, "source": "computed", "doc": "Looptijd in maanden.", "formula": { "op": "lookup", "table": "krediettermijnTable", "key": { "op": "field", "id": "looptijd" } } },
+        { "id": "basisrente", "valueType": { "k": "num" }, "source": "computed", "doc": "Basisjaarrente, afhankelijk van de looptijd.", "formula": { "op": "lookup", "table": "basisRenteTable", "key": { "op": "field", "id": "looptijd" } } },
+        { "id": "sectorOpslag", "valueType": { "k": "num" }, "source": "computed", "doc": "Renteopslag voor het sectorrisico. Leeg tot de sector bekend is.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "sector" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "lookup", "table": "sectorOpslagTable", "key": { "op": "field", "id": "sector" } }] } },
+        { "id": "jaarrente", "valueType": { "k": "num" }, "source": "computed", "doc": "Effectieve jaarrente = basisrente + sectoropslag.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "sectorOpslag" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "field", "id": "basisrente" }, { "op": "add", "args": [{ "op": "field", "id": "basisrente" }, { "op": "field", "id": "sectorOpslag" }] }] } },
+
+        { "id": "financeCost", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Totale rentekosten over de looptijd = bedrag × jaarrente × jaren.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "jaarrente" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "mul", "args": [{ "op": "field", "id": "kredietbedrag" }, { "op": "mul", "args": [{ "op": "field", "id": "jaarrente" }, { "op": "div", "args": [{ "op": "field", "id": "termNum" }, { "op": "lit", "value": { "t": "num", "v": 12 } }] }] }] }] } },
+        { "id": "maandRente", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Rentedeel van de maandlast.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "financeCost" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "div", "args": [{ "op": "field", "id": "financeCost" }, { "op": "field", "id": "termNum" }] }] } },
+        { "id": "maandAflossing", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Aflossingsdeel van de maandlast = bedrag ÷ looptijd.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "kredietbedrag" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "div", "args": [{ "op": "field", "id": "kredietbedrag" }, { "op": "field", "id": "termNum" }] }] } },
+        { "id": "maandlast", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Maandlast = aflossing + rente.", "formula": { "op": "add", "args": [{ "op": "field", "id": "maandAflossing" }, { "op": "field", "id": "maandRente" }] } },
+
+        { "id": "borgNorm", "valueType": { "k": "num" }, "source": "computed", "doc": "Aandeel van de privé-maandruimte dat als borg meetelt (20%). Instelbare knop (bewerkbaar in de Loom).", "formula": { "op": "lit", "value": { "t": "num", "v": 0.2 } } },
+        { "id": "directeurMaandinkomen", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Bruto maandinkomen van de bestuurder.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "directeurInkomen" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "div", "args": [{ "op": "field", "id": "directeurInkomen" }, { "op": "lit", "value": { "t": "num", "v": 12 } }] }] } },
+        { "id": "directeurRuimte", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Privé-maandruimte van de bestuurder = maandinkomen − privéverplichtingen.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "directeurMaandinkomen" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "directeurLasten" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "field", "id": "directeurMaandinkomen" }, { "op": "sub", "args": [{ "op": "field", "id": "directeurMaandinkomen" }, { "op": "field", "id": "directeurLasten" }] }] }] } },
+        { "id": "borgDekking", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Extra dekking uit de persoonlijke borg (0 zonder borgstelling). De maandruimte × borgnorm van de bestuurder — de partij-in-rol 'borg' die het krediet mede draagt.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "field", "id": "persoonlijkeBorg" }, { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "directeurRuimte" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "mul", "args": [{ "op": "field", "id": "bedrijfsMaandruimte" }, { "op": "lit", "value": { "t": "num", "v": 0 } }] }, { "op": "mul", "args": [{ "op": "field", "id": "directeurRuimte" }, { "op": "field", "id": "borgNorm" }] }] }, { "op": "mul", "args": [{ "op": "field", "id": "bedrijfsMaandruimte" }, { "op": "lit", "value": { "t": "num", "v": 0 } }] }] } },
+        { "id": "totaleDekking", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Totale maandelijkse dekking = bedrijfsruimte + borgdekking.", "formula": { "op": "add", "args": [{ "op": "field", "id": "bedrijfsMaandruimte" }, { "op": "field", "id": "borgDekking" }] } },
+
+        { "id": "dscrDrempel", "valueType": { "k": "num" }, "source": "computed", "doc": "Vereiste dekkingsratio (DSCR) voor goedkeuring: dekking ≥ 1,25 × maandlast. Instelbare knop.", "formula": { "op": "lit", "value": { "t": "num", "v": 1.25 } } },
+        { "id": "maxMaandlast", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Maximaal verantwoorde maandlast = totale dekking ÷ DSCR-drempel.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "totaleDekking" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "div", "args": [{ "op": "field", "id": "totaleDekking" }, { "op": "field", "id": "dscrDrempel" }] }] } },
+        { "id": "maxKrediet", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Maximaal verantwoord kredietbedrag: de max. maandlast, teruggerekend over de looptijd tegen de jaarrente.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "maxMaandlast" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "jaarrente" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "mul", "args": [{ "op": "field", "id": "maxMaandlast" }, { "op": "div", "args": [{ "op": "field", "id": "termNum" }, { "op": "add", "args": [{ "op": "lit", "value": { "t": "num", "v": 1 } }, { "op": "mul", "args": [{ "op": "field", "id": "jaarrente" }, { "op": "div", "args": [{ "op": "field", "id": "termNum" }, { "op": "lit", "value": { "t": "num", "v": 12 } }] }] }] }] }] }] }] } },
+        { "id": "kredietoordeel", "valueType": { "k": "enum", "set": "oordeel" }, "source": "computed", "doc": "Het kredietoordeel: goedgekeurd (dekking ≥ 1,25 × maandlast), onder voorwaarden (dekking ≥ maandlast), of afgewezen. Onbekend tot de gegevens compleet zijn.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "totaleDekking" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "enum", "set": "oordeel", "v": "onbekend" } }, { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "maandlast" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "enum", "set": "oordeel", "v": "onbekend" } }, { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "kredietbedrag" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "enum", "set": "oordeel", "v": "onbekend" } }, { "op": "call", "fn": "if", "args": [{ "op": "gte", "args": [{ "op": "field", "id": "totaleDekking" }, { "op": "mul", "args": [{ "op": "field", "id": "maandlast" }, { "op": "field", "id": "dscrDrempel" }] }] }, { "op": "lit", "value": { "t": "enum", "set": "oordeel", "v": "goedgekeurd" } }, { "op": "call", "fn": "if", "args": [{ "op": "gte", "args": [{ "op": "field", "id": "totaleDekking" }, { "op": "field", "id": "maandlast" }] }, { "op": "lit", "value": { "t": "enum", "set": "oordeel", "v": "voorwaarden" } }, { "op": "lit", "value": { "t": "enum", "set": "oordeel", "v": "afgewezen" } }] }] }] }] }] } },
+        { "id": "tekort", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Tekort t.o.v. het maximaal verantwoorde kredietbedrag — de extra zekerheid/aanbetaling die nodig is. Leeg als het krediet past.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "maxKrediet" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "kredietbedrag" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "call", "fn": "if", "args": [{ "op": "gte", "args": [{ "op": "field", "id": "maxKrediet" }, { "op": "field", "id": "kredietbedrag" }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "sub", "args": [{ "op": "field", "id": "kredietbedrag" }, { "op": "field", "id": "maxKrediet" }] }] }] }] } }
+      ],
+      "tables": {
+        "krediettermijnTable": { "kind": "1d", "of": { "k": "num" }, "map": { "t12": { "t": "num", "v": 12 }, "t24": { "t": "num", "v": 24 }, "t36": { "t": "num", "v": 36 }, "t48": { "t": "num", "v": 48 }, "t60": { "t": "num", "v": 60 } } },
+        "basisRenteTable": { "kind": "1d", "of": { "k": "num" }, "default": { "t": "num", "v": 0.075 }, "map": { "t12": { "t": "num", "v": 0.045 }, "t24": { "t": "num", "v": 0.052 }, "t36": { "t": "num", "v": 0.059 }, "t48": { "t": "num", "v": 0.065 }, "t60": { "t": "num", "v": 0.069 } } },
+        "sectorOpslagTable": { "kind": "1d", "of": { "k": "num" }, "default": { "t": "num", "v": 0.025 }, "map": { "ict": { "t": "num", "v": 0.01 }, "bouw": { "t": "num", "v": 0.02 }, "horeca": { "t": "num", "v": 0.03 }, "detailhandel": { "t": "num", "v": 0.02 }, "zakelijke-diensten": { "t": "num", "v": 0.01 } } }
+      }
+    }
+  ],
+  "l10n": {
+    "nl": {
+      "kredietbedrag": "Kredietbedrag", "looptijd": "Looptijd", "kredietdoel": "Kredietdoel", "persoonlijkeBorg": "Persoonlijke borgstelling",
+      "bedrijfsMaandruimte": "Bedrijfsruimte p/m", "sector": "Sector", "directeurInkomen": "Inkomen bestuurder", "directeurLasten": "Privéverplichtingen bestuurder",
+      "termNum": "Looptijd (maanden)", "basisrente": "Basisrente", "sectorOpslag": "Sectoropslag", "jaarrente": "Jaarrente",
+      "financeCost": "Totale rentekosten", "maandRente": "Rente p/m", "maandAflossing": "Aflossing p/m", "maandlast": "Maandlast",
+      "borgNorm": "Borgnorm", "directeurMaandinkomen": "Maandinkomen bestuurder", "directeurRuimte": "Privé-maandruimte",
+      "borgDekking": "Dekking uit borg", "totaleDekking": "Totale dekking p/m", "dscrDrempel": "Dekkingsdrempel (DSCR)",
+      "maxMaandlast": "Max. maandlast", "maxKrediet": "Maximaal verantwoord krediet", "kredietoordeel": "Kredietoordeel", "tekort": "Extra zekerheid nodig"
+    }
+  },
+  "enums": {
+    "krediettermijn": [
+      { "id": "t12", "label": "12 maanden" }, { "id": "t24", "label": "24 maanden" },
+      { "id": "t36", "label": "36 maanden" }, { "id": "t48", "label": "48 maanden" }, { "id": "t60", "label": "60 maanden" }
+    ],
+    "kredietdoel": [
+      { "id": "werkkapitaal", "label": "Werkkapitaal" }, { "id": "investering", "label": "Investering" }, { "id": "herfinanciering", "label": "Herfinanciering" }
+    ],
+    "oordeel": [
+      { "id": "goedgekeurd", "label": "Goedgekeurd" },
+      { "id": "voorwaarden", "label": "Onder voorwaarden" },
+      { "id": "afgewezen", "label": "Afgewezen" },
+      { "id": "onbekend", "label": "Vul de gegevens aan" }
+    ]
+  },
+  "presentation": [
+    { "subject": "facilities.kredietoordeel", "stateRules": { "goedgekeurd": "positive", "voorwaarden": "pending", "afgewezen": "error", "onbekend": "muted" } },
+    { "subject": "facilities.maandlast", "emphasis": "strong" }
+  ],
+  "journey": {
+    "field": "step",
+    "steps": [
+      { "id": "krediet", "label": "Krediet", "fields": ["kredietbedrag", "looptijd", "kredietdoel", "persoonlijkeBorg", "bedrijfsMaandruimte", "sector", "directeurInkomen", "directeurLasten", "jaarrente", "maandAflossing", "maandRente", "maandlast", "totaleDekking", "borgDekking", "maxKrediet", "kredietoordeel", "tekort"] }
+    ],
+    "summary": { "total": "maandlast", "per": "per maand", "lines": [{ "field": "maandAflossing", "label": "Aflossing" }, { "field": "maandRente", "label": "Rente" }, { "field": "maxKrediet", "label": "Maximaal verantwoord krediet" }] }
+  },
+  "seed": [
+    { "coll": "facilities", "row": "fac-1", "values": { "kredietbedrag": { "t": "money", "minor": 15000000, "ccy": "EUR", "scale": 2 }, "looptijd": { "t": "enum", "set": "krediettermijn", "v": "t60" }, "kredietdoel": { "t": "enum", "set": "kredietdoel", "v": "investering" }, "persoonlijkeBorg": { "t": "bool", "v": true } } }
+  ],
+  "example": {
+    "kredietbedrag": { "t": "money", "minor": 15000000, "ccy": "EUR", "scale": 2 },
+    "looptijd": { "t": "enum", "set": "krediettermijn", "v": "t60" },
+    "kredietdoel": { "t": "enum", "set": "kredietdoel", "v": "investering" },
+    "persoonlijkeBorg": { "t": "bool", "v": true }
+  }
+}

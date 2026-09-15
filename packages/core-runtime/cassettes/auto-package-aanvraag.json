@@ -1,0 +1,17 @@
+{
+  "kind": "journey",
+  "id": "auto-package-aanvraag",
+  "proposition": "auto-package",
+  "title": "Autopakket aanvragen",
+  "doc": "De klantreis over het Autopakket: welke stappen de aanvrager doorloopt en — met dataminimalisatie aan — uitsluitend de velden die de compositie aantoonbaar nodig heeft (privacy by design). Doordat de financiering het inkomen en de vaste lasten nodig heeft, verschijnen precies díe velden vanzelf in het Individu; de rest wordt niet verzameld. De interactie staat los van de compositie: dezelfde propositie kan onder een andere partijcontext (bijv. ingelogd) een andere reis krijgen zonder de samenstelling te wijzigen.",
+  "locale": "nl",
+  "minimal": true,
+  "party": "anonymous",
+  "sections": [
+    { "model": "veh", "label": "Voertuig", "fields": ["merkModel", "bouwjaar", "catalogValue"] },
+    { "model": "adr", "label": "Adres", "fields": ["postcode", "houseNumber", "street", "city", "regionBand"] },
+    { "model": "ind", "label": "Individu", "fields": ["firstName", "lastName", "dateOfBirth", "age", "email", "phone", "gender", "nationality", "maritalStatus", "occupation", "grossIncome", "monthlyObligations", "driversLicenceSince", "schadevrijeJaren", "annualKm", "usage"] },
+    { "model": "ins", "label": "Verzekering", "fields": ["vehicleValue", "regionBand", "age", "schadevrijeJaren", "annualKm", "usage", "cover", "optLegalAid", "optRoadside", "premium"] },
+    { "model": "fin", "label": "Financiering", "fields": ["principal", "downPayment", "tradeIn", "termMonths", "loyaltyYears", "annualRate", "finMonthly", "grossMonthly", "maxFinancing", "affordability", "financingShortfall"] }
+  ]
+}

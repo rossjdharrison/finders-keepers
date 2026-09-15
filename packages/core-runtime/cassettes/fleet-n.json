@@ -1,0 +1,112 @@
+{
+  "id": "fleet-n",
+  "title": "Wagenpark (voeg voertuigen toe)",
+  "doc": "Een wagenpark met een WILLEKEURIG aantal voertuigen — de intra-cassette variant. Eén polis (parent) met een gedeelde regio en hoofdbestuurder; daaronder een to-many collectie voertuigen (child) die u ter plekke toevoegt en verwijdert. Elk voertuig berekent zijn eigen premie (dekking + waardeklasse); het wagenparkbedrag is een SOM-rollup over alle voertuigen, plus de gedeelde regio-/bestuurderscontext × het aantal. Dynamisch N, live, zonder codewijziging — dit is de tegenhanger van het vaste 3-voertuig Wagenpak dat via de L2-naad is samengesteld. De regel: decomponeer intra-cassette bij herhaling (N van hetzelfde); reserveer de L2-naad voor cross-product.",
+  "locale": "nl",
+  "types": {
+    "FleetPolicy": { "specializes": ["agreement"] },
+    "Vehicle": { "specializes": ["ordinary_physical_object"] }
+  },
+  "collections": [
+    {
+      "id": "fleets",
+      "semanticClass": "FleetPolicy",
+      "doc": "De wagenparkpolis: policyhouder + gedeelde regio en hoofdbestuurder, met het gesommeerde maandbedrag over alle voertuigen.",
+      "properties": [
+        { "id": "policyhouder", "valueType": { "k": "text" }, "source": "stored", "doc": "Naam van de policyhouder (de onderneming)." },
+        { "id": "postcode", "valueType": { "k": "text" }, "source": "stored", "constraint": { "format": "postcode" }, "doc": "Vestigingspostcode; bepaalt de gedeelde risicoregio." },
+        { "id": "regionBand", "valueType": { "k": "enum", "set": "regionBand" }, "source": "extern", "api": "regionBand", "params": { "postcode": "postcode" }, "doc": "Risicoregio, automatisch afgeleid uit de postcode." },
+        { "id": "bestuurderLeeftijd", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity", "constraint": { "min": 16, "max": 100 }, "doc": "Leeftijd van de hoofdbestuurder." },
+        { "id": "schadevrijeJaren", "valueType": { "k": "num" }, "source": "stored", "category": "physical_quantity", "constraint": { "min": 0, "max": 99 }, "doc": "Schadevrije jaren van de hoofdbestuurder." },
+
+        { "id": "ageBand", "valueType": { "k": "enum", "set": "ageBand" }, "source": "computed", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "bestuurderLeeftijd" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "call", "fn": "if", "args": [{ "op": "lt", "args": [{ "op": "field", "id": "bestuurderLeeftijd" }, { "op": "lit", "value": { "t": "num", "v": 23 } }] }, { "op": "lit", "value": { "t": "enum", "set": "ageBand", "v": "young" } }, { "op": "call", "fn": "if", "args": [{ "op": "lt", "args": [{ "op": "field", "id": "bestuurderLeeftijd" }, { "op": "lit", "value": { "t": "num", "v": 65 } }] }, { "op": "lit", "value": { "t": "enum", "set": "ageBand", "v": "standard" } }, { "op": "lit", "value": { "t": "enum", "set": "ageBand", "v": "senior" } }] }] }] } },
+        { "id": "sjBand", "valueType": { "k": "enum", "set": "sjBand" }, "source": "computed", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "schadevrijeJaren" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "call", "fn": "if", "args": [{ "op": "lt", "args": [{ "op": "field", "id": "schadevrijeJaren" }, { "op": "lit", "value": { "t": "num", "v": 5 } }] }, { "op": "lit", "value": { "t": "enum", "set": "sjBand", "v": "none" } }, { "op": "call", "fn": "if", "args": [{ "op": "lt", "args": [{ "op": "field", "id": "schadevrijeJaren" }, { "op": "lit", "value": { "t": "num", "v": 10 } }] }, { "op": "lit", "value": { "t": "enum", "set": "sjBand", "v": "mid" } }, { "op": "call", "fn": "if", "args": [{ "op": "lt", "args": [{ "op": "field", "id": "schadevrijeJaren" }, { "op": "lit", "value": { "t": "num", "v": 15 } }] }, { "op": "lit", "value": { "t": "enum", "set": "sjBand", "v": "high" } }, { "op": "lit", "value": { "t": "enum", "set": "sjBand", "v": "max" } }] }] }] }] } },
+
+        { "id": "basisPremie", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Som van de eigen premies van alle voertuigen (dekking + waardeklasse).", "formula": { "op": "rollup", "via": "fleetVehicles", "agg": "sum", "of": { "op": "field", "id": "premium" } } },
+        { "id": "aantal", "valueType": { "k": "num" }, "source": "computed", "doc": "Aantal actieve voertuigen.", "formula": { "op": "rollup", "via": "fleetVehicles", "agg": "sum", "of": { "op": "field", "id": "telt" } } },
+        { "id": "regioOpslag", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Regio-opslag per voertuig.", "formula": { "op": "lookup", "table": "regionRate", "key": { "op": "field", "id": "regionBand" } } },
+        { "id": "leeftijdOpslag", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Leeftijdsopslag per voertuig.", "formula": { "op": "lookup", "table": "ageRate", "key": { "op": "field", "id": "ageBand" } } },
+        { "id": "ncKorting", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "No-claimkorting per voertuig.", "formula": { "op": "lookup", "table": "ncDiscount", "key": { "op": "field", "id": "sjBand" } } },
+        { "id": "contextPerVoertuig", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Gedeelde regio-/bestuurderscontext per voertuig = regio-opslag + leeftijdsopslag − no-claimkorting.", "formula": { "op": "sub", "args": [{ "op": "add", "args": [{ "op": "field", "id": "regioOpslag" }, { "op": "field", "id": "leeftijdOpslag" }] }, { "op": "field", "id": "ncKorting" }] } },
+        { "id": "contextTotaal", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Contextopslag over het hele wagenpark = context per voertuig × aantal.", "formula": { "op": "mul", "args": [{ "op": "field", "id": "contextPerVoertuig" }, { "op": "field", "id": "aantal" }] } },
+        { "id": "fleetMonthly", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Wagenparkbedrag per maand = som van de voertuigpremies + de gedeelde context. Leeg bij een leeg wagenpark (geen voertuigen) — de guard op aantal voorkomt dat een lege som (num(0)) botst met de money-context (#TYPE); zelfde bewaking als het gemiddelde.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "gt", "args": [{ "op": "field", "id": "aantal" }, { "op": "lit", "value": { "t": "num", "v": 0 } }] }, { "op": "add", "args": [{ "op": "field", "id": "basisPremie" }, { "op": "field", "id": "contextTotaal" }] }, { "op": "lit", "value": { "t": "blank" } }] } },
+        { "id": "gemPerVoertuig", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Gemiddeld maandbedrag per voertuig.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "gt", "args": [{ "op": "field", "id": "aantal" }, { "op": "lit", "value": { "t": "num", "v": 0 } }] }, { "op": "div", "args": [{ "op": "field", "id": "fleetMonthly" }, { "op": "field", "id": "aantal" }] }, { "op": "lit", "value": { "t": "blank" } }] } }
+      ],
+      "tables": {
+        "regionRate": { "kind": "1d", "of": { "k": "money" }, "default": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "map": { "low": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "mid": { "t": "money", "minor": 150, "ccy": "EUR", "scale": 2 }, "high": { "t": "money", "minor": 400, "ccy": "EUR", "scale": 2 } } },
+        "ageRate": { "kind": "1d", "of": { "k": "money" }, "default": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "map": { "young": { "t": "money", "minor": 400, "ccy": "EUR", "scale": 2 }, "standard": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "senior": { "t": "money", "minor": 150, "ccy": "EUR", "scale": 2 } } },
+        "ncDiscount": { "kind": "1d", "of": { "k": "money" }, "default": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "map": { "none": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "mid": { "t": "money", "minor": 150, "ccy": "EUR", "scale": 2 }, "high": { "t": "money", "minor": 300, "ccy": "EUR", "scale": 2 }, "max": { "t": "money", "minor": 500, "ccy": "EUR", "scale": 2 } } }
+      }
+    },
+    {
+      "id": "vehicles",
+      "semanticClass": "Vehicle",
+      "doc": "Eén voertuig in het wagenpark: merk/model + dekking in, eigen maandpremie uit. Een to-many child van de polis.",
+      "properties": [
+        { "id": "polis", "valueType": { "k": "ref", "collection": "fleets" }, "source": "stored", "category": "association", "doc": "De polis waar dit voertuig onder valt." },
+        { "id": "actief", "valueType": { "k": "bool" }, "source": "stored", "doc": "Of dit voertuig meetelt (verwijderen zet dit op onwaar)." },
+        { "id": "merkModel", "valueType": { "k": "enum", "set": "merkModel" }, "source": "stored", "doc": "Merk en model." },
+        { "id": "cover", "valueType": { "k": "enum", "set": "coverLevel" }, "source": "stored", "doc": "Dekking voor dit voertuig." },
+        { "id": "catalogValue", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Cataloguswaarde volgens merk en model.", "formula": { "op": "lookup", "table": "priceTable", "key": { "op": "field", "id": "merkModel" } } },
+        { "id": "valueBand", "valueType": { "k": "enum", "set": "coverBand" }, "source": "computed", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "catalogValue" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "call", "fn": "if", "args": [{ "op": "lt", "args": [{ "op": "field", "id": "catalogValue" }, { "op": "lit", "value": { "t": "money", "minor": 1000000, "ccy": "EUR", "scale": 2 } }] }, { "op": "lit", "value": { "t": "enum", "set": "coverBand", "v": "low" } }, { "op": "call", "fn": "if", "args": [{ "op": "lt", "args": [{ "op": "field", "id": "catalogValue" }, { "op": "lit", "value": { "t": "money", "minor": 2500000, "ccy": "EUR", "scale": 2 } }] }, { "op": "lit", "value": { "t": "enum", "set": "coverBand", "v": "mid" } }, { "op": "lit", "value": { "t": "enum", "set": "coverBand", "v": "high" } }] }] }] } },
+        { "id": "coverBase", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "lookup", "table": "coverRate", "key": { "op": "field", "id": "cover" } } },
+        { "id": "bandSurcharge", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "valueBand" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "lookup", "table": "bandRate", "key": { "op": "field", "id": "valueBand" } }] } },
+        { "id": "premieRaw", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "formula": { "op": "add", "args": [{ "op": "field", "id": "coverBase" }, { "op": "field", "id": "bandSurcharge" }] } },
+        { "id": "premium", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Maandpremie van dit voertuig (leeg als het voertuig is verwijderd → telt niet mee in de som).", "formula": { "op": "call", "fn": "if", "args": [{ "op": "field", "id": "actief" }, { "op": "field", "id": "premieRaw" }, { "op": "lit", "value": { "t": "blank" } }] } },
+        { "id": "telt", "valueType": { "k": "num" }, "source": "computed", "doc": "1 als het voertuig meetelt, anders leeg (voor het tellen).", "formula": { "op": "call", "fn": "if", "args": [{ "op": "field", "id": "actief" }, { "op": "lit", "value": { "t": "num", "v": 1 } }, { "op": "lit", "value": { "t": "blank" } }] } }
+      ],
+      "tables": {
+        "priceTable": { "kind": "1d", "of": { "k": "money" }, "default": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "map": { "polo": { "t": "money", "minor": 2200000, "ccy": "EUR", "scale": 2 }, "golf": { "t": "money", "minor": 3200000, "ccy": "EUR", "scale": 2 }, "id3": { "t": "money", "minor": 3800000, "ccy": "EUR", "scale": 2 }, "xc40": { "t": "money", "minor": 4600000, "ccy": "EUR", "scale": 2 }, "model3": { "t": "money", "minor": 5200000, "ccy": "EUR", "scale": 2 } } },
+        "coverRate": { "kind": "1d", "of": { "k": "money" }, "default": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "map": { "wa": { "t": "money", "minor": 400, "ccy": "EUR", "scale": 2 }, "waplus": { "t": "money", "minor": 700, "ccy": "EUR", "scale": 2 }, "allrisk": { "t": "money", "minor": 1100, "ccy": "EUR", "scale": 2 } } },
+        "bandRate": { "kind": "1d", "of": { "k": "money" }, "default": { "t": "money", "minor": 0, "ccy": "EUR", "scale": 2 }, "map": { "low": { "t": "money", "minor": 100, "ccy": "EUR", "scale": 2 }, "mid": { "t": "money", "minor": 300, "ccy": "EUR", "scale": 2 }, "high": { "t": "money", "minor": 600, "ccy": "EUR", "scale": 2 } } }
+      }
+    }
+  ],
+  "relations": {
+    "fleetVehicles": { "parentColl": "fleets", "childColl": "vehicles", "childField": "polis" }
+  },
+  "l10n": {
+    "nl": {
+      "policyhouder": "Policyhouder", "postcode": "Vestigingspostcode", "regionBand": "Risicoregio",
+      "bestuurderLeeftijd": "Leeftijd hoofdbestuurder", "schadevrijeJaren": "Schadevrije jaren",
+      "basisPremie": "Basis (voertuigen)", "aantal": "Aantal voertuigen", "contextPerVoertuig": "Context p/voertuig",
+      "contextTotaal": "Regio & bestuurder", "fleetMonthly": "Wagenpark p/m", "gemPerVoertuig": "Gemiddeld per voertuig",
+      "merkModel": "Merk & model", "cover": "Dekking", "catalogValue": "Cataloguswaarde", "premium": "Maandpremie", "actief": "Actief"
+    }
+  },
+  "enums": {
+    "merkModel": [
+      { "id": "polo", "label": "Volkswagen Polo" },
+      { "id": "golf", "label": "Volkswagen Golf" },
+      { "id": "id3", "label": "Volkswagen ID.3" },
+      { "id": "xc40", "label": "Volvo XC40" },
+      { "id": "model3", "label": "Tesla Model 3" }
+    ],
+    "coverLevel": [
+      { "id": "wa", "label": "WA (verplicht)" },
+      { "id": "waplus", "label": "WA + beperkt casco" },
+      { "id": "allrisk", "label": "Allrisk" }
+    ]
+  },
+  "presentation": [
+    { "subject": "fleets.fleetMonthly", "emphasis": "strong" }
+  ],
+  "journey": {
+    "steps": [
+      { "id": "polis", "label": "Polis & hoofdbestuurder", "fields": ["policyhouder", "postcode", "regionBand", "bestuurderLeeftijd", "schadevrijeJaren", "aantal"] },
+      { "id": "voertuigen", "label": "Voertuigen", "collection": "vehicles", "repeat": true, "itemLabel": "Voertuig", "addLabel": "+ Voertuig toevoegen", "hint": "Voeg voertuigen toe of verwijder ze hieronder — het wagenparkbedrag telt live mee. Minimaal één voertuig blijft staan.", "fields": ["merkModel", "catalogValue", "cover", "premium"], "newRow": { "actief": { "t": "bool", "v": true }, "merkModel": { "t": "enum", "set": "merkModel", "v": "polo" }, "cover": { "t": "enum", "set": "coverLevel", "v": "wa" } } }
+    ],
+    "summary": { "total": "fleetMonthly", "per": "per maand", "lines": [{ "field": "basisPremie", "label": "Basis (voertuigen)" }, { "field": "contextTotaal", "label": "Regio & bestuurder" }, { "field": "gemPerVoertuig", "label": "Gemiddeld per voertuig" }] }
+  },
+  "seed": [
+    { "coll": "fleets", "row": "f-1", "values": { "policyhouder": { "t": "text", "v": "Van der Berg Techniek B.V." }, "postcode": { "t": "text", "v": "3511 AB" }, "bestuurderLeeftijd": { "t": "num", "v": 45 }, "schadevrijeJaren": { "t": "num", "v": 8 } } },
+    { "coll": "vehicles", "row": "veh-1", "values": { "polis": { "t": "ref", "collection": "fleets", "id": "f-1" }, "actief": { "t": "bool", "v": true }, "merkModel": { "t": "enum", "set": "merkModel", "v": "golf" }, "cover": { "t": "enum", "set": "coverLevel", "v": "allrisk" } } },
+    { "coll": "vehicles", "row": "veh-2", "values": { "polis": { "t": "ref", "collection": "fleets", "id": "f-1" }, "actief": { "t": "bool", "v": true }, "merkModel": { "t": "enum", "set": "merkModel", "v": "id3" }, "cover": { "t": "enum", "set": "coverLevel", "v": "waplus" } } }
+  ],
+  "example": {
+    "policyhouder": { "t": "text", "v": "Van der Berg Techniek B.V." },
+    "postcode": { "t": "text", "v": "3511 AB" },
+    "bestuurderLeeftijd": { "t": "num", "v": 45 },
+    "schadevrijeJaren": { "t": "num", "v": 8 }
+  }
+}

@@ -9,16 +9,19 @@ import { effect, type Signal } from '@preact/signals-core';
 import type { CollectionDoc, WorkspaceStore } from './types.ts';
 import { normalizeKenteken, formatKenteken, isValidKenteken } from './kenteken.ts';
 import { normalizePostcode, formatPostcode, isValidPostcode } from './pdok.ts';
+import { normalizeKvk, formatKvk, isValidKvk } from './kvk.ts';
 
 export interface AutofillExterns {
   hasVehicle(plate: string): boolean;
   prefetchVehicle(plate: string): Promise<boolean>;
   hasAddress(postcode: string): boolean;
   prefetchAddress(postcode: string): Promise<boolean>;
+  hasCompany(kvk: string): boolean;
+  prefetchCompany(kvk: string): Promise<boolean>;
   addressNumbers(postcode: string): string[];
 }
 
-const fieldWithFormat = (coll: CollectionDoc, format: 'kenteken' | 'postcode'): string | undefined =>
+const fieldWithFormat = (coll: CollectionDoc, format: 'kenteken' | 'postcode' | 'kvk'): string | undefined =>
   coll.properties.find((p) => p.constraint?.format === format)?.id;
 
 /** Wire RDW + PDOK auto-fill across every collection that declares a kenteken/postcode field. Returns a
@@ -37,6 +40,7 @@ export function wireAutofill(
     if (!store) continue;
     const plateField = fieldWithFormat(coll, 'kenteken');
     const postcodeField = fieldWithFormat(coll, 'postcode');
+    const kvkField = fieldWithFormat(coll, 'kvk');
     const numberField = coll.properties.find((p) => p.id === 'houseNumber')?.id; // datalist target, by convention
 
     if (plateField) {
@@ -57,6 +61,29 @@ export function wireAutofill(
             });
           } else if (externs.hasVehicle(norm) && pv.v !== canonical) {
             store.setField(row.id, plateField, { t: 'text', v: canonical }); // normalise the display form
+          }
+        }
+      }));
+    }
+
+    if (kvkField) {
+      const seen = new Set<string>();
+      disposers.push(effect(() => {
+        for (const row of store.rows.value) {
+          const kv = row.doc[kvkField];
+          if (kv?.t !== 'text' || !kv.v) continue;
+          const norm = normalizeKvk(kv.v);
+          if (!isValidKvk(norm)) continue;
+          const canonical = formatKvk(norm);
+          if (!externs.hasCompany(norm) && !seen.has(norm)) {
+            seen.add(norm);
+            void externs.prefetchCompany(norm).then((ok) => {
+              // guard the async write: only re-set if the user hasn't since changed the KvK number
+              const live = store.rows.value.find((r) => r.id === row.id)?.doc[kvkField];
+              if (ok && live?.t === 'text' && normalizeKvk(live.v) === norm) store.setField(row.id, kvkField, { t: 'text', v: canonical });
+            });
+          } else if (externs.hasCompany(norm) && kv.v !== canonical) {
+            store.setField(row.id, kvkField, { t: 'text', v: canonical }); // normalise the display form
           }
         }
       }));

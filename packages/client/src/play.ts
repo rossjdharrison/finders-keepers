@@ -24,8 +24,9 @@ import { initConsent } from './consent.ts';
 import { setLocale } from './format.ts';
 import { RENDERERS } from './registry.ts';
 import { coreVocabulary } from './resolve.ts';
-import { REGISTRY, JOURNEYS, CATALOGUE, presentationDonor } from './cassette-registry.ts';
-import { compileJourney } from './compile-journey.ts';
+import { REGISTRY, JOURNEYS, PROPOSITIONS, CATALOGUE, presentationDonor, resolveJourneyDoc, defaultJourneyOf } from './cassette-registry.ts';
+import { initDemo } from './demo/demo.ts';
+import { compileJourney, type JourneyDoc } from './compile-journey.ts';
 import { loadJourneyDoc, hasJourneyOverride } from './loom/journey-edit.ts';
 import type { CollectionDoc, ModelBundle, ViewDoc } from './types.ts';
 
@@ -34,12 +35,18 @@ const app = document.querySelector<HTMLElement>('#app')!;
 // which cassette? ?cassette=<id>, else the first in the catalogue. A journey <id> is a cross-cassette L2
 // doc — compiled on the fly into one composed cassette. Unknown id → a small chooser.
 const wantId = new URLSearchParams(location.search).get('cassette') ?? CATALOGUE[0]?.id;
+// Resolve the runnable JOURNEY. A journey id runs directly; a PROPOSITION id runs its default journey (so a
+// bookmarked ?cassette=<proposition> keeps working); a flat/composed cassette id runs as itself.
 // Object.hasOwn guards against a crafted ?cassette=toString reading an inherited prototype member.
-const journeyDoc = wantId && Object.hasOwn(JOURNEYS, wantId) ? JOURNEYS[wantId] : undefined;
-// a journey compiles its EFFECTIVE doc: a composition edited + saved in the Loom (localStorage) wins
-// over the shipped doc, so the player runs the edited journey through the same sealed core.
-const journeyEdited = journeyDoc ? hasJourneyOverride(wantId!) : false;
-const shipped = journeyDoc ? compileJourney(loadJourneyDoc(wantId!, journeyDoc).doc, REGISTRY) : wantId && Object.hasOwn(REGISTRY, wantId) ? REGISTRY[wantId] : undefined;
+const journeyId = wantId && Object.hasOwn(JOURNEYS, wantId) ? wantId
+  : wantId && Object.hasOwn(PROPOSITIONS, wantId) ? defaultJourneyOf(wantId)
+  : undefined;
+// a journey compiles its EFFECTIVE doc (proposition ⊕ interaction): a composition edited + saved in the Loom
+// (localStorage) wins over the shipped merge, so the player runs the edited journey through the same core.
+const shippedDoc: JourneyDoc | undefined = journeyId ? resolveJourneyDoc(journeyId) : undefined;
+const journeyEdited = journeyId && shippedDoc ? hasJourneyOverride(journeyId) : false;
+const shipped = shippedDoc ? compileJourney(loadJourneyDoc(journeyId!, shippedDoc).doc, REGISTRY)
+  : wantId && Object.hasOwn(REGISTRY, wantId) ? REGISTRY[wantId] : undefined;
 if (!shipped) {
   app.innerHTML = `<main class="mount"><div class="empty" style="padding:40px">Onbekende cassette. <a href="/catalogue.html">Naar de catalogus →</a></div></main>`;
   throw new Error(`unknown cassette: ${wantId}`);
@@ -69,11 +76,11 @@ document.title = `${brand.name ?? 'Rowblaa Bank'} — ${brand.product ?? ''}`.tr
 app.innerHTML = `
   <a class="skip-link" href="#mount">Direct naar de aanvraag</a>
   <header class="bank-topbar" role="banner">
-    <div class="bank-identity">
+    <a class="bank-identity bank-home" href="/catalogue.html" title="Naar de catalogus" aria-label="Terug naar de catalogus">
       <span class="bank-mark" aria-hidden="true">${logoSvg}</span>
       <span class="bank-name">${brand.name ?? 'Rowblaa Bank'}</span>
       ${brand.tagline ? `<span class="bank-since">${brand.tagline}</span>` : ''}
-    </div>
+    </a>
     ${brand.product ? `<span class="bank-product">${brand.product}</span>` : ''}
     <div class="bank-tools">
       <span class="bank-secure">
@@ -93,9 +100,9 @@ app.innerHTML = `
 // consistent navigation: a breadcrumb + Aanvraag|Model view-switch, between the header and the aanvraag
 const mountEl = app.querySelector<HTMLElement>('#mount')!;
 mountEl.parentElement!.insertBefore(renderContextBar({
-  subject: { id: journeyDoc?.id ?? cass.id, title: journeyDoc?.title ?? cass.title ?? cass.id, isJourney: !!journeyDoc },
+  subject: { id: shippedDoc?.id ?? cass.id, title: shippedDoc?.title ?? cass.title ?? cass.id, isJourney: !!shippedDoc },
   view: 'aanvraag',
-  modelEdited: journeyDoc ? journeyEdited : modelIsEdited,
+  modelEdited: shippedDoc ? journeyEdited : modelIsEdited,
 }), mountEl);
 
 // theme + toggle
@@ -209,3 +216,6 @@ if (fillBtn && cass.example) {
     for (const [field, value] of Object.entries(example)) spineStore.setField(row.id, field, value);
   });
 }
+
+// the demo layer: guided tour + Explain, once the aanvraag has rendered (so anchors like the rail resolve)
+initDemo('play');

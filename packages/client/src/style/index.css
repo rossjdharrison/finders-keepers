@@ -14,3 +14,5 @@
 @import "./admin.css";
 @import "./catalogue.css";
 @import "./loom.css";
+/* the demo layer (guided tour + Explain) is intentionally UNLAYERED so its overlay wins over every @layer */
+@import "./demo.css";

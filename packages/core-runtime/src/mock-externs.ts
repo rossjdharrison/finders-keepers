@@ -27,6 +27,15 @@ function regionOf(postcode: string): { band: Value; city: Value; street: Value }
   return { band: en('regionBand', 'low'), city: text('Overig Nederland'), street: text('Dorpsstraat') };
 }
 
+// A stand-in KvK (Chamber of Commerce) register: kvk-nummer → name / legal form / SBI sector / city / staff.
+// (Real deployment: the keyed KvK API behind a server proxy — see client/kvk.ts; here a deterministic mock.)
+const num = (v: number): Value => ({ t: 'num', v });
+const KVK: Record<string, { name: Value; legalForm: Value; sector: Value; city: Value; employees: Value }> = {
+  '69599084': { name: text('Van der Berg Techniek B.V.'), legalForm: en('rechtsvorm', 'bv'), sector: en('sector', 'ict'), city: text('Utrecht'), employees: num(24) },
+  '34567890': { name: text('Grand Café De Kade V.O.F.'), legalForm: en('rechtsvorm', 'vof'), sector: en('sector', 'horeca'), city: text('Amsterdam'), employees: num(12) },
+  _default: { name: text('Onbekende onderneming'), legalForm: en('rechtsvorm', 'bv'), sector: en('sector', 'zakelijke-diensten'), city: text('Nederland'), employees: { t: 'blank' } },
+};
+
 export interface MockExterns extends Externs {
   calls: { name: string; params: Record<string, Value> }[];
 }
@@ -47,6 +56,11 @@ export function mockExterns(): MockExterns {
         const pc = params.postcode && params.postcode.t === 'text' ? params.postcode.v : '';
         const r = regionOf(pc);
         return name === 'regionBand' ? r.band : name === 'regionCity' ? r.city : r.street;
+      }
+      if (name === 'kvkName' || name === 'kvkRechtsvorm' || name === 'kvkSector' || name === 'kvkCity' || name === 'kvkMedewerkers') {
+        const kvk = params.kvk && params.kvk.t === 'text' ? params.kvk.v.replace(/[^0-9]/g, '') : '';
+        const rec = KVK[kvk] ?? KVK._default;
+        return name === 'kvkName' ? rec.name : name === 'kvkRechtsvorm' ? rec.legalForm : name === 'kvkSector' ? rec.sector : name === 'kvkCity' ? rec.city : rec.employees;
       }
       return { t: 'error', code: '#NA', detail: `no such extern: ${name}` };
     },

@@ -1,0 +1,69 @@
+{
+  "id": "bedrijf",
+  "title": "Onderneming",
+  "doc": "Een onderneming — herbruikbare configurator. Voer het KvK-nummer in; naam, rechtsvorm, sector (SBI), vestigingsplaats en personeelsomvang worden automatisch aangevuld uit het Handelsregister (in deze demo een KvK-vormige mock; productie draait de KvK-API via een proxy). U vult de kerncijfers aan (omzet, bedrijfsresultaat, vaste lasten); daaruit rekent de configurator de maandelijkse ruimte die de onderneming heeft om krediet te dragen. Het bedrijf CLASSIFICEERT zijn sector; een kredietproduct BEPRIJST dat risico — echte scheiding van zorg.",
+  "locale": "nl",
+  "types": { "Company": { "specializes": ["party"] } },
+  "collections": [
+    {
+      "id": "companies",
+      "semanticClass": "Company",
+      "doc": "Eén onderneming: KvK-identiteit in, kerncijfers in, maandelijkse kredietruimte uit.",
+      "properties": [
+        { "id": "kvkNummer", "valueType": { "k": "text" }, "source": "stored", "constraint": { "format": "kvk" }, "doc": "Het 8-cijferige KvK-nummer. Naam, rechtsvorm, sector en vestiging vullen wij automatisch aan uit het Handelsregister." },
+        { "id": "bedrijfsnaam", "valueType": { "k": "text" }, "source": "extern", "api": "kvkName", "params": { "kvk": "kvkNummer" }, "doc": "Statutaire naam, automatisch opgehaald bij de KvK." },
+        { "id": "rechtsvorm", "valueType": { "k": "enum", "set": "rechtsvorm" }, "source": "extern", "api": "kvkRechtsvorm", "params": { "kvk": "kvkNummer" }, "doc": "Rechtsvorm volgens de KvK." },
+        { "id": "sector", "valueType": { "k": "enum", "set": "sector" }, "source": "extern", "api": "kvkSector", "params": { "kvk": "kvkNummer" }, "doc": "Sector, afgeleid van de SBI-code. Dit is de categorie die aan een kredietproduct wordt geleverd; dáár wordt het sectorrisico beprijsd." },
+        { "id": "vestigingsplaats", "valueType": { "k": "text" }, "source": "extern", "api": "kvkCity", "params": { "kvk": "kvkNummer" }, "doc": "Vestigingsplaats volgens de KvK." },
+        { "id": "medewerkers", "valueType": { "k": "num" }, "source": "extern", "api": "kvkMedewerkers", "params": { "kvk": "kvkNummer" }, "category": "physical_quantity", "doc": "Aantal werkzame personen volgens de KvK." },
+
+        { "id": "jaaromzet", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Jaaromzet van de onderneming." },
+        { "id": "bedrijfsresultaat", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Bedrijfsresultaat per jaar (bedrijfswinst vóór financiering) — de basis voor wat de onderneming aan krediet kan dragen." },
+        { "id": "bestaandeLasten", "valueType": { "k": "money" }, "source": "stored", "category": "amount_of_money", "doc": "Bestaande maandelijkse verplichtingen (lopende leningen, lease); deze verlagen de ruimte voor nieuw krediet." },
+
+        { "id": "maandresultaat", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Bedrijfsresultaat per maand = jaarresultaat ÷ 12.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "bedrijfsresultaat" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "div", "args": [{ "op": "field", "id": "bedrijfsresultaat" }, { "op": "lit", "value": { "t": "num", "v": 12 } }] }] } },
+        { "id": "nettoMaandruimte", "valueType": { "k": "money" }, "source": "computed", "category": "amount_of_money", "doc": "Maandelijkse ruimte voor krediet = maandresultaat − bestaande maandlasten. Dit levert de onderneming aan het kredietproduct.", "formula": { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "maandresultaat" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "lit", "value": { "t": "blank" } }, { "op": "call", "fn": "if", "args": [{ "op": "eq", "args": [{ "op": "field", "id": "bestaandeLasten" }, { "op": "lit", "value": { "t": "blank" } }] }, { "op": "field", "id": "maandresultaat" }, { "op": "sub", "args": [{ "op": "field", "id": "maandresultaat" }, { "op": "field", "id": "bestaandeLasten" }] }] }] } }
+      ]
+    }
+  ],
+  "l10n": {
+    "nl": {
+      "kvkNummer": "KvK-nummer", "bedrijfsnaam": "Bedrijfsnaam", "rechtsvorm": "Rechtsvorm", "sector": "Sector",
+      "vestigingsplaats": "Vestigingsplaats", "medewerkers": "Werkzame personen",
+      "jaaromzet": "Jaaromzet", "bedrijfsresultaat": "Bedrijfsresultaat p/j", "bestaandeLasten": "Bestaande maandlasten",
+      "maandresultaat": "Bedrijfsresultaat p/m", "nettoMaandruimte": "Maandelijkse kredietruimte"
+    }
+  },
+  "enums": {
+    "rechtsvorm": [
+      { "id": "bv", "label": "Besloten vennootschap (B.V.)" },
+      { "id": "eenmanszaak", "label": "Eenmanszaak" },
+      { "id": "vof", "label": "Vennootschap onder firma (V.O.F.)" },
+      { "id": "nv", "label": "Naamloze vennootschap (N.V.)" },
+      { "id": "stichting", "label": "Stichting" }
+    ],
+    "sector": [
+      { "id": "ict", "label": "ICT & software" },
+      { "id": "bouw", "label": "Bouw & installatie" },
+      { "id": "horeca", "label": "Horeca" },
+      { "id": "detailhandel", "label": "Detailhandel" },
+      { "id": "zakelijke-diensten", "label": "Zakelijke dienstverlening" }
+    ]
+  },
+  "journey": {
+    "field": "step",
+    "steps": [
+      { "id": "onderneming", "label": "Onderneming", "fields": ["kvkNummer", "bedrijfsnaam", "rechtsvorm", "sector", "vestigingsplaats", "medewerkers", "jaaromzet", "bedrijfsresultaat", "bestaandeLasten", "maandresultaat", "nettoMaandruimte"] }
+    ],
+    "summary": { "total": "nettoMaandruimte", "per": "per maand", "lines": [{ "field": "maandresultaat", "label": "Bedrijfsresultaat p/m" }] }
+  },
+  "seed": [
+    { "coll": "companies", "row": "co-1", "values": { "kvkNummer": { "t": "text", "v": "" } } }
+  ],
+  "example": {
+    "kvkNummer": { "t": "text", "v": "69599084" },
+    "jaaromzet": { "t": "money", "minor": 85000000, "ccy": "EUR", "scale": 2 },
+    "bedrijfsresultaat": { "t": "money", "minor": 9600000, "ccy": "EUR", "scale": 2 },
+    "bestaandeLasten": { "t": "money", "minor": 150000, "ccy": "EUR", "scale": 2 }
+  }
+}

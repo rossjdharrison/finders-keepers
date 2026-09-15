@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import type { Cassette } from '@app/core-runtime';
 import { createCore, mockExterns } from '@app/core-runtime';
-import { compileJourney, type JourneyDoc } from '../compile-journey.ts';
+import { compileJourney, mergeJourney, type JourneyDoc } from '../compile-journey.ts';
 import { projectStructure } from './structure.ts';
 import { buildGraph } from './graph.ts';
 import { buildJourneyGraph } from './journey-graph.ts';
@@ -15,7 +15,8 @@ const id = (s: string): string => s;
 
 const carInsurance = (): Cassette => read('car-insurance.json');
 const composed = (): Cassette => read('car-insurance-composed.json');
-const journeyDoc = (): JourneyDoc => read('auto-package.json') as unknown as JourneyDoc;
+// the autopakket is authored as a PROPOSITION (composition) + a JOURNEY (interaction); merge to the compile IR
+const journeyDoc = (): JourneyDoc => mergeJourney(read('auto-package.json') as never, read('auto-package-aanvraag.json') as never);
 // the auto-package now composes FIVE products: voertuig, adres, individual, car-insurance, financing
 const registry = (): Record<string, Cassette> => ({ 'car-insurance': carInsurance(), financing: read('financing.json'), voertuig: read('voertuig.json'), adres: read('adres.json'), individual: read('individual.json') });
 const compiledJourney = (): Cassette => compileJourney(journeyDoc(), registry());
@@ -209,6 +210,14 @@ test('compileJourney: two models declaring the same enum set with DIFFERENT memb
   badVoertuig.enums.regionBand = [{ id: 'urban', label: 'Urban' }, { id: 'rural', label: 'Rural' }];
   const reg = { ...registry(), voertuig: badVoertuig as unknown as Cassette };
   assert.throws(() => compileJourney(journeyDoc(), reg as never), /enum set 'regionBand' is declared with different members/);
+});
+
+test('compileJourney: a section naming an undeclared model fails clearly (proposition/journey drift), not undefined.id', () => {
+  // the split lets sections (journey) and models (proposition) be authored apart, so a section can drift
+  // onto an alias the proposition never declares — it must throw a clear error, like the sibling guards.
+  const drifted = structuredClone(journeyDoc());
+  drifted.sections.push({ model: 'ghost', label: 'Ghost', fields: [] });
+  assert.throws(() => compileJourney(drifted, registry() as never), /section references undeclared model 'ghost'/);
 });
 
 test('compileJourney: a conditional binding on a NON-numeric target is rejected with binding context', () => {
