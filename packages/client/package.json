@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "type": "module",
   "private": true,
-  "description": "The client view engine — data-defined View docs rendered through a renderer registry (table + board), live over the CollectionDO WebSocket.",
+  "description": "The browser hosts — the client-only cassette player (catalogue/play/loom, running the sealed @core in QuickJS wasm in-tab) and the DB view engine (data-defined views over the WorkspaceDO WebSocket). One renderer registry (table/board/docs/self-portrait/journey); Vite + @preact/signals-core, no framework.",
   "dependencies": {
     "@core/values": "*",
     "@core/query": "*",

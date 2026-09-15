@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "type": "module",
   "private": true,
-  "description": "The CollectionDO — one Durable Object per collection: seq-ordered op log, embedded SQLite, computed-column recompute, and WebSocket fanout.",
+  "description": "The WorkspaceDO — one Durable Object per workspace: many collections + relations in embedded SQLite, HQDM reduce-gate on PUT, seq-ordered op fold, rank-ordered cross-collection recompute, grant-based auth, and WebSocket fanout.",
   "dependencies": {
     "@core/values": "*",
     "@core/events": "*",
